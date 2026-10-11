@@ -13,6 +13,7 @@ class DayScheduleController extends ChangeNotifier {
   DayScheduleController({
     required this.loader,
     this.taskRepository,
+    this.demoData = false,
     TaskIdGenerator? idGenerator,
     DateTime? initialDate,
   }) : _idGenerator = idGenerator ?? _defaultTaskIdGenerator,
@@ -20,6 +21,9 @@ class DayScheduleController extends ChangeNotifier {
 
   final DayScheduleLoader loader;
   final TaskRepository? taskRepository;
+
+  /// 是否为内存演示装配；为 true 时页面显示“仅存内存”提示。
+  final bool demoData;
   final TaskIdGenerator _idGenerator;
   DateTime _selectedDate;
   DaySchedule? _schedule;

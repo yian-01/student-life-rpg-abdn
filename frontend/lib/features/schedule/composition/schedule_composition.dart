@@ -34,6 +34,16 @@ class ScheduleComposition implements DayScheduleLoader {
     );
   }
 
+  /// 只注入一个 [TaskRepository] 时的装配：读取与写入共用该仓库，
+  /// 事件与课程发生项为空，且不注入任何演示数据。
+  factory ScheduleComposition.forTaskRepository(TaskRepository taskRepository) {
+    return ScheduleComposition(
+      taskRepository: taskRepository,
+      eventRepository: InMemoryEventRepository(),
+      courseOccurrencesForDate: (_) async => const <ScheduleItem>[],
+    );
+  }
+
   ScheduleComposition._demo({
     required InMemoryTaskRepository taskRepository,
     required InMemoryEventRepository eventRepository,

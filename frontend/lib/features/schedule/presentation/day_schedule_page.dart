@@ -104,6 +104,7 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
       body: SafeArea(
         child: Column(
           children: [
+            if (widget.controller.demoData) const _DemoDataBanner(),
             _DateNavigator(controller: widget.controller),
             const Divider(height: 1),
             Expanded(child: _buildBody(schedule)),
@@ -186,6 +187,28 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 明确标注演示数据边界：仅存内存，退出后不保留。
+class _DemoDataBanner extends StatelessWidget {
+  const _DemoDataBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('day-schedule-demo-banner'),
+      width: double.infinity,
+      color: scheme.tertiaryContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Text(
+        '演示数据：仅存内存，退出后不保留',
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: scheme.onTertiaryContainer),
+      ),
     );
   }
 }
@@ -371,6 +394,8 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
   Widget build(BuildContext context) {
     final errorText = _errorText;
     return AlertDialog(
+      // 小视口或软键盘弹出时，内容可滚动，标题/输入框/错误提示/按钮仍可访问。
+      scrollable: true,
       title: const Text('添加任务'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

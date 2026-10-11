@@ -8,8 +8,14 @@ import 'day_schedule_page.dart';
 
 /// `/schedule` 路由宿主：持有 [DayScheduleController] 并负责释放。
 ///
-/// 组合根可注入真实组合（[loader] + [taskRepository]，后者用于新增任务与切换完成
-/// 状态）；未注入时回退到明确标注的内存演示装配，仅用于原型演示，重启不保留数据。
+/// 装配规则（读取与写入必须落在同一个 [TaskRepository] 上）：
+///
+/// | loader | taskRepository | 行为 |
+/// | --- | --- | --- |
+/// | 已注入 | 已注入 | 读取用 loader，写入用同一仓库 |
+/// | 已注入 | 未注入 | 只读：读取用 loader，隐藏新增/勾选入口 |
+/// | 未注入 | 已注入 | 读取与写入共用该仓库，不注入演示数据 |
+/// | 未注入 | 未注入 | 内存演示装配，显示“仅存内存”提示并注入演示数据 |
 class SchedulePage extends StatefulWidget {
   const SchedulePage({super.key, this.loader, this.taskRepository});
 
@@ -27,17 +33,29 @@ class _SchedulePageState extends State<SchedulePage> {
   void initState() {
     super.initState();
     final loader = widget.loader;
-    if (loader == null) {
-      final demo = ScheduleComposition.inMemoryDemo();
+    final taskRepository = widget.taskRepository;
+
+    if (loader != null) {
       _controller = DayScheduleController(
-        loader: demo,
-        taskRepository: widget.taskRepository ?? demo.taskRepository,
+        loader: loader,
+        taskRepository: taskRepository,
       );
       return;
     }
+
+    if (taskRepository != null) {
+      _controller = DayScheduleController(
+        loader: ScheduleComposition.forTaskRepository(taskRepository),
+        taskRepository: taskRepository,
+      );
+      return;
+    }
+
+    final demo = ScheduleComposition.inMemoryDemo();
     _controller = DayScheduleController(
-      loader: loader,
-      taskRepository: widget.taskRepository,
+      loader: demo,
+      taskRepository: demo.taskRepository,
+      demoData: true,
     );
   }
 
