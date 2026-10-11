@@ -45,9 +45,15 @@ void main() {
 
       await tapText(tester, name);
       expectTitle(name);
-      expect(find.text('模块待接入'), findsOneWidget);
+      if (name == 'Finance') {
+        expect(find.textContaining('演示数据'), findsOneWidget);
+      } else {
+        expect(find.text('模块待接入'), findsOneWidget);
+      }
       expect(
-        ModalRoute.of(tester.element(find.text('模块待接入')))?.settings.name,
+        ModalRoute.of(
+          tester.element(find.text(name == 'Finance' ? '本月记录' : '模块待接入')),
+        )?.settings.name,
         switch (name) {
           'Schedule' => AppRoutes.schedule,
           'GPA' => AppRoutes.gpa,
@@ -119,7 +125,11 @@ void main() {
     for (final name in ['Schedule', 'GPA', 'Finance', 'Dashboard']) {
       await tapText(tester, name);
       expectTitle(name);
-      expect(find.text('模块待接入'), findsOneWidget);
+      if (name == 'Finance') {
+        expect(find.textContaining('演示数据'), findsOneWidget);
+      } else {
+        expect(find.text('模块待接入'), findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
       await tester.pageBack();
       await tester.pumpAndSettle();
