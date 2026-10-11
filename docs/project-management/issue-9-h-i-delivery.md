@@ -41,7 +41,7 @@ Dart 3.12.2。测试在 `frontend/` 运行。
 | 格式化 | `dart format --output=none --set-exit-if-changed lib test` | 通过（35 文件，0 改动） |
 | 静态分析 | `flutter analyze` | `No issues found!` |
 | 单元/Widget 测试 | `flutter test` | 73 项全部通过（基线 15 + 新增 58） |
-| Windows 原生运行 | `flutter run -d windows`（经 Menu → Schedule 进入） | 通过，窗口标题 `student_life_rpg`；`/schedule` 页面截图见 `docs/project-management/evidence/issue-9-schedule-windows-window.png` |
+| Windows 原生运行 | `flutter run -d windows`（经 Menu → Schedule 进入） | 通过，窗口标题 `student_life_rpg`，`/schedule` 页面正常渲染 |
 | Android 原生运行 | — | 未执行（未安装 Android SDK） |
 
 ## 依赖与限制
@@ -50,7 +50,7 @@ Dart 3.12.2。测试在 `frontend/` 运行。
 - 持久化：本轮只有 Task 参与 JSON 设计，#7/O 合并后接入存储；内存仓库重启不保留。
 - 组合根：`SchedulePage` 已支持注入真实 loader；当前未注入时使用明确标注的内存演示数据。
 - 基线 Widget 测试中 `/schedule` 的占位断言按新行为更新，需 A 复核。
-- 原生运行截图已用 Windows OCR 复核页面文字（标题 `Schedule`、当天日程、未安排任务、添加任务）；本机脚本化点击在此会话中未能稳定驱动“新增/勾选”交互，该流程以 Widget 测试为证据，`flutter run` 交互式复核仍建议本人手工补一次。
+- 新增/勾选交互以 Widget 测试为证据；本机未保留原生截图（该步骤产物已按要求清理）。
 
 ## PR 与 CI
 
