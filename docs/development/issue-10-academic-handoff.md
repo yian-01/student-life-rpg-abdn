@@ -3,7 +3,7 @@
 关联：[Issue #10](https://github.com/yian-01/student-life-rpg-abdn/issues/10)。负责人：蒋子康。采用统一契约 v1.0。
 
 日期：2026-10-11（Asia/Shanghai）。工作目录：`C:\Projects\student-life-rpg-fresh`。
-分支：`feat/10-academic-occurrences`。本地 HEAD 与在线 main：`aa64f1f41f9801b5882d6dd2b99837d795c0df4c`。
+分支：`feat/10-academic-occurrences`。原开发基线：`aa64f1f41f9801b5882d6dd2b99837d795c0df4c`；PR 创建后已合入最新 main `69123b8cfd85ab7e2c014fdcce116db12d8d84e8`。
 上列 SHA 为开发基线。本轮实现的实际提交 SHA 与 PR 链接以 Git 历史和 GitHub PR 为准；用户已明确授权提交、推送和创建 PR。
 
 ## 来源与迁移
@@ -108,7 +108,7 @@ J 通过 `await courses.listForSemester(semesterId)` 获取同一 `List<Course>`
 - 生产源码使用正式共享类型；隔离仓库单测有显式 true/false 回调，真实配对测试及样例不使用替身。
 - Windows/Android 原生运行、跨时区 DST 环境、PR Actions 和合并后 I/J 联调未执行，不列为通过。
 
-## 提交文件（19 个）
+## 提交文件（20 个，含 CI 整改）
 
 ```text
 docs/development/issue-10-academic-handoff.md
@@ -147,3 +147,11 @@ frontend/test/academic/fixtures.dart
 > Flutter 3.44.6 / Dart 3.12.2；pub get、格式检查、analyze、82 项测试与调用样例通过；保留原有 15 项测试。Windows/Android 原生 UI、Actions、合并后 I/J 联调未执行。内存数据重启不保留。请陈思翰审核。
 
 PR 正文记录本轮新提交的真实 SHA；不会在本文件中使用自引用提交 SHA。
+
+## PR #22 的 CI 整改
+
+PR：https://github.com/yian-01/student-life-rpg-abdn/pull/22 。首个提交为 5baabaea9ce8056788aba0b4a56ea743273a57e9。
+
+创建 PR 后远程 main 新增了 .github/workflows/dart.yml（69123b8）。首次 Actions 38144839131 失败在 Install dependencies：Expected to find project root in current working directory；分析与测试被跳过。日志还显示未固定 stable 实际安装 Flutter 3.47.7。
+
+已在本功能分支合入该 main 并修正 CI：所有 run 步骤统一在 frontend 执行，Flutter 固定 3.44.6 stable，并补充契约要求的格式检查。保留完整分析与测试。除原 19 个文件外，本 PR 增加该工作流修正，合计 20 个文件。整改后的实际 Actions 链接和结果以 PR 正文为准，不将首次失败记为通过。
