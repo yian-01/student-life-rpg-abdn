@@ -11,6 +11,16 @@
   由 A/I 组合把 G 的同步单课程算法适配为异步汇总，不建立第二套课程模型。
 - 页面：`/schedule` → `SchedulePage`（宿主，持有并释放 Controller）→
   `DaySchedulePage`（纯展示，构造注入 Controller）。
+- 装配规则（读取与写入必须落在同一个 `TaskRepository` 上）：
+
+| `loader` | `taskRepository` | 行为 |
+| --- | --- | --- |
+| 已注入 | 已注入 | 读取用 loader，写入用同一仓库 |
+| 已注入 | 未注入 | 只读：隐藏新增/勾选入口 |
+| 未注入 | 已注入 | `ScheduleComposition.forTaskRepository` 读取与写入共用该仓库，不注入演示数据 |
+| 未注入 | 未注入 | 内存演示装配：显示“演示数据：仅存内存，退出后不保留”，并注入演示数据 |
+
+未注入 `loader` 时不再新建“演示仓库”，因此不会出现读取与写入分离。
 
 ## 日期交集
 
@@ -35,6 +45,9 @@ dayEnd   = 次日本地 00:00
 - 新增任务（标题 + 预计分钟，浮层按钮），写入 TaskRepository 后刷新当天。
 - 已排程任务与未安排任务可勾选完成/未完成，刷新后由 `completedTaskIds` 反映。
 - 未注入 TaskRepository 时不显示编辑入口，页面退化为只读。
+- 演示装配在页面顶部显示“演示数据：仅存内存，退出后不保留”；真实注入模式不显示且不注入演示数据。
+- 新增任务弹窗使用可滚动内容（`AlertDialog(scrollable: true)`），小视口与软键盘弹出时
+  输入框、错误提示与提交按钮仍可滚动到并点击。
 - 小窗口与长标题不产生溢出（Widget 测试覆盖 240×320 视口与超长标题）。
 
 Controller 通过 `_requestId` 防止旧请求覆盖新请求，`dispose` 后不再通知监听者。

@@ -30,6 +30,9 @@ Dart 3.12.2。测试在 `frontend/` 运行。
 | 页面新增最小 Task 并刷新未安排区 | `controllers/day_schedule_controller.dart`、`presentation/day_schedule_page.dart` | `day_schedule_task_editing_test.dart` | 通过 |
 | 勾选完成/未完成并刷新列表 | 同上（`setTaskCompleted`） | `day_schedule_task_editing_test.dart` | 通过 |
 | 写入失败可见反馈（SnackBar） | `presentation/day_schedule_page.dart` | `day_schedule_task_editing_test.dart` | 通过 |
+| 读写仓库统一装配（未注入 loader 时） | `presentation/schedule_page.dart`、`composition/schedule_composition.dart` | `schedule_page_assembly_test.dart` | 通过 |
+| 演示模式提示与真实模式不注入演示数据 | `presentation/day_schedule_page.dart`、`presentation/schedule_page.dart` | `schedule_page_assembly_test.dart` | 通过 |
+| 新增任务弹窗在小视口/软键盘/校验错误下可用 | `presentation/day_schedule_page.dart`（`scrollable: true`） | `day_schedule_task_editing_test.dart` | 通过 |
 | 组合注入真实仓库，不写死内存实现 | `composition/schedule_composition.dart`、`presentation/schedule_page.dart` | `schedule_composition_test.dart` | 通过 |
 | 重复任务不进入运行模型 | `docs/architecture/task-event-model.md` | 文档审核 | 通过 |
 
@@ -40,7 +43,7 @@ Dart 3.12.2。测试在 `frontend/` 运行。
 | 依赖 | `flutter pub get` | 通过 |
 | 格式化 | `dart format --output=none --set-exit-if-changed lib test` | 通过（35 文件，0 改动） |
 | 静态分析 | `flutter analyze` | `No issues found!` |
-| 单元/Widget 测试 | `flutter test` | 73 项全部通过（基线 15 + 新增 58） |
+| 单元/Widget 测试 | `flutter test` | 78 项全部通过（基线 15 + 新增 63） |
 | Windows 原生运行 | `flutter run -d windows`（经 Menu → Schedule 进入） | 通过，窗口标题 `student_life_rpg`，`/schedule` 页面正常渲染 |
 | Android 原生运行 | — | 未执行（未安装 Android SDK） |
 

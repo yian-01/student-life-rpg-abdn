@@ -189,6 +189,53 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
     });
+
+    testWidgets(
+      'dialog stays usable on a small viewport with the keyboard up',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(320, 480);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetViewInsets);
+
+        final taskRepository = InMemoryTaskRepository();
+        final controller = _controllerFor(taskRepository: taskRepository);
+        addTearDown(controller.dispose);
+
+        await _pumpPage(tester, controller);
+        await tester.tap(find.byKey(const Key('day-schedule-add-task')));
+        await tester.pumpAndSettle();
+
+        // 触发校验错误，确认两个输入框、错误提示与提交按钮都还在。
+        await tester.tap(find.widgetWithText(FilledButton, '添加'));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('add-task-title')), findsOneWidget);
+        expect(find.byKey(const Key('add-task-minutes')), findsOneWidget);
+        expect(find.text('请输入任务标题'), findsOneWidget);
+        expect(find.widgetWithText(TextButton, '取消'), findsOneWidget);
+
+        final submit = find.widgetWithText(FilledButton, '添加');
+        expect(submit, findsOneWidget);
+        await tester.ensureVisible(submit);
+        expect(tester.takeException(), isNull, reason: '不得出现布局溢出');
+
+        // 校验错误存在时仍可成功提交，证明按钮可访问且生效。
+        await tester.enterText(
+          find.byKey(const Key('add-task-title')),
+          '小窗口任务',
+        );
+        await tester.ensureVisible(submit);
+        await tester.tap(submit);
+        await tester.pumpAndSettle();
+
+        expect((await taskRepository.list()).single.title, '小窗口任务');
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+      },
+    );
   });
 }
 
