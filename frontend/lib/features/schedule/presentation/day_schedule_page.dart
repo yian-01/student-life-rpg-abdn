@@ -52,6 +52,50 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     }
   }
 
+  ValueChanged<bool>? _toggleCallbackFor(ScheduleItem item) {
+    if (!widget.controller.canEditTasks ||
+        item.sourceType != ScheduleSourceType.task) {
+      return null;
+    }
+    return (value) => _setCompleted(item.sourceId, value);
+  }
+
+  Future<void> _setCompleted(String taskId, bool isCompleted) async {
+    try {
+      await widget.controller.setTaskCompleted(taskId, isCompleted);
+    } catch (_) {
+      _showMessage('更新完成状态失败，请重试。');
+    }
+  }
+
+  Future<void> _showAddTaskDialog() async {
+    final input = await showDialog<_NewTaskInput>(
+      context: context,
+      builder: (context) => const _AddTaskDialog(),
+    );
+    if (input == null) {
+      return;
+    }
+    try {
+      await widget.controller.addTask(
+        title: input.title,
+        estimatedMinutes: input.estimatedMinutes,
+      );
+      _showMessage('已添加任务：${input.title}');
+    } catch (_) {
+      _showMessage('任务保存失败，请重试。');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final schedule = widget.controller.schedule;
@@ -66,6 +110,14 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
           ],
         ),
       ),
+      floatingActionButton: widget.controller.canEditTasks
+          ? FloatingActionButton.extended(
+              key: const Key('day-schedule-add-task'),
+              onPressed: _showAddTaskDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('添加任务'),
+            )
+          : null,
     );
   }
 
@@ -117,6 +169,7 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
               item: item,
               completed: schedule.isCompletedTask(item),
               crossDay: schedule.isCrossDay(item),
+              onToggleComplete: _toggleCallbackFor(item),
             ),
           ),
         const SizedBox(height: 20),
@@ -125,7 +178,12 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
           const _EmptyMessage('暂无未安排任务')
         else
           ...schedule.unscheduledTasks.map(
-            (task) => _UnscheduledTaskTile(task: task),
+            (task) => _UnscheduledTaskTile(
+              task: task,
+              onToggleComplete: widget.controller.canEditTasks
+                  ? (value) => _setCompleted(task.id, value)
+                  : null,
+            ),
           ),
       ],
     );
@@ -199,51 +257,154 @@ class _ScheduledItemTile extends StatelessWidget {
     required this.item,
     required this.completed,
     required this.crossDay,
+    this.onToggleComplete,
   });
 
   final ScheduleItem item;
   final bool completed;
   final bool crossDay;
+  final ValueChanged<bool>? onToggleComplete;
 
   @override
   Widget build(BuildContext context) {
     final timeRange =
         '${_formatTime(item.range.start)} - ${_formatTime(item.range.end)}';
     final subtitle = crossDay ? '$timeRange · 跨日' : timeRange;
+    final toggle = onToggleComplete;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(child: Text(_sourceLabel(item.sourceType))),
         title: Text(item.title),
         subtitle: Text(subtitle),
-        trailing: completed
-            ? const Chip(
-                avatar: Icon(Icons.check, size: 16),
-                label: Text('已完成'),
+        trailing: toggle != null
+            ? Checkbox(
+                value: completed,
+                onChanged: (value) => toggle(value ?? false),
               )
-            : null,
+            : (completed
+                  ? const Chip(
+                      avatar: Icon(Icons.check, size: 16),
+                      label: Text('已完成'),
+                    )
+                  : null),
       ),
     );
   }
 }
 
 class _UnscheduledTaskTile extends StatelessWidget {
-  const _UnscheduledTaskTile({required this.task});
+  const _UnscheduledTaskTile({required this.task, this.onToggleComplete});
 
   final Task task;
+  final ValueChanged<bool>? onToggleComplete;
 
   @override
   Widget build(BuildContext context) {
     final due = task.dueAt == null
         ? '无截止时间'
         : '截止 ${_formatDateTime(task.dueAt!)}';
+    final toggle = onToggleComplete;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.pending_actions)),
         title: Text(task.title),
         subtitle: Text('${task.estimatedMinutes} 分钟 · $due'),
+        trailing: toggle == null
+            ? null
+            : Checkbox(
+                value: false,
+                onChanged: (value) => toggle(value ?? false),
+              ),
       ),
+    );
+  }
+}
+
+class _NewTaskInput {
+  const _NewTaskInput({required this.title, required this.estimatedMinutes});
+
+  final String title;
+  final int estimatedMinutes;
+}
+
+/// 最小新增任务表单：标题 + 预计分钟。
+class _AddTaskDialog extends StatefulWidget {
+  const _AddTaskDialog();
+
+  @override
+  State<_AddTaskDialog> createState() => _AddTaskDialogState();
+}
+
+class _AddTaskDialogState extends State<_AddTaskDialog> {
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _minutesController = TextEditingController(
+    text: '30',
+  );
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _minutesController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final title = _titleController.text.trim();
+    final minutes = int.tryParse(_minutesController.text.trim());
+    if (title.isEmpty) {
+      setState(() => _errorText = '请输入任务标题');
+      return;
+    }
+    if (minutes == null || minutes <= 0) {
+      setState(() => _errorText = '预计分钟必须是正整数');
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(_NewTaskInput(title: title, estimatedMinutes: minutes));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final errorText = _errorText;
+    return AlertDialog(
+      title: const Text('添加任务'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            key: const Key('add-task-title'),
+            controller: _titleController,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: '标题'),
+          ),
+          TextField(
+            key: const Key('add-task-minutes'),
+            controller: _minutesController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: '预计分钟'),
+          ),
+          if (errorText != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                errorText,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('添加')),
+      ],
     );
   }
 }
