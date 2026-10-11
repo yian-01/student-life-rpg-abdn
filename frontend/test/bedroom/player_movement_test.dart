@@ -263,4 +263,111 @@ void main() {
       expect(c.isMoving, isFalse);
     });
   });
+  group('start 参数校验（复审意见 1）', () {
+    test('非有限坐标抛 ArgumentError', () {
+      expect(
+        () => PlayerMovementController(start: const Offset(double.nan, 0)),
+        throwsArgumentError,
+      );
+      expect(
+        () => PlayerMovementController(start: const Offset(0, double.infinity)),
+        throwsArgumentError,
+      );
+    });
+
+    test('可行走区域外的初始位置抛 ArgumentError', () {
+      expect(
+        () => PlayerMovementController(start: const Offset(360, 800)),
+        throwsArgumentError,
+      ); // 上方床区
+      expect(
+        () => PlayerMovementController(start: const Offset(700, 1200)),
+        throwsArgumentError,
+      ); // 右侧书桌外
+      expect(
+        () => PlayerMovementController(start: const Offset(360, 1500)),
+        throwsArgumentError,
+      ); // 下方栅栏外
+    });
+
+    test('默认出生点、区域内部点、合法边界点正常创建', () {
+      expect(
+        PlayerMovementController().footPosition,
+        SceneGeometry.playerStart,
+      );
+      expect(
+        PlayerMovementController(start: const Offset(300, 1200)).footPosition,
+        const Offset(300, 1200),
+      ); // 内部
+      expect(
+        PlayerMovementController(start: const Offset(550, 1200)).footPosition,
+        const Offset(550, 1200),
+      ); // 右边界上
+      expect(
+        PlayerMovementController(start: const Offset(75, 1385)).footPosition,
+        const Offset(75, 1385),
+      ); // 顶点 P5
+    });
+  });
+
+  group('稳定归一化（复审意见 2）', () {
+    test('极大有限方向：归一化为有限单位向量，update 后位置有限且在区域内', () {
+      final c = PlayerMovementController();
+      c.setMoveDirection(const Offset(1e308, 1e308));
+      expect(c.isMoving, isTrue);
+      expect(c.moveDirection.distance, closeTo(1, 1e-9));
+      c.update(0.05);
+      expect(c.footPosition.dx.isFinite && c.footPosition.dy.isFinite, isTrue);
+      expect(
+        WalkableArea(SceneGeometry.walkablePolygon).contains(c.footPosition),
+        isTrue,
+      );
+    });
+
+    test('极小非零方向：不下溢，归一化为单位向量', () {
+      final c = PlayerMovementController();
+      c.setMoveDirection(const Offset(1e-300, 0));
+      expect(c.moveDirection, const Offset(1, 0));
+      c.update(0.05);
+      expect(c.footPosition.dx, greaterThan(SceneGeometry.playerStart.dx));
+    });
+
+    test('极大摇杆输入：按幅度钳制为单位向量', () {
+      final c = PlayerMovementController();
+      c.setJoystickVector(const Offset(1e308, -1e308));
+      expect(c.moveDirection.distance, closeTo(1, 1e-9));
+      c.update(0.05);
+      expect(c.footPosition.dx.isFinite && c.footPosition.dy.isFinite, isTrue);
+      expect(
+        WalkableArea(SceneGeometry.walkablePolygon).contains(c.footPosition),
+        isTrue,
+      );
+    });
+
+    test('极小摇杆输入：低于死区视为无输入', () {
+      final c = PlayerMovementController();
+      c.setJoystickVector(const Offset(1e-300, 1e-300));
+      expect(c.moveDirection, Offset.zero);
+      expect(c.isMoving, isFalse);
+    });
+  });
+
+  group('Menu 返回再次清输入（复审意见 3）', () {
+    test('暂停期间重写方向，返回后位置保持、方向为零、不自动续走', () {
+      final c = PlayerMovementController();
+      c.setMoveDirection(const Offset(1, 0));
+      c.update(0.05);
+      final posBefore = c.footPosition;
+      c.pauseForMenu();
+      c.setMoveDirection(const Offset(0, 1)); // 暂停期间适配层重新写入方向
+      c.resumeFromMenu();
+      expect(c.isPaused, isFalse);
+      expect(c.moveDirection, Offset.zero);
+      c.update(0.05);
+      expect(c.footPosition, posBefore); // 位置保持，不自动移动
+      c.setMoveDirection(const Offset(0, 1)); // 重新输入才开始移动
+      c.update(0.05);
+      expect(c.footPosition.dy, greaterThan(posBefore.dy));
+    });
+  });
 }
