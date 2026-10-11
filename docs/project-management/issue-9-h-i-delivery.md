@@ -47,3 +47,11 @@ Dart 3.12.2。测试在 `frontend/` 运行。
 - 持久化：本轮只有 Task 参与 JSON 设计，#7/O 合并后接入存储；内存仓库重启不保留。
 - 组合根：`SchedulePage` 已支持注入真实 loader；当前未注入时使用明确标注的内存演示数据。
 - 基线 Widget 测试中 `/schedule` 的占位断言按新行为更新，需 A 复核。
+
+## PR 与 CI
+
+- PR：https://github.com/yian-01/student-life-rpg-abdn/pull/18
+  （`feat/9-task-day-schedule` → `main`，2 commits，24 files，+2622 / -22）。
+- 直连 `github.com:443` 被重置；推送与 PR 创建通过本机 Windows 代理
+  `127.0.0.1:7897` 完成。
+- 仓库暂无 `.github/workflows`，本次没有 CI 运行结果；检查项由组长/审核人复核。
