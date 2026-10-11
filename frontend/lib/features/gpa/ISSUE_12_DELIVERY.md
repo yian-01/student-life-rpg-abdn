@@ -11,7 +11,7 @@
 - 已读取 Issue #12 最新正文与全部 2 条评论（GitHub API），README、CONTRIBUTING、冻结契约 v1.0、平台规范、pubspec.yaml/lock、共享模型/仓库接口及现有测试。
 - 采用统一契约 v1.0。用户已在会话提供完整《Student Life App：组员逐步开发手册》，已读取并按首批交付流程执行；工作区未找到 AGENTS.md。
 - 初次核查 Issue 评论中未见郝文聪的开工反馈，发布结果以 GitHub 实际评论链接为准。
-- 已核查 Git 提交身份和 GitHub 登录为 HAOSHUAI0516；GitHub API 返回共享仓库 permissions.push=false，阻塞推送和共享仓库 Draft PR。请组长检查该账号邀请/写权限；不 Fork 或修改 origin。
+- 已核查 Git 提交身份和 GitHub 登录为 HAOSHUAI0516；首次 GitHub API 核查 permissions.push=false；用户恢复权限后已重新核实 push=true，现可推送本人分支并创建 Draft PR。不 Fork 或修改 origin。
 
 ## 验收表
 
@@ -95,7 +95,7 @@ I/A 应将真实日程 items 直接传给 `findConflicts(items)`，捕获非法�
 
 ## 待补材料与后续交付
 
-1. 组长核查 HAOSHUAI0516 的共享仓库邀请/写权限；恢复后推送本人功能分支并创建 Draft PR。
+1. 写权限已恢复并实测 push=true；首批推送和 Draft PR 的实际结果以 GitHub 链接为准。
 2. #10 提供已合并的正式 Course 文件、构造器和 EntityRepository<Course> 实现；确认对应 PR 链接和 main SHA。
 3. 本人在同一分支实现 GpaCalculator、GpaController、测试，并与 A 协调最小 GPA 页面和真实仓库接线。
 4. #14/A 同步 main 后完成真实调用；补 Windows 运行截图和 Android 独立状态。
@@ -103,7 +103,7 @@ I/A 应将真实日程 items 直接传给 `findConflicts(items)`，捕获非法�
 
 ## 开工反馈草稿（未发布）
 
-郝文聪：采用统一契约 v1.0。实际 main SHA 为 aa64f1f41f9801b5882d6dd2b99837d795c0df4c；Flutter 3.44.6 stable / Dart 3.12.2。Windows/Visual Studio 工具链通过；Android SDK 未安装。pub get、格式检查、analyze 均退出 0；本批全量测试 26/26 通过（原有 15 + 新增 11）。Windows 原生运行本次未执行，用户此前基线已运行成功；Android 未执行。K 和 GpaResult 首批完成，J 真实接入受 #10 Course/Repository 缺失阻塞。手册已读取；GitHub API 返回 HAOSHUAI0516 对共享仓库 push=false，尚未推送或创建 PR，请组长核查邀请/写权限。
+郝文聪：采用统一契约 v1.0。实际 main SHA 为 aa64f1f41f9801b5882d6dd2b99837d795c0df4c；Flutter 3.44.6 stable / Dart 3.12.2。Windows/Visual Studio 工具链通过；Android SDK 未安装。pub get、格式检查、analyze 均退出 0；本批全量测试 26/26 通过（原有 15 + 新增 11）。Windows 原生运行本次未执行，用户此前基线已运行成功；Android 未执行。K 和 GpaResult 首批完成，J 真实接入受 #10 Course/Repository 缺失阻塞。手册已读取；首次写权限不足；随后已核实 HAOSHUAI0516 对共享仓库 push=true，继续首批推送和 Draft PR 流程。
 
 ## 首批 PR 草稿（未创建）
 
