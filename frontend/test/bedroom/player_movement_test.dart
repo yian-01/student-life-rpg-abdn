@@ -1,6 +1,6 @@
 // 状态：已在 frontend 内实际执行通过（flutter test，分支
 // feat/8-bedroom-movement）。所有期望值同时由交付包
-// scene_geometry_check.py（68 项全 PASS）独立复算印证。
+// docs/development/docs/development/scene-geometry-check.py（68 项全 PASS）独立复算印证。
 
 //
 // v1.1 变更（复审意见 3/4）：

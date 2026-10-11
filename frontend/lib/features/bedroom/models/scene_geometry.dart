@@ -5,7 +5,7 @@ import 'dart:ui' show Offset, Rect, Size;
 /// 坐标系：以 bedroom_world_v1.png 左上角为 (0,0)，x 向右、y 向下，
 /// 单位为原图像素（941 x 1672）。测量与审核依据见
 /// docs/development/scene-geometry.md 及标注图
-/// docs/development/images/scene-geometry-v1.1.png。
+/// docs/development/images/scene-geometry-v1.2.png。
 ///
 /// 本类只保存固定世界几何；视口、scale、offset 由 [SceneTransform] 另行保存，
 /// 窗口/组件尺寸变化时不得修改本类顶点。
