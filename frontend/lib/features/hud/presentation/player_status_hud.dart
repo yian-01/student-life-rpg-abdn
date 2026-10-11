@@ -14,8 +14,41 @@ class PlayerStatusHud extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = math.min(constraints.maxWidth, 280.0);
-        if (!width.isFinite || width <= 0) return const SizedBox.shrink();
-        final padding = math.min(12.0, width / 8);
+        if (!width.isFinite || width <= 0 || constraints.maxHeight <= 0) {
+          return const SizedBox.shrink();
+        }
+        // Below a glyph's width, wrapping alone paints outside the viewport.
+        // Keep text at the user's chosen size and allow scrolling instead.
+        final contentWidth = math.max(
+          width,
+          MediaQuery.textScalerOf(context).scale(24) + 24,
+        );
+        final content = SizedBox(
+          width: contentWidth,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(data.displayName, softWrap: true),
+                  Text('Lv ${data.level}', softWrap: true),
+                  Text(
+                    'EXP ${data.exp}/${data.expToNextLevel}',
+                    softWrap: true,
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(value: data.ratio),
+                ],
+              ),
+            ),
+          ),
+        );
         return Semantics(
           label:
               '${data.displayName}，等级 ${data.level}，'
@@ -23,28 +56,15 @@ class PlayerStatusHud extends StatelessWidget {
           child: ExcludeSemantics(
             child: SizedBox(
               width: width,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(padding),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(data.displayName, softWrap: true),
-                      Text('Lv ${data.level}', softWrap: true),
-                      Text(
-                        'EXP ${data.exp}/${data.expToNextLevel}',
-                        softWrap: true,
-                      ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(value: data.ratio),
-                    ],
-                  ),
-                ),
+              child: SingleChildScrollView(
+                primary: false,
+                child: contentWidth > width
+                    ? SingleChildScrollView(
+                        primary: false,
+                        scrollDirection: Axis.horizontal,
+                        child: content,
+                      )
+                    : content,
               ),
             ),
           ),

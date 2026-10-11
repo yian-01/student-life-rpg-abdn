@@ -53,8 +53,10 @@ final interaction = InteractionController(
 `triggerInteraction()` 再次校验范围。失败保留原始 `Object? error` 并通知 UI；
 下一次合法重试先清除 error。锁在第一段同步执行中取得，覆盖整个 route Future。
 导航前 pause/clearInput，finally clearInput/resume，不 reset、不重建 movement。
-dispose 解除监听，清理本次暂停，不销毁外部 movement；后续 Future 完成不再访问它。
-销毁顺序为 interaction，然后 movement。
+dispose 解除监听、清空输入，不销毁外部 movement；若仍在导航，保持暂停，
+避免 Menu 未退出就恢复已离开的场景。后续 Future 完成不再访问 movement。
+销毁顺序为 interaction，然后 movement；若所有者确需复用 movement，应在确认旧
+路由结束且场景重新激活后显式 clearInput/resume。普通返回仍由 finally 清输入并恢复。
 
 A/D 的正式 SceneViewport 接线要求：
 
@@ -88,12 +90,15 @@ PlayerStatusHudOverlay(data: hud, sceneRect: transform.sceneRect);
 
 Overlay 左上为 sceneRect 左上 + 12 逻辑像素，宽度至多 280 且不超过 sceneRect.width-24。
 无效或可用宽/高<=0 不布局。名称、等级、原始 EXP 使用换行且无固定文字高度，
-极小高度通过垂直滚动访问内容；进度 0..1，语义标签包含名称、等级与原始经验。
+有限高度由 PlayerStatusHud 自身通过垂直滚动访问全部内容，Overlay 不再额外套滚动。
+极小宽度不足一个字形时启用水平滚动，保持用户字体大小；普通宽度仍换行。
+进度 0..1，语义标签包含名称、等级与原始经验。
 字体/边距不乘 world scale。只有外部输入决定显示，不自行改变等级。
 
 ## 验收和真实结果
 
-2026-10-11，Windows x64，使用 SDK 绝对路径执行。新增 E/F 29 项测试，基线 15 项保留。
+2026-10-11，Windows x64，使用 SDK 绝对路径执行。E/F 共新增 34 项测试
+（首批 29 + 本次审查 5），基线 15 项保留。
 
 隔离验证目录使用 main 的已有工程与 **PR #16 固定 SHA
 `87a3d54edcf31cd856b0a14c452549de413130c2` 的三个正式源码文件**：
@@ -107,8 +112,8 @@ Widget 测试使用单独 TestScene，标注“测试位置，未联调”，并
 | flutter pub get | 通过，无依赖版本变动 | 通过 |
 | dart format --output=none --set-exit-if-changed lib test | 通过，26 文件无变化 | 通过，29 文件无变化 |
 | flutter analyze | 失败：正式移动/几何 import 缺失及派生错误 | 通过，No issues found |
-| flutter test --reporter expanded | 失败：交互 controller/navigation 测试无法加载 | 44 项全部通过（15 基线 + 29 本批） |
-| 独立测试（基线、HUD、目标模型） | 31 项全部通过 | 已含于 44 项 |
+| flutter test --reporter expanded | 失败：交互 controller/navigation 测试无法加载 | 49 项全部通过（15 基线 + 34 本批） |
+| 独立测试（基线、HUD、目标模型） | 34 项全部通过 | 已含于 49 项 |
 
 | 需求 | 证据 | 状态 |
 | --- | --- | --- |
@@ -122,11 +127,12 @@ Widget 测试使用单独 TestScene，标注“测试位置，未联调”，并
 | 正式 Bedroom/Menu/演示按钮接线、素材与输入、Windows 录屏 | 待 #8 合并、#15 组装 | 未完成，未验收 |
 | Android 原生触摸 | doctor 未找到 Android SDK，devices 无 Android | 未执行 |
 
-Windows `flutter run -d windows --no-pub`：原生 Debug 构建和启动成功（24.0 秒），
+本次 Windows `flutter run -d windows --no-pub`：原生 Debug 构建和启动成功（23.2 秒），
 产生 Dart VM Service；随后关闭本次隔离目录的应用。当前 `lib/main.dart` 显示基线
 占位页面，不呈现本批 E/F，未进行原生键盘/鼠标交互回归，不计 E/F 验收通过。
 Windows doctor 检测 Visual Studio/Windows SDK 可用；Flutter/Dart 不在当前 PATH，
-以已安装 SDK 的绝对路径调用。网络检查 GitHub/Maven 超时。
+以已安装 SDK 的绝对路径调用。Maven 网络检查仍超时；本次明确允许 SDK
+缓存访问后正常执行检查，授权网络环境下 git fetch 已成功，main 仍为 aa64f1f。
 原生启动记录另附于交付 PR；基线占位页启动不能作为 E/F 原生联调证据。
 未提供 E/F 原生截图/录屏，未执行 Actions。没有奖励链路、没有新增持久化声明。
 
@@ -136,3 +142,19 @@ Windows doctor 检测 Visual Studio/Windows SDK 可用；Flutter/Dart 不在当�
 - #15 与 #8/#13 协调真实 SceneViewport 素材、Ticker/键盘/摇杆、门按钮和 HUD demo 接线。
 - Windows 录屏及 Android 原生验证分别补齐，所有未验收项保持未勾选。
 - 首批使用 Refs #13，不自动关闭 Issue，不自行合并。
+
+## 本次独立审查与修复
+
+- 修复 dispose 在导航未结束时立即 resume 的问题。旧实现的回归测试显示，
+  Menu 覆盖期间销毁交互控制器后输入可使玩家从 (200,1170) 移到 (206,1170)。
+- 修复独立 PlayerStatusHud 在 160×40 约束下的 RenderFlex 溢出，
+  旧实现溢出 396 像素。新测试滚动到底并验证 EXP 进度条确实位于可视区域。
+- 26 像素 sceneRect 扣边距后只剩 2 像素，换行不足以完整访问字形；
+  增加水平滚动并验证滚动位置实际改变。该极端尺寸可读性仍有限。
+- 原 late Future 测试仅使用正式 movement，而其 clearInput/resume 不检查
+  disposed，可能漏报迟到访问。测试改用正式类的监测子类，明确断言调用次数。
+- 新增页面级失败提示与重试测试；它属于隔离 TestScene，不能冒充正式 Bedroom。
+- 修复前四项针对性回归均失败，修复后全套通过；原有正常 push/pop、
+  同步/异步错误、范围、留白、HUD 更新/定位等测试继续保留。
+- 重新读取五份原始附件的相关正文与当前 GitHub 正文/评论；
+  原附件的 lib/game、远期奖励/持久化范围继续服从已合并契约。
