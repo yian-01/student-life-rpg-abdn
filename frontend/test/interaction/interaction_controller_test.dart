@@ -14,6 +14,38 @@ InteractionTarget menuTarget() => InteractionTarget(
   radius: SceneGeometry.menuInteractionRadius,
 );
 
+// The real dependency's input methods do not assert after disposal. This spy
+// makes late access observable rather than accepting a falsely passing test.
+class TrackedMovement extends PlayerMovementController {
+  TrackedMovement() : super(start: SceneGeometry.menuInteractionPoint);
+  bool disposed = false;
+  int lateCalls = 0;
+  int resumes = 0;
+
+  @override
+  void clearInput() {
+    if (disposed) {
+      lateCalls++;
+    }
+    super.clearInput();
+  }
+
+  @override
+  void resume() {
+    if (disposed) {
+      lateCalls++;
+    }
+    resumes++;
+    super.resume();
+  }
+
+  @override
+  void dispose() {
+    disposed = true;
+    super.dispose();
+  }
+}
+
 void main() {
   for (final sample in [(269.0, true), (270.0, true), (271.0, false)]) {
     test('world radius boundary at x=${sample.$1}', () async {
@@ -175,11 +207,9 @@ void main() {
   );
 
   test(
-    'dispose during navigation cleans up; late Future cannot touch disposed movement',
+    'dispose during navigation stays paused; late Future cannot touch disposed movement',
     () async {
-      final movement = PlayerMovementController(
-        start: SceneGeometry.menuInteractionPoint,
-      );
+      final movement = TrackedMovement();
       final pop = Completer<void>();
       final controller = InteractionController(
         movement: movement,
@@ -188,11 +218,41 @@ void main() {
       );
       final pending = controller.triggerInteraction();
       controller.dispose();
-      expect(movement.isPaused, isFalse);
+      expect(movement.isPaused, isTrue);
       expect(movement.isMoving, isFalse);
+      expect(movement.resumes, 0);
       movement.dispose();
       pop.completeError(StateError('late route failure'));
       await pending;
+      expect(movement.lateCalls, 0);
+    },
+  );
+
+  test(
+    'disposed interaction never resumes a scene still covered by Menu',
+    () async {
+      final movement = TrackedMovement();
+      final pop = Completer<void>();
+      final controller = InteractionController(
+        movement: movement,
+        target: menuTarget(),
+        navigate: (_) => pop.future,
+      );
+      final before = movement.footPosition;
+      final pending = controller.triggerInteraction();
+      controller.dispose();
+      movement.setMoveDirection(const Offset(1, 0));
+      movement.update(0.05);
+      expect(movement.footPosition, before);
+      expect(movement.isPaused, isTrue);
+      pop.complete();
+      await pending;
+      expect(movement.resumes, 0);
+      // Reuse is an explicit decision by the owner, after the old route ends.
+      movement.clearInput();
+      movement.resume();
+      expect(movement.isMoving, isFalse);
+      movement.dispose();
     },
   );
 

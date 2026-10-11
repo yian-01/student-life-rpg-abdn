@@ -31,7 +31,7 @@ class PlayerStatusHudOverlay extends StatelessWidget {
       width: math.min(width, 280),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: height),
-        child: SingleChildScrollView(child: PlayerStatusHud(data: data)),
+        child: PlayerStatusHud(data: data),
       ),
     );
   }

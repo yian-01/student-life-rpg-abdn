@@ -33,6 +33,71 @@ Widget host(
 );
 
 void main() {
+  testWidgets('standalone HUD fits bounded height and scrolls to the EXP bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 160,
+              height: 40,
+              child: PlayerStatusHud(
+                data: data(name: 'Long display name ' * 8, level: 2, exp: 25),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final viewport = find.byType(SingleChildScrollView);
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+    await tester.drag(viewport, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+    final bar = tester.getRect(find.byType(LinearProgressIndicator));
+    expect(bar.top, greaterThanOrEqualTo(0));
+    expect(bar.bottom, lessThanOrEqualTo(40));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'sub-glyph width exposes horizontal scrolling without reducing text size',
+    (tester) async {
+      await tester.pumpWidget(
+        host(data(name: '名字'), const Rect.fromLTWH(0, 0, 26, 150)),
+      );
+      final horizontal = tester.state<ScrollableState>(
+        find.byType(Scrollable).last,
+      );
+      expect(horizontal.position.axis, Axis.horizontal);
+      expect(horizontal.position.maxScrollExtent, greaterThan(0));
+      await tester.drag(find.byType(PlayerStatusHud), const Offset(-100, 0));
+      await tester.pumpAndSettle();
+      expect(horizontal.position.pixels, greaterThan(0));
+      expect(tester.getSize(find.byType(PlayerStatusHud)).width, 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('standalone zero height does not layout contents', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          child: SizedBox(height: 0, child: PlayerStatusHud(data: data())),
+        ),
+      ),
+    );
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'external demo data changes level, raw text and progress together',
     (tester) async {

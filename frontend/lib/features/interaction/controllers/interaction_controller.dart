@@ -76,11 +76,11 @@ class InteractionController extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     movement.removeListener(_onMovementChanged);
-    // Clean up while the owner still has a live movement controller. The
-    // pending route Future must not touch it again after disposal.
+    // Detach while movement is still live. A covered/disposed scene must not
+    // start moving again. Its owner decides whether to reuse and resume it;
+    // a pending route Future must never touch movement after this point.
     if (_isNavigating) {
       movement.clearInput();
-      movement.resume();
       _isNavigating = false;
     }
     super.dispose();

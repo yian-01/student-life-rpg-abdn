@@ -15,9 +15,11 @@ class TestScene extends StatefulWidget {
     super.key,
     required this.movement,
     required this.onController,
+    this.navigate,
   });
   final PlayerMovementController movement;
   final ValueChanged<InteractionController> onController;
+  final NavigateToRoute? navigate;
   @override
   State<TestScene> createState() => _TestSceneState();
 }
@@ -36,9 +38,11 @@ class _TestSceneState extends State<TestScene> {
         worldPoint: SceneGeometry.menuInteractionPoint,
         radius: SceneGeometry.menuInteractionRadius,
       ),
-      navigate: (route) async {
-        await Navigator.of(context).pushNamed<void>(route);
-      },
+      navigate:
+          widget.navigate ??
+          (route) async {
+            await Navigator.of(context).pushNamed<void>(route);
+          },
     );
     widget.onController(controller);
   }
@@ -80,6 +84,46 @@ class _TestSceneState extends State<TestScene> {
 }
 
 void main() {
+  testWidgets(
+    'navigation failure is rendered and button retries successfully',
+    (tester) async {
+      final movement = PlayerMovementController(
+        start: SceneGeometry.menuInteractionPoint,
+      );
+      late InteractionController controller;
+      var attempts = 0;
+      final pop = Completer<void>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TestScene(
+            movement: movement,
+            onController: (value) => controller = value,
+            navigate: (_) {
+              attempts++;
+              if (attempts == 1) {
+                return Future<void>.error(StateError('Unavailable'));
+              }
+              return pop.future;
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('进入菜单'));
+      await tester.pumpAndSettle();
+      expect(find.text('导航失败，请重试'), findsOneWidget);
+      expect(movement.isPaused, isFalse);
+      await tester.tap(find.text('进入菜单'));
+      await tester.pump();
+      expect(attempts, 2);
+      expect(find.text('导航失败，请重试'), findsNothing);
+      expect(controller.isNavigating, isTrue);
+      pop.complete();
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      movement.dispose();
+    },
+  );
+
   for (final keyboard in [true, false]) {
     testWidgets(
       '${keyboard ? 'E key' : 'touch/button'} waits for actual Navigator pop and preserves movement',
