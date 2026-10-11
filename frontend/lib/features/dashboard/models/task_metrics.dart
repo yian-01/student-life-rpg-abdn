@@ -24,11 +24,12 @@ class TaskMetrics {
         '必须在 0 至 totalCount 之间。',
       );
     }
-    if (todayPendingCount < 0) {
+    if (todayPendingCount < 0 ||
+        todayPendingCount > totalCount - completedCount) {
       throw ArgumentError.value(
         todayPendingCount,
         'todayPendingCount',
-        '不能为负数。',
+        '必须在 0 至 (totalCount - completedCount) 之间。',
       );
     }
     if (totalCount == 0) {
@@ -113,6 +114,16 @@ TaskMetrics computeTaskMetrics({
   final dayEnd = DateTime(today.year, today.month, today.day + 1);
 
   final taskList = tasks.toList();
+  // 在过滤已完成任务、判断安排相交之前统一校验 dueAt：
+  // 任何任务携带非 null 的 UTC dueAt 都拒绝，避免已完成任务 continue
+  // 或安排相交 return true 绕过 UTC 校验（审核 7b10899 整改）。
+  for (final task in taskList) {
+    final due = task.dueAt;
+    if (due != null && due.isUtc) {
+      throw ArgumentError.value(due, 'dueAt', '必须是本地时间。');
+    }
+  }
+
   var completedCount = 0;
   final todayPendingIds = <String>{};
   for (final task in taskList) {
@@ -147,13 +158,8 @@ bool _isTodayPending({
     }
   }
   final due = task.dueAt;
-  if (due != null) {
-    if (due.isUtc) {
-      throw ArgumentError.value(due, 'dueAt', '必须是本地时间。');
-    }
-    if (!due.isBefore(dayStart) && due.isBefore(dayEnd)) {
-      return true;
-    }
+  if (due != null && !due.isBefore(dayStart) && due.isBefore(dayEnd)) {
+    return true;
   }
   return false;
 }

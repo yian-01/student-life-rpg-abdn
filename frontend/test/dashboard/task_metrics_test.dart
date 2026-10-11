@@ -207,6 +207,66 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('UTC 整改：已完成任务携带 UTC dueAt 仍拒绝（不被 continue 绕过）', () {
+      expect(
+        () => computeTaskMetrics(
+          tasks: [
+            _task(
+              id: 'a',
+              isCompleted: true,
+              dueAt: DateTime.utc(2026, 10, 11, 9),
+            ),
+          ],
+          today: today,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('UTC 整改：未完成任务当天有安排且携带 UTC dueAt 仍拒绝'
+        '（不被相交 return true 绕过）', () {
+      expect(
+        () => computeTaskMetrics(
+          tasks: [
+            _task(
+              id: 'a',
+              scheduledRange: _range(
+                '2026-10-11T10:00:00',
+                '2026-10-11T11:00:00',
+              ),
+              // UTC 截止时间与本地当天无关，也必须先被拒绝。
+              dueAt: DateTime.utc(2026, 10, 12, 9),
+            ),
+          ],
+          today: today,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('UTC 整改：全部合法本地时间，统计结果保持正确', () {
+      final metrics = computeTaskMetrics(
+        tasks: [
+          _task(id: 'a', isCompleted: true),
+          _task(id: 'b', dueAt: DateTime(2026, 10, 11, 9)),
+          _task(
+            id: 'c',
+            scheduledRange: _range(
+              '2026-10-11T14:00:00',
+              '2026-10-11T15:00:00',
+            ),
+            dueAt: DateTime(2026, 10, 11, 18),
+          ),
+          _task(id: 'd'),
+        ],
+        today: today,
+      );
+      expect(metrics.totalCount, 4);
+      expect(metrics.completedCount, 1);
+      expect(metrics.todayPendingCount, 2);
+      expect(metrics.completionRate, 0.25);
+    });
   });
 
   group('TaskMetrics 构造校验（契约第 3 节 ArgumentError）', () {
@@ -267,6 +327,42 @@ void main() {
           completionRate: null,
         ),
         throwsArgumentError,
+      );
+    });
+
+    test('整改：totalCount=0 但 todayPendingCount=1，拒绝', () {
+      expect(
+        () => TaskMetrics(
+          totalCount: 0,
+          completedCount: 0,
+          todayPendingCount: 1,
+          completionRate: null,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('整改：全部完成（2/2）但 todayPendingCount=1，拒绝', () {
+      expect(
+        () => TaskMetrics(
+          totalCount: 2,
+          completedCount: 2,
+          todayPendingCount: 1,
+          completionRate: 1,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('整改：今日待办恰好等于未完成数（3 = 4 - 1），接受', () {
+      expect(
+        TaskMetrics(
+          totalCount: 4,
+          completedCount: 1,
+          todayPendingCount: 3,
+          completionRate: 0.25,
+        ),
+        isA<TaskMetrics>(),
       );
     });
   });
