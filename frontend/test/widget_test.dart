@@ -4,6 +4,7 @@ import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
 import 'package:student_life_rpg/features/bedroom/presentation/bedroom_page.dart';
 import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
+import 'package:student_life_rpg/features/schedule/presentation/day_schedule_page.dart';
 
 Future<void> tapText(WidgetTester tester, String text) async {
   final target = find.text(text);
@@ -18,6 +19,10 @@ void expectTitle(String title) {
     findsOneWidget,
   );
 }
+
+/// `/schedule` 已接入真实单日日程页面，其余模块仍为占位页。
+Finder moduleBodyFinder(String name) =>
+    name == 'Schedule' ? find.byType(DaySchedulePage) : find.text('模块待接入');
 
 void main() {
   testWidgets('Starts in bedroom and opens Menu', (tester) async {
@@ -45,16 +50,14 @@ void main() {
 
       await tapText(tester, name);
       expectTitle(name);
-      expect(find.text('模块待接入'), findsOneWidget);
-      expect(
-        ModalRoute.of(tester.element(find.text('模块待接入')))?.settings.name,
-        switch (name) {
-          'Schedule' => AppRoutes.schedule,
-          'GPA' => AppRoutes.gpa,
-          'Finance' => AppRoutes.finance,
-          _ => AppRoutes.dashboard,
-        },
-      );
+      final body = moduleBodyFinder(name);
+      expect(body, findsOneWidget);
+      expect(ModalRoute.of(tester.element(body))?.settings.name, switch (name) {
+        'Schedule' => AppRoutes.schedule,
+        'GPA' => AppRoutes.gpa,
+        'Finance' => AppRoutes.finance,
+        _ => AppRoutes.dashboard,
+      });
 
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -119,7 +122,7 @@ void main() {
     for (final name in ['Schedule', 'GPA', 'Finance', 'Dashboard']) {
       await tapText(tester, name);
       expectTitle(name);
-      expect(find.text('模块待接入'), findsOneWidget);
+      expect(moduleBodyFinder(name), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pageBack();
       await tester.pumpAndSettle();
