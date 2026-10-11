@@ -33,7 +33,19 @@ enum MoveDirection { up, down, left, right }
 ///  - [reset] **仅用于明确重新开始**（回 playerStart），普通返回不得调用。
 class PlayerMovementController extends ChangeNotifier {
   PlayerMovementController({Offset? start})
-    : _footPosition = start ?? SceneGeometry.playerStart;
+    : _footPosition = _checkedStart(start ?? SceneGeometry.playerStart);
+
+  /// 出生点校验（复审意见 1）：坐标必须有限，且落在可行走区域内
+  /// （边界合法，与 WalkableArea.contains 的边界包含语义一致）。
+  static Offset _checkedStart(Offset start) {
+    if (!start.dx.isFinite || !start.dy.isFinite) {
+      throw ArgumentError('start must be finite: $start');
+    }
+    if (!WalkableArea(SceneGeometry.walkablePolygon).contains(start)) {
+      throw ArgumentError('start must be inside walkable area: $start');
+    }
+    return start;
+  }
 
   /// 世界移动速度（原图像素/秒）。
   static const double speedWorldPxPerSecond = 120;
@@ -64,14 +76,25 @@ class PlayerMovementController extends ChangeNotifier {
   /// 统一移动入口：设置移动方向。
   /// - 分量必须有限，否则抛 [ArgumentError]；
   /// - 零方向 = 停止；
-  /// - 非零方向归一化（速度恒定，与输入幅度无关）。
+  /// - 非零方向**稳定归一化**（先按最大分量缩放再求长度，防溢出/下溢），
+  ///   保证 [_direction] 始终为零向量或有限单位向量。
   void setMoveDirection(Offset direction) {
     if (!direction.dx.isFinite || !direction.dy.isFinite) {
       throw ArgumentError('move direction must be finite: $direction');
     }
-    _direction = direction == Offset.zero
-        ? Offset.zero
-        : direction / direction.distance;
+    _direction = _normalizeStable(direction);
+  }
+
+  /// 稳定归一化（复审意见 2）：先按最大分量绝对值缩放，再求长度归一。
+  /// 避免极大有限分量使 distance 平方和溢出、极小非零分量使长度下溢；
+  /// 零向量单独处理。缩放后分量绝对值 ≤ 1，distance ∈ [1, √2]，不溢出。
+  static Offset _normalizeStable(Offset v) {
+    final ax = v.dx.abs();
+    final ay = v.dy.abs();
+    final maxAbs = ax > ay ? ax : ay;
+    if (maxAbs == 0) return Offset.zero;
+    final scaled = v / maxAbs;
+    return scaled / scaled.distance;
   }
 
   /// 键盘适配入口（Windows）：传入当前按下的方向集合，整体替换。
@@ -86,17 +109,28 @@ class PlayerMovementController extends ChangeNotifier {
   }
 
   /// 摇杆适配入口（Android）：[vector] 为摇杆偏移。
-  /// 非有限分量抛 [ArgumentError]；幅度钳制 <=1；钳制后幅度 < 死区
-  /// 视为无输入；其余经统一入口归一化（v1 匀速，幅度不映射速度）。
+  /// 非有限分量抛 [ArgumentError]；幅度在缩放空间计算（防溢出），
+  /// 低于死区视为无输入；其余经统一入口稳定归一化——幅度 >1 自然钳为
+  /// 单位向量（v1 匀速，幅度不映射速度）。
   void setJoystickVector(Offset vector) {
     if (!vector.dx.isFinite || !vector.dy.isFinite) {
       throw ArgumentError('joystick vector must be finite: $vector');
     }
-    final mag = vector.distance;
-    final clamped = mag > 1 ? vector / mag : vector;
-    setMoveDirection(
-      clamped.distance < joystickDeadZone ? Offset.zero : clamped,
-    );
+    final ax = vector.dx.abs();
+    final ay = vector.dy.abs();
+    final maxAbs = ax > ay ? ax : ay;
+    if (maxAbs == 0) {
+      setMoveDirection(Offset.zero);
+      return;
+    }
+    // 实际幅度 = maxAbs × scaled.distance；极大输入时乘积可能为 Infinity，
+    // 但仅用于与死区阈值比较（Infinity < 0.15 为 false），不参与后续计算。
+    final magnitude = maxAbs * (vector / maxAbs).distance;
+    if (magnitude < joystickDeadZone) {
+      setMoveDirection(Offset.zero);
+    } else {
+      setMoveDirection(vector);
+    }
   }
 
   /// 每帧推进。[dt] 秒；负值/非有限抛 [ArgumentError]；超过 [maxDt] 截断。
@@ -132,9 +166,12 @@ class PlayerMovementController extends ChangeNotifier {
     clearInput();
   }
 
-  /// 从 Menu 返回调用：恢复更新。位置保留在进入前状态；
-  /// 因输入已清空，不会自动续走。
-  void resumeFromMenu() => resume();
+  /// 从 Menu 返回调用：**先再次清除全部输入**（暂停期间适配层可能重新
+  /// 写入方向），再恢复更新。位置保留在进入前状态，不会自动续走。
+  void resumeFromMenu() {
+    clearInput();
+    resume();
+  }
 
   /// 清除全部方向状态（失焦/离开页面时调用；位置与暂停状态不变）。
   /// 键盘、摇杆、直接方向三入口汇聚于 [_direction]，清它即全清。
