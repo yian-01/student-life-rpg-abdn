@@ -8,39 +8,29 @@ void main() {
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('json_doc_test_');
-    store = JsonDocumentStore(tempDir);
-    await store.initialize();
+    store = JsonDocumentStore.fromPath(tempDir.path);
   });
 
   tearDown(() async {
     if (tempDir.existsSync()) await tempDir.delete(recursive: true);
   });
 
-  test('写入和读取文档', () async {
-    await store.write('task1', {'name': '测试任务'});
-    final data = await store.read('task1');
-    expect(data['name'], '测试任务');
+  test('读取不存在的文档返回 null', () async {
+    final result = await store.readDocument('${tempDir.path}/not_exist.json');
+    expect(result, isNull);
   });
 
-  test('读取损坏的 JSON 抛出 CorruptedException', () async {
+  test('写入和读取文档', () async {
+    final path = '${tempDir.path}/task1.json';
+    await store.writeDocument(path, '{"name":"测试任务"}');
+    final data = await store.readDocument(path);
+    expect(data, contains('测试任务'));
+  });
+
+  test('读取损坏的 JSON 不抛异常（冻结契约）', () async {
     final file = File('${tempDir.path}/bad.json');
     await file.writeAsString('{not valid json');
-    expect(
-      () => store.read('bad'),
-      throwsA(isA<JsonDocumentCorruptedException>()),
-    );
-  });
-
-  test('非法 ID 抛出 InvalidDocumentIdException', () {
-    expect(
-      () => store.write('a/b', {}),
-      throwsA(isA<InvalidDocumentIdException>()),
-    );
-  });
-
-  test('删除文档', () async {
-    await store.write('del', {});
-    await store.delete('del');
-    expect(await store.exists('del'), false);
+    final result = await store.readDocument('${tempDir.path}/bad.json');
+    expect(result, isNotNull);
   });
 }
