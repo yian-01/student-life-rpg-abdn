@@ -13,7 +13,7 @@ void main() {
     );
   });
 
-  tearDown(scope.dispose);
+  tearDown(() => scope.dispose());
 
   Future<void> pumpPage(
     WidgetTester tester, {
