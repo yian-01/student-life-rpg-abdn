@@ -62,7 +62,11 @@ void main() {
     await pumpPage(tester, size: const Size(240, 320));
     expect(tester.takeException(), isNull);
     expect(find.textContaining('演示数据'), findsOneWidget);
-    await tester.tap(find.text('添加记录'));
+    final addRecord = find.text('添加记录');
+    await tester.scrollUntilVisible(addRecord, 64);
+    await tester.ensureVisible(addRecord);
+    await tester.pumpAndSettle();
+    await tester.tap(addRecord);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
