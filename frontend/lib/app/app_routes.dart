@@ -4,6 +4,7 @@ import '../features/bedroom/presentation/bedroom_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/finance/presentation/finance_page.dart';
 import '../features/gpa/presentation/gpa_page.dart';
+import '../features/gpa/composition/gpa_composition.dart';
 import '../features/menu/presentation/menu_page.dart';
 import '../features/schedule/presentation/schedule_page.dart';
 import 'unknown_route_page.dart';
@@ -16,12 +17,15 @@ abstract final class AppRoutes {
   static const finance = '/finance';
   static const dashboard = '/dashboard';
 
+  /// App-scoped assembly; A/N use the same course repository and loadGpa.
+  static final gpaComposition = GpaComposition.inMemoryDemo();
+
   static Route<void> generateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
       bedroom => const BedroomPage(),
       menu => const MenuPage(),
       schedule => const SchedulePage(),
-      gpa => const GpaPage(),
+      gpa => GpaPage(composition: gpaComposition),
       finance => const FinancePage(),
       dashboard => const DashboardPage(),
       _ => UnknownRoutePage(routeName: settings.name),
