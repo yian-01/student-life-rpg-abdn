@@ -4,6 +4,7 @@ import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
 import 'package:student_life_rpg/features/bedroom/presentation/bedroom_page.dart';
 import 'package:student_life_rpg/features/finance/presentation/finance_page.dart';
+import 'package:student_life_rpg/features/gpa/presentation/gpa_page.dart';
 import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
 import 'package:student_life_rpg/features/schedule/presentation/day_schedule_page.dart';
 
@@ -21,9 +22,10 @@ void expectTitle(String title) {
   );
 }
 
-/// `/schedule` 与 `/finance` 已接入真实页面，其余模块仍为占位页。
+/// Schedule / GPA / Finance 已接入真实页面，Dashboard 暂为占位。
 Finder moduleBodyFinder(String name) => switch (name) {
   'Schedule' => find.byType(DaySchedulePage),
+  'GPA' => find.byType(GpaPage),
   'Finance' => find.byType(FinancePage),
   _ => find.text('模块待接入'),
 };
