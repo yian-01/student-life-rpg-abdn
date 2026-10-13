@@ -1,23 +1,27 @@
 import 'dart:convert';
 
-import '../../../storage/json_document_store.dart';
+import '../../../shared/storage/json_document_store.dart';
 import '../models/task.dart';
 import 'task_repository.dart';
 
-/// 基于 JsonDocumentStore 的 Task 仓库实现。
+/// 基于 [JsonDocumentStore] 的 Task 仓库实现。
 ///
-/// 串行队列保证所有操作按顺序执行。
-/// 写入失败时保留旧内存，避免内存与磁盘状态不一致。
+/// 职责：
+/// - JSON 解析与 schemaVersion / entityType / records 完整校验（Store 只负责原始读写）。
+/// - 串行队列覆盖读取、校验、持久化与内存提交全过程。
+/// - 写盘成功后才更新内存；写盘失败保留旧内存状态，后续请求仍可继续。
+/// - 主文件损坏时，尝试从 `.bak` 恢复；恢复前对备份做完整 Task 文档校验，
+///   且通过回写备份内容使损坏原文件被保留为新的 `.bak`，不直接覆盖丢失。
 class FileTaskRepository implements TaskRepository {
+  FileTaskRepository(this._store, this._path);
+
   final JsonDocumentStore _store;
   final String _path;
-  final int _schemaVersion = 1;
-  final String _entityType = 'task';
+  static const int _schemaVersion = 1;
+  static const String _entityType = 'task';
 
   List<Task>? _tasks;
   Future<void> _last = Future.value();
-
-  FileTaskRepository(this._store, this._path);
 
   Future<T> _queued<T>(Future<T> Function() action) {
     final result = _last.then((_) => action());
@@ -25,16 +29,10 @@ class FileTaskRepository implements TaskRepository {
     return result;
   }
 
-  Future<List<Task>> _load() async {
-    if (_tasks != null) return _tasks!;
-
-    final raw = await _store.readDocument(_path);
-    if (raw == null) {
-      _tasks = [];
-      return _tasks!;
-    }
-
-    Object? decoded;
+  /// 解析并校验完整 Task 文档：JSON 结构、schemaVersion、entityType、records、
+  /// Task 字段及重复 ID。失败抛出 [JsonDocumentStoreIOException]。
+  List<Task> _decodeTasks(String raw) {
+    final Object? decoded;
     try {
       decoded = jsonDecode(raw);
     } on FormatException {
@@ -44,7 +42,6 @@ class FileTaskRepository implements TaskRepository {
     if (decoded is! Map<String, dynamic>) {
       throw JsonDocumentStoreIOException('Task 文档根节点必须是 JSON 对象');
     }
-
     if (decoded['schemaVersion'] != _schemaVersion) {
       throw JsonDocumentStoreIOException(
         '不支持的 schemaVersion: ${decoded['schemaVersion']}',
@@ -60,15 +57,46 @@ class FileTaskRepository implements TaskRepository {
     }
 
     final tasks = <Task>[];
+    final seenIds = <String>{};
     for (final item in records) {
       if (item is! Map<String, dynamic>) {
         throw JsonDocumentStoreIOException('records 中的条目必须是 JSON 对象');
       }
-      tasks.add(Task.fromJson(item));
+      final task = Task.fromJson(item);
+      if (!seenIds.add(task.id)) {
+        throw JsonDocumentStoreIOException('records 中存在重复 ID: ${task.id}');
+      }
+      tasks.add(task);
+    }
+    return tasks;
+  }
+
+  Future<List<Task>> _load() async {
+    if (_tasks != null) return _tasks!;
+
+    final raw = await _store.readDocument(_path);
+    if (raw == null) {
+      _tasks = const [];
+      return _tasks!;
     }
 
-    _tasks = tasks;
-    return _tasks!;
+    try {
+      _tasks = _decodeTasks(raw);
+      return _tasks!;
+    } on JsonDocumentStoreIOException {
+      // 主文件损坏：尝试从 .bak 恢复
+      final backupRaw = await _store.readDocument('$_path.bak');
+      if (backupRaw == null) {
+        throw JsonDocumentStoreIOException('主文件损坏且无备份，拒绝加载: $_path');
+      }
+
+      final backupTasks = _decodeTasks(backupRaw);
+      // 备份校验通过：把备份内容写回主文件。
+      // writeDocument 会把当前损坏的主文件保留为新的 .bak，从而保留损坏原件。
+      await _store.writeDocument(_path, backupRaw);
+      _tasks = backupTasks;
+      return _tasks!;
+    }
   }
 
   Future<void> _save(List<Task> next) async {

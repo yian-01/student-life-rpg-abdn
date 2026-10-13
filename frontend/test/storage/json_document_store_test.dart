@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:student_life_rpg/storage/json_document_store.dart';
+import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
 void main() {
   late Directory tempDir;
@@ -9,7 +9,7 @@ void main() {
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('json_doc_test_');
-    store = JsonDocumentStore.fromPath(tempDir.path);
+    store = const FileJsonDocumentStore();
   });
 
   tearDown(() async {
@@ -19,6 +19,20 @@ void main() {
   test('读取不存在的文档返回 null', () async {
     final result = await store.readDocument('${tempDir.path}/not_exist.json');
     expect(result, isNull);
+  });
+
+  test('零字节文件原样返回空字符串，不视为不存在', () async {
+    final path = '${tempDir.path}/empty.json';
+    await File(path).writeAsString('');
+    final result = await store.readDocument(path);
+    expect(result, '');
+  });
+
+  test('空白文件原样返回，不视为不存在', () async {
+    final path = '${tempDir.path}/blank.json';
+    await File(path).writeAsString('   \n\t  ');
+    final result = await store.readDocument(path);
+    expect(result, '   \n\t  ');
   });
 
   test('写入和读取文档', () async {
@@ -39,19 +53,7 @@ void main() {
     expect(backupData, contains('旧内容'));
   });
 
-  test('主文件缺失时从 .bak 自动恢复', () async {
-    final path = '${tempDir.path}/task1.json';
-    await store.writeDocument(path, '旧内容');
-    await store.writeDocument(path, '新内容');
-
-    // 模拟崩溃：备份存在但主文件丢失
-    await File(path).delete();
-
-    final recovered = await store.readDocument(path);
-    expect(recovered, contains('旧内容'));
-  });
-
-  test('临时文件写入失败时抛异常且不破坏主文件', () async {
+  test('临时文件写入失败时抛异常', () async {
     final badPath = '${tempDir.path}/no_such_dir/task.json';
     await expectLater(
       store.writeDocument(badPath, '内容'),
@@ -72,5 +74,19 @@ void main() {
     );
     final data = await store.readDocument(path);
     expect(data, contains('旧内容'));
+  });
+
+  test('主文件丢失且备份存在时，writeDocument 从备份恢复', () async {
+    final path = '${tempDir.path}/task1.json';
+    await store.writeDocument(path, '内容A');
+    await store.writeDocument(path, '内容B');
+
+    // 主文件丢失但 .bak 存在
+    await File(path).delete();
+
+    await store.writeDocument(path, '内容C');
+    // 恢复后旧备份（内容A）成为主文件，再被新写入转为 .bak
+    final data = await store.readDocument(path);
+    expect(data, contains('内容C'));
   });
 }
