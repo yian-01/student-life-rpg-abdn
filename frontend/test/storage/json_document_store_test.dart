@@ -53,11 +53,11 @@ void main() {
     expect(backupData, contains('旧内容'));
   });
 
-  test('临时文件写入失败时抛异常', () async {
+  test('临时文件写入失败时抛 FileSystemException', () async {
     final badPath = '${tempDir.path}/no_such_dir/task.json';
     await expectLater(
       store.writeDocument(badPath, '内容'),
-      throwsA(isA<JsonDocumentStoreIOException>()),
+      throwsA(isA<FileSystemException>()),
     );
   });
 
@@ -70,7 +70,7 @@ void main() {
 
     await expectLater(
       store.writeDocument(path, '新内容'),
-      throwsA(isA<JsonDocumentStoreIOException>()),
+      throwsA(isA<FileSystemException>()),
     );
     final data = await store.readDocument(path);
     expect(data, contains('旧内容'));

@@ -1,14 +1,5 @@
 import 'dart:io';
 
-/// 存储层抛出的 IO 异常，保留原始错误信息。
-class JsonDocumentStoreIOException implements Exception {
-  final String message;
-  JsonDocumentStoreIOException(this.message);
-
-  @override
-  String toString() => message;
-}
-
 /// 原始 UTF-8 文档存储接口。
 ///
 /// 职责仅限文件读写：
@@ -18,6 +9,7 @@ class JsonDocumentStoreIOException implements Exception {
 ///   `.bak`，最后替换主文件；失败时尽量从 `.bak` 恢复。
 ///
 /// 不做 JSON 解析、schemaVersion/entityType/records 校验——这些由 Repository 负责。
+/// 文件故障保留原始 [FileSystemException]，不包装为自定义异常。
 abstract interface class JsonDocumentStore {
   Future<String?> readDocument(String path);
 
@@ -32,11 +24,8 @@ class FileJsonDocumentStore implements JsonDocumentStore {
   Future<String?> readDocument(String path) async {
     final file = File(path);
     if (!await file.exists()) return null;
-    try {
-      return await file.readAsString();
-    } on FileSystemException catch (e) {
-      throw JsonDocumentStoreIOException('读取 $path 失败: $e');
-    }
+    // 文件故障（权限、损坏等）保留原始 FileSystemException，不包装。
+    return await file.readAsString();
   }
 
   @override
@@ -59,9 +48,7 @@ class FileJsonDocumentStore implements JsonDocumentStore {
 
       // 3. 临时文件替换主文件
       await tmp.rename(path);
-    } catch (e) {
-      if (e is JsonDocumentStoreIOException) rethrow;
-
+    } on FileSystemException {
       // 失败恢复：主文件丢失且备份存在时，从备份恢复
       if (!await file.exists() && await backup.exists()) {
         try {
@@ -70,7 +57,7 @@ class FileJsonDocumentStore implements JsonDocumentStore {
           // 恢复失败也不掩盖原始错误
         }
       }
-      throw JsonDocumentStoreIOException('写入 $path 失败: $e');
+      rethrow;
     } finally {
       if (await tmp.exists()) {
         try {

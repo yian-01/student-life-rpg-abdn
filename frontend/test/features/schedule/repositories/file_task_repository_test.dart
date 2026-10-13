@@ -41,13 +41,13 @@ class _FakeStore implements JsonDocumentStore {
     if (shouldFail && failStage == 'backup') {
       // 备份完成、替换主文件前失败
       _files.remove(tmpPath);
-      throw JsonDocumentStoreIOException('模拟：备份后替换前失败');
+      throw const FileSystemException('模拟：备份后替换前失败');
     }
 
     if (shouldFail && failStage == 'replace') {
       // 主文件替换失败
       _files.remove(tmpPath);
-      throw JsonDocumentStoreIOException('模拟：主文件替换失败');
+      throw const FileSystemException('模拟：主文件替换失败');
     }
 
     // 模拟：临时文件替换主文件
@@ -105,6 +105,16 @@ void main() {
     expect((await repo.getById('1'))?.id, '1');
   });
 
+  test('空白 ID 抛 ArgumentError', () async {
+    final repo = newRepo();
+    await expectLater(repo.getById('   '), throwsA(isA<ArgumentError>()));
+    await expectLater(repo.remove(''), throwsA(isA<ArgumentError>()));
+    await expectLater(
+      repo.setCompleted('\t', true),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
   test('update 修改任务字段', () async {
     final repo = newRepo();
     await repo.insert(newTask('1', title: '旧标题'));
@@ -134,76 +144,66 @@ void main() {
   test('有效 records=[] 时 list 返回空列表', () async {
     await File(
       filePath,
-    ).writeAsString('{"schemaVersion":1,"entityType":"task","records":[]}');
+    ).writeAsString('{"schemaVersion":1,"entityType":"Task","records":[]}');
     final repo = newRepo();
     expect(await repo.list(), isEmpty);
   });
 
-  test('零字节文件被视为损坏并抛异常', () async {
+  test('顶层未知字段被拒绝', () async {
+    await File(filePath).writeAsString(
+      '{"schemaVersion":1,"entityType":"Task","records":[],"extra":"bad"}',
+    );
+    final repo = newRepo();
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
+  });
+
+  test('零字节文件被视为损坏并抛 FormatException', () async {
     await File(filePath).writeAsString('');
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('空白文件被视为损坏并抛异常', () async {
+  test('空白文件被视为损坏并抛 FormatException', () async {
     await File(filePath).writeAsString('   \n\t  ');
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('损坏 JSON 文档抛异常', () async {
+  test('损坏 JSON 文档抛 FormatException', () async {
     await File(
       filePath,
-    ).writeAsString('{"schemaVersion":1,"entityType":"task",');
+    ).writeAsString('{"schemaVersion":1,"entityType":"Task",');
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('schemaVersion 不正确抛异常', () async {
+  test('schemaVersion 不正确抛 FormatException', () async {
     await File(
       filePath,
-    ).writeAsString('{"schemaVersion":99,"entityType":"task","records":[]}');
+    ).writeAsString('{"schemaVersion":99,"entityType":"Task","records":[]}');
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('entityType 不正确抛异常', () async {
+  test('entityType 不正确抛 FormatException', () async {
     await File(
       filePath,
     ).writeAsString('{"schemaVersion":1,"entityType":"project","records":[]}');
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('records 中存在非对象条目抛异常', () async {
+  test('records 中存在非对象条目抛 FormatException', () async {
     await File(filePath).writeAsString(
-      '{"schemaVersion":1,"entityType":"task","records":["hello"]}',
+      '{"schemaVersion":1,"entityType":"Task","records":["hello"]}',
     );
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('records 中存在重复 ID 抛异常', () async {
+  test('records 中存在重复 ID 抛 FormatException', () async {
     await File(filePath).writeAsString(
-      '{"schemaVersion":1,"entityType":"task","records":['
+      '{"schemaVersion":1,"entityType":"Task","records":['
       '{"id":"1","title":"a","estimatedMinutes":10,"isCompleted":false,'
       '"dueAt":null,"scheduledRange":null},'
       '{"id":"1","title":"b","estimatedMinutes":10,"isCompleted":false,'
@@ -211,10 +211,7 @@ void main() {
       ']}',
     );
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
   // ---------- 备份恢复测试 ----------
@@ -246,22 +243,31 @@ void main() {
     await File('$filePath.bak').writeAsString('{非空但非法的备份}');
 
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
 
     // 损坏的原文件仍保留
     expect(await File(filePath).readAsString(), '损坏的主文件');
   });
 
-  test('主文件损坏且无备份时抛异常', () async {
+  test('主文件损坏且无备份时抛 FormatException', () async {
     await File(filePath).writeAsString('损坏的主文件');
     final repo = newRepo();
-    await expectLater(
-      repo.list(),
-      throwsA(isA<JsonDocumentStoreIOException>()),
-    );
+    await expectLater(repo.list(), throwsA(isA<FormatException>()));
+  });
+
+  test('主文件丢失但备份存在时从备份恢复', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('persist'));
+    // 第二次写入才会产生 .bak（保留上一版内容）
+    await repo.insert(newTask('second'));
+
+    // 删除主文件，保留 .bak（.bak 中是 [persist]）
+    await File(filePath).delete();
+
+    final restartedRepo = newRepo();
+    final all = await restartedRepo.list();
+    expect(all.length, 1);
+    expect(all.first.id, 'persist');
   });
 
   // ---------- 保存失败与队列测试 ----------
@@ -276,7 +282,7 @@ void main() {
 
     await expectLater(
       repo.insert(newTask('2')),
-      throwsA(isA<JsonDocumentStoreIOException>()),
+      throwsA(isA<FileSystemException>()),
     );
 
     // 内存中应仍然只有任务1
@@ -293,15 +299,12 @@ void main() {
     await repo.insert(newTask('1'));
 
     // 第二次写入（insert '2'）触发故障
-    fakeStore.failOnWriteNumber = 3; // list 不写，insert 算第2次写，但 _load 不写...
-    fakeStore.failStage = 'replace';
-
-    // 实际：insert('1') = write #1；insert('2') 先 _load(已缓存) 再 _save = write #2
     fakeStore.failOnWriteNumber = 2;
+    fakeStore.failStage = 'replace';
 
     await expectLater(
       repo.insert(newTask('2')),
-      throwsA(isA<JsonDocumentStoreIOException>()),
+      throwsA(isA<FileSystemException>()),
     );
 
     // 队列仍可继续：第三次写入应成功
@@ -325,7 +328,7 @@ void main() {
 
     await expectLater(
       repo.insert(newTask('2')),
-      throwsA(isA<JsonDocumentStoreIOException>()),
+      throwsA(isA<FileSystemException>()),
     );
 
     // 主文件应已从备份恢复（仍包含任务1）
@@ -346,7 +349,7 @@ void main() {
 
     await expectLater(
       repo.insert(newTask('2')),
-      throwsA(isA<JsonDocumentStoreIOException>()),
+      throwsA(isA<FileSystemException>()),
     );
 
     // 主文件在替换失败后丢失，但备份存在；Repository 下次加载应从 .bak 恢复
