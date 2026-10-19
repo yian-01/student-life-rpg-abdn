@@ -86,6 +86,16 @@ class FileTaskRepository implements TaskRepository {
     return tasks;
   }
 
+  /// 将损坏的主文件归档为 `.corrupt`，避免常规覆盖时顶掉有效 `.bak`。
+  /// 若 `.corrupt` 已存在则先删除。
+  Future<void> _archiveCorruptMain() async {
+    final file = File(_path);
+    if (!await file.exists()) return;
+    final corrupt = File('$_path.corrupt');
+    if (await corrupt.exists()) await corrupt.delete();
+    await file.rename(corrupt.path);
+  }
+
   Future<List<Task>> _load() async {
     if (_tasks != null) return _tasks!;
 
@@ -99,10 +109,12 @@ class FileTaskRepository implements TaskRepository {
         return _tasks!;
       }
       final backupTasks = _decodeTasks(backupRaw);
-      // 恢复行为明确记录，不静默吞错。
+      // 先归档（主文件即使不存在也无害），再写回，确保 .bak 不被覆盖。
+      await _archiveCorruptMain();
+      await _store.writeDocument(_path, backupRaw);
+      // 恢复成功后明确提示；失败时异常自然上抛，不输出成功提示。
       // ignore: avoid_print
       print('WARNING: 主文件 $_path 不存在，已从 .bak 恢复');
-      await _store.writeDocument(_path, backupRaw);
       _tasks = backupTasks;
       return _tasks!;
     }
@@ -118,18 +130,32 @@ class FileTaskRepository implements TaskRepository {
       }
 
       final backupTasks = _decodeTasks(backupRaw);
-      // 备份校验通过：把备份内容写回主文件。
-      // writeDocument 会把当前损坏的主文件保留为新的 .bak，从而保留损坏原件。
-      // 恢复行为明确记录，不静默吞错。
-      // ignore: avoid_print
-      print('WARNING: Task 文档损坏，已从 $_path.bak 恢复；损坏原件保留为新的 .bak');
+      // 先归档损坏原件，再写回；这样 writeDocument 不会触碰到有效 .bak。
+      await _archiveCorruptMain();
       await _store.writeDocument(_path, backupRaw);
+      // 恢复成功后明确提示。
+      // ignore: avoid_print
+      print('WARNING: 主文件 $_path 损坏，已从 .bak 恢复；损坏原件保留为 $_path.corrupt');
       _tasks = backupTasks;
       return _tasks!;
     }
   }
 
   Future<void> _save(List<Task> next) async {
+    // 保存前重新校验磁盘主文件：运行期间可能被外部损坏。
+    // 若直接 writeDocument，损坏原件会被 rename 为 .bak 并覆盖有效备份。
+    final diskRaw = await _store.readDocument(_path);
+    if (diskRaw != null) {
+      try {
+        _decodeTasks(diskRaw);
+      } on FormatException {
+        await _archiveCorruptMain();
+        // ignore: avoid_print
+        print(
+          'WARNING: 检测到主文件 $_path 在运行期间损坏，已保留为 $_path.corrupt，将写入内存中的最后有效状态',
+        );
+      }
+    }
     final content = jsonEncode({
       'schemaVersion': _schemaVersion,
       'entityType': _entityType,

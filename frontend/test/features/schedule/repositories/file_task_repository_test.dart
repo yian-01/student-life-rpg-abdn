@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +42,10 @@ class _FakeStore implements JsonDocumentStore {
     if (shouldFail && failStage == 'backup') {
       // 备份完成、替换主文件前失败
       _files.remove(tmpPath);
+      // 与真实 FileJsonDocumentStore 一致：主文件丢失且备份存在时从备份恢复
+      if (!_files.containsKey(path) && _files.containsKey(bakPath)) {
+        _files[path] = _files.remove(bakPath)!;
+      }
       throw const FileSystemException('模拟：备份后替换前失败');
     }
 
@@ -233,9 +238,11 @@ void main() {
     expect(all.first.id, 'persist');
     expect(all.first.title, '备份任务');
 
-    // 损坏的原文件应被保留为新的 .bak
+    // 损坏原件应归档为 .corrupt；有效 .bak 必须保留不被覆盖
+    final corruptContent = await File('$filePath.corrupt').readAsString();
+    expect(corruptContent, '损坏的内容');
     final bakContent = await File('$filePath.bak').readAsString();
-    expect(bakContent, '损坏的内容');
+    expect(bakContent, mainContent);
   });
 
   test('非空但非法的备份被拒绝', () async {
@@ -271,14 +278,12 @@ void main() {
   });
 
   // ---------- 保存失败与队列测试 ----------
-  test('保存失败时保留旧内存状态', () async {
+  test('保存失败时保留旧内存状态且磁盘数据完整', () async {
     final repo = newRepo();
     await repo.insert(newTask('1'));
 
-    // 删除原文件并用同名目录占位，使后续保存失败
-    final file = File(filePath);
-    await file.delete();
-    await Directory(filePath).create();
+    // 用同名目录阻塞临时文件路径，使保存失败；主文件仍可读
+    await Directory('$filePath.tmp').create();
 
     await expectLater(
       repo.insert(newTask('2')),
@@ -289,6 +294,14 @@ void main() {
     final all = await repo.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
+
+    // 重新创建 Repository 验证磁盘数据未损坏
+    final restartedRepo = newRepo();
+    final diskAll = await restartedRepo.list();
+    expect(diskAll.length, 1);
+    expect(diskAll.first.id, '1');
+
+    await Directory('$filePath.tmp').delete();
   });
 
   test('一次保存失败后，队列仍可继续成功保存', () async {
@@ -332,8 +345,11 @@ void main() {
     );
 
     // 主文件应已从备份恢复（仍包含任务1）
-    expect(fakeStore.readDocument(filePath), isNotNull);
-    final all = await repo.list();
+    expect(await fakeStore.readDocument(filePath), isNotNull);
+
+    // 重新创建 Repository 验证磁盘数据可恢复（避免命中旧内存缓存）
+    final restartedRepo = FileTaskRepository(fakeStore, filePath);
+    final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
   });
@@ -352,8 +368,9 @@ void main() {
       throwsA(isA<FileSystemException>()),
     );
 
-    // 主文件在替换失败后丢失，但备份存在；Repository 下次加载应从 .bak 恢复
-    final all = await repo.list();
+    // 重新创建 Repository 验证磁盘数据可恢复
+    final restartedRepo = FileTaskRepository(fakeStore, filePath);
+    final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
   });
@@ -390,5 +407,99 @@ void main() {
     final all = await restartedRepo.list();
     expect(all.length, 2);
     expect(all.map((t) => t.id), containsAll(['persist', 'persist2']));
+  });
+
+  // ---------- 真实 Store 故障与运行期间保护测试 ----------
+  test('真实 Store：备份阶段故障时保留主文件与最后有效 .bak', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    // 第二次写入产生 .bak（保留任务1）
+    await repo.insert(newTask('2'));
+
+    // 现在：主文件=任务1+2，.bak=任务1
+
+    // 把 .bak 变成非空目录，使 writeDocument 的 backup.delete() 失败
+    await File('$filePath.bak').delete();
+    final bakDir = Directory('$filePath.bak');
+    await bakDir.create();
+    await File('${bakDir.path}/dummy.txt').writeAsString('x');
+
+    // 尝试保存应失败
+    await expectLater(
+      repo.insert(newTask('3')),
+      throwsA(isA<FileSystemException>()),
+    );
+
+    // 主文件内容应不变；重新创建 Repository 验证
+    final restartedRepo = newRepo();
+    final all = await restartedRepo.list();
+    expect(all.length, 2);
+    expect(all.map((t) => t.id), containsAll(['1', '2']));
+  });
+
+  test('加载成功后主文件被外部损坏，再次保存时保护并保留原件', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    await repo.insert(newTask('2'));
+
+    // 模拟运行期间外部损坏主文件
+    await File(filePath).writeAsString('外部损坏');
+
+    // 再次保存应检测到损坏、归档为 .corrupt、写入内存最新状态
+    await repo.insert(newTask('3'));
+
+    // 验证：新 Repository 能读取全部3条记录
+    final restartedRepo = newRepo();
+    final all = await restartedRepo.list();
+    expect(all.length, 3);
+    expect(all.map((t) => t.id), containsAll(['1', '2', '3']));
+
+    // 损坏原件保留为 .corrupt
+    expect(await File('$filePath.corrupt').readAsString(), '外部损坏');
+
+    // .bak 应保留损坏前最后一次轮换出的有效版本（任务1，第二次写入时生成）
+    final bakContent = await File('$filePath.bak').readAsString();
+    final bakRecords =
+        (jsonDecode(bakContent) as Map<String, dynamic>)['records'] as List;
+    expect(bakRecords.length, 1);
+    expect(bakRecords.first['id'], '1');
+  });
+
+  test('主文件损坏且恢复失败后仍可重试，不丢失有效数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+
+    // 制造损坏主文件 + 有效 .bak
+    final mainContent = await File(filePath).readAsString();
+    await File(filePath).writeAsString('损坏');
+    await File('$filePath.bak').writeAsString(mainContent);
+
+    // 阻塞 tmp 路径，使恢复写入失败
+    await Directory('$filePath.tmp').create();
+
+    // 第一次恢复应失败
+    final repo1 = newRepo();
+    await expectLater(repo1.list(), throwsA(isA<FileSystemException>()));
+
+    // 不丢失最后有效数据：Store 的失败恢复会把 .bak 内容写回主文件，
+    // 因此主文件或 .bak 中必有一份有效内容。
+    final mainExists = await File(filePath).exists();
+    final bakExists = await File('$filePath.bak').exists();
+    expect(mainExists || bakExists, isTrue);
+    if (mainExists) {
+      expect(await File(filePath).readAsString(), mainContent);
+    } else {
+      expect(await File('$filePath.bak').readAsString(), mainContent);
+    }
+
+    // 解除阻塞后重试应成功读取旧记录
+    await Directory('$filePath.tmp').delete();
+    final repo2 = newRepo();
+    final all = await repo2.list();
+    expect(all.length, 1);
+    expect(all.first.id, '1');
+
+    // 损坏原件已归档为 .corrupt，未被静默丢弃
+    expect(await File('$filePath.corrupt').readAsString(), '损坏');
   });
 }
