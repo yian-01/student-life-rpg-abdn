@@ -3,9 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
 import 'package:student_life_rpg/features/bedroom/presentation/bedroom_page.dart';
+import 'package:student_life_rpg/features/finance/presentation/finance_page.dart';
+import 'package:student_life_rpg/features/gpa/presentation/gpa_page.dart';
 import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
 import 'package:student_life_rpg/features/schedule/presentation/day_schedule_page.dart';
-import 'package:student_life_rpg/features/gpa/presentation/gpa_page.dart';
 
 Future<void> tapText(WidgetTester tester, String text) async {
   final target = find.text(text);
@@ -21,10 +22,11 @@ void expectTitle(String title) {
   );
 }
 
-/// 已接入页面验证实际主体，保留其余占位及全部导航断言。
+/// Schedule / GPA / Finance 已接入真实页面，Dashboard 暂为占位。
 Finder moduleBodyFinder(String name) => switch (name) {
   'Schedule' => find.byType(DaySchedulePage),
   'GPA' => find.byType(GpaPage),
+  'Finance' => find.byType(FinancePage),
   _ => find.text('模块待接入'),
 };
 
