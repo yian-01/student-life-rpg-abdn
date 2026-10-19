@@ -108,6 +108,11 @@ class InMemoryFinanceRecordRepository implements FinanceRecordRepository {
       throw StateError('Duplicate FinanceRecord id: ${entity.id}');
     }
     await _assertCategoryMatches(entity);
+    // Re-check after the await: a concurrent insert of the same id may have
+    // completed while the category lookup was in flight.
+    if (_items.containsKey(entity.id)) {
+      throw StateError('Duplicate FinanceRecord id: ${entity.id}');
+    }
     _items[entity.id] = entity;
   }
 
@@ -117,6 +122,10 @@ class InMemoryFinanceRecordRepository implements FinanceRecordRepository {
       throw StateError('Unknown FinanceRecord id: ${entity.id}');
     }
     await _assertCategoryMatches(entity);
+    // Re-check after the await so a concurrent remove cannot be resurrected.
+    if (!_items.containsKey(entity.id)) {
+      throw StateError('Unknown FinanceRecord id: ${entity.id}');
+    }
     _items[entity.id] = entity;
   }
 

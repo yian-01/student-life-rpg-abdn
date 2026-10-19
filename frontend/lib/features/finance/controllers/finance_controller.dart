@@ -68,43 +68,39 @@ class FinanceController extends ChangeNotifier {
     required String amountText,
     String? note,
   }) async {
-    final category = await _categories.getById(categoryId);
-    if (category == null) {
-      _error = StateError('Unknown finance category: $categoryId');
-      notifyListeners();
-      return;
-    }
-
-    late final int amountMinor;
     try {
-      amountMinor = parseAmountMinor(amountText);
-    } catch (error) {
-      _error = error;
-      notifyListeners();
-      return;
-    }
+      final category = await _categories.getById(categoryId);
+      if (category == null) {
+        _fail(StateError('Unknown finance category: $categoryId'));
+        return;
+      }
 
-    final now = _clock();
-    requireLocalDateTime(now, 'now');
-    _recordSeq += 1;
-    final record = FinanceRecord(
-      id: 'rec-${now.microsecondsSinceEpoch}-$_recordSeq',
-      categoryId: category.id,
-      type: category.type,
-      amountMinor: amountMinor,
-      occurredAt: now,
-      note: note == null || note.trim().isEmpty ? null : note,
-    );
+      final amountMinor = parseAmountMinor(amountText);
 
-    try {
+      final now = _clock();
+      requireLocalDateTime(now, 'now');
+      _recordSeq += 1;
+      final record = FinanceRecord(
+        id: 'rec-${now.microsecondsSinceEpoch}-$_recordSeq',
+        categoryId: category.id,
+        type: category.type,
+        amountMinor: amountMinor,
+        occurredAt: now,
+        note: note == null || note.trim().isEmpty ? null : note,
+      );
+
       await _records.insert(record);
     } catch (error) {
-      _error = error;
-      notifyListeners();
+      _fail(error);
       return;
     }
 
     await _loadCurrent();
+  }
+
+  void _fail(Object error) {
+    _error = error;
+    notifyListeners();
   }
 
   List<FinanceCategory> categoriesFor(FinanceType type) {

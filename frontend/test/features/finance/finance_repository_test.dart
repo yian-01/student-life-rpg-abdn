@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+
+import 'controllable_category_repository.dart';
 import 'package:student_life_rpg/features/finance/models/finance_category.dart';
 import 'package:student_life_rpg/features/finance/models/finance_record.dart';
 import 'package:student_life_rpg/features/finance/models/finance_type.dart';
@@ -75,6 +77,68 @@ void main() {
     await records.remove('r1');
     expect(await categories.remove('food'), isTrue);
     expect(records.update(record), throwsStateError);
+  });
+
+  group('async category validation races', () {
+    late ControllableCategoryRepository gate;
+
+    FinanceRecord build(String id, {int amountMinor = 100}) => FinanceRecord(
+      id: id,
+      categoryId: 'food',
+      type: FinanceType.expense,
+      amountMinor: amountMinor,
+      occurredAt: DateTime(2026, 10, 15),
+    );
+
+    setUp(() async {
+      InMemoryFinanceRecordRepository? recordRepo;
+      categories = InMemoryFinanceCategoryRepository(
+        referencedCategoryIds: () => recordRepo?.referencedCategoryIds() ?? {},
+      );
+      gate = ControllableCategoryRepository(categories);
+      gate.autoRelease();
+      records = InMemoryFinanceRecordRepository(categories: gate);
+      recordRepo = records;
+      await seed();
+    });
+
+    test('concurrent inserts of the same id: only one succeeds', () async {
+      gate.block();
+      final first = records.insert(build('dup'));
+      final second = records.insert(build('dup'));
+      await gate.reach(2);
+
+      await expectLater(first, completes);
+      await expectLater(second, throwsStateError);
+
+      expect(
+        (await records.list()).where((item) => item.id == 'dup'),
+        hasLength(1),
+      );
+      expect((await records.getById('dup'))?.amountMinor, 100);
+    });
+
+    test('update in flight does not resurrect a removed record', () async {
+      await records.insert(build('r1'));
+      gate.block();
+
+      final pending = records.update(build('r1', amountMinor: 999));
+      expect(await records.remove('r1'), isTrue);
+      await gate.reach(1);
+
+      await expectLater(pending, throwsStateError);
+      expect(await records.getById('r1'), isNull);
+      expect(await records.list(), isEmpty);
+    });
+
+    test('concurrent inserts of different ids keep both records', () async {
+      gate.block();
+      final futures = [records.insert(build('a')), records.insert(build('b'))];
+      await gate.reach(2);
+      await Future.wait(futures);
+
+      expect((await records.list()).map((item) => item.id).toSet(), {'a', 'b'});
+    });
   });
 
   test(
