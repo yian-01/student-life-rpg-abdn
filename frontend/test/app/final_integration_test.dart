@@ -40,7 +40,7 @@ void main() {
     expect(restored.single.isCompleted, isTrue);
   });
 
-  testWidgets('Schedule and Dashboard read the same completed task', (
+  testWidgets('Schedule and Dashboard share task state across completion', (
     tester,
   ) async {
     final repository = InMemoryTaskRepository();
@@ -49,7 +49,7 @@ void main() {
         id: 'shared',
         title: '共享任务',
         estimatedMinutes: 25,
-        isCompleted: true,
+        isCompleted: false,
       ),
     );
     AppData.useTaskRepository(repository);
@@ -58,6 +58,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('共享任务'), findsOneWidget);
+    await repository.setCompleted('shared', true);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pushNamed(AppRoutes.dashboard);
     await tester.pumpAndSettle();
