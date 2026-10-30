@@ -125,7 +125,7 @@ class _BedroomPageState extends State<BedroomPage>
       }
       return KeyEventResult.handled;
     }
-    const mapping = {
+    final mapping = {
       LogicalKeyboardKey.keyW: MoveDirection.up,
       LogicalKeyboardKey.arrowUp: MoveDirection.up,
       LogicalKeyboardKey.keyS: MoveDirection.down,
