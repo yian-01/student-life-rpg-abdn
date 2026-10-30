@@ -159,7 +159,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('测试位置，未联调'), findsOneWidget);
         expect(controller.isNavigating, isFalse);
-        expect(movement.footPosition, SceneGeometry.menuInteractionPoint);
+        expect(movement.footPosition, const Offset(230, 1170));
         expect(movement.isMoving, isFalse);
         await tester.tap(find.text('进入菜单'));
         await tester.pumpAndSettle();
