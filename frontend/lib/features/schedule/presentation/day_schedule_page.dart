@@ -1,3 +1,4 @@
+import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/schedule_item.dart';
@@ -7,8 +8,9 @@ import '../services/day_schedule_service.dart';
 
 /// 单日日程页面：由外部注入 [DayScheduleController]，页面不创建仓库。
 class DaySchedulePage extends StatefulWidget {
-  const DaySchedulePage({super.key, required this.controller});
+  const DaySchedulePage({super.key, required this.controller, this.onRecover});
 
+  final Future<void> Function()? onRecover;
   final DayScheduleController controller;
 
   @override
@@ -16,6 +18,9 @@ class DaySchedulePage extends StatefulWidget {
 }
 
 class _DaySchedulePageState extends State<DaySchedulePage> {
+  bool _adding = false;
+  final Set<String> _savingTasks = {};
+
   @override
   void initState() {
     super.initState();
@@ -54,36 +59,47 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
 
   ValueChanged<bool>? _toggleCallbackFor(ScheduleItem item) {
     if (!widget.controller.canEditTasks ||
-        item.sourceType != ScheduleSourceType.task) {
+        item.sourceType != ScheduleSourceType.task ||
+        _savingTasks.contains(item.sourceId)) {
       return null;
     }
     return (value) => _setCompleted(item.sourceId, value);
   }
 
   Future<void> _setCompleted(String taskId, bool isCompleted) async {
+    if (_savingTasks.contains(taskId)) return;
+    setState(() => _savingTasks.add(taskId));
     try {
       await widget.controller.setTaskCompleted(taskId, isCompleted);
     } catch (_) {
       _showMessage('更新完成状态失败，请重试。');
+    } finally {
+      if (mounted) setState(() => _savingTasks.remove(taskId));
     }
   }
 
   Future<void> _showAddTaskDialog() async {
-    final input = await showDialog<_NewTaskInput>(
-      context: context,
-      builder: (context) => const _AddTaskDialog(),
-    );
-    if (input == null) {
-      return;
-    }
+    if (_adding) return;
+    setState(() => _adding = true);
     try {
-      await widget.controller.addTask(
-        title: input.title,
-        estimatedMinutes: input.estimatedMinutes,
+      final input = await showDialog<_NewTaskInput>(
+        context: context,
+        builder: (context) => const _AddTaskDialog(),
       );
-      _showMessage('已添加任务：${input.title}');
-    } catch (_) {
-      _showMessage('任务保存失败，请重试。');
+      if (input == null) {
+        return;
+      }
+      try {
+        await widget.controller.addTask(
+          title: input.title,
+          estimatedMinutes: input.estimatedMinutes,
+        );
+        _showMessage('已添加任务：${input.title}');
+      } catch (_) {
+        _showMessage('任务保存失败，请重试。');
+      }
+    } finally {
+      if (mounted) setState(() => _adding = false);
     }
   }
 
@@ -100,21 +116,33 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
   Widget build(BuildContext context) {
     final schedule = widget.controller.schedule;
     return Scaffold(
-      appBar: AppBar(title: const Text('Schedule')),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (widget.controller.demoData) const _DemoDataBanner(),
-            _DateNavigator(controller: widget.controller),
-            const Divider(height: 1),
-            Expanded(child: _buildBody(schedule)),
-          ],
+      appBar: AppBar(
+        title: const Text('Schedule'),
+        actions: [
+          if (widget.onRecover != null)
+            IconButton(
+              tooltip: '重新读取 / 从备份恢复',
+              onPressed: widget.onRecover,
+              icon: const Icon(Icons.restore),
+            ),
+        ],
+      ),
+      body: ModuleBody(
+        child: SafeArea(
+          child: Column(
+            children: [
+              if (widget.controller.demoData) const _DemoDataBanner(),
+              _DateNavigator(controller: widget.controller),
+              const Divider(height: 1),
+              Expanded(child: _buildBody(schedule)),
+            ],
+          ),
         ),
       ),
       floatingActionButton: widget.controller.canEditTasks
           ? FloatingActionButton.extended(
               key: const Key('day-schedule-add-task'),
-              onPressed: _showAddTaskDialog,
+              onPressed: _adding ? null : _showAddTaskDialog,
               icon: const Icon(Icons.add),
               label: const Text('添加任务'),
             )
@@ -161,6 +189,11 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (widget.onRecover != null)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Text('任务自动保存在本机。当前日程仅接入任务。'),
+          ),
         const _SectionTitle('当天日程'),
         if (schedule.items.isEmpty)
           const _EmptyMessage('今日暂无已排程事项')
@@ -181,7 +214,9 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
           ...schedule.unscheduledTasks.map(
             (task) => _UnscheduledTaskTile(
               task: task,
-              onToggleComplete: widget.controller.canEditTasks
+              onToggleComplete:
+                  widget.controller.canEditTasks &&
+                      !_savingTasks.contains(task.id)
                   ? (value) => _setCompleted(task.id, value)
                   : null,
             ),

@@ -1,3 +1,4 @@
+import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/finance_controller.dart';
@@ -70,85 +71,87 @@ class _FinancePageState extends State<FinancePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Finance')),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const Text(
-                  '演示数据：分类为合成示例。财务记录保存在内存中，完全退出应用后不会保留。本轮仅 Task 安排 JSON 持久化。预算由组合根注入（演示预算 1000.00 元），无预算 CRUD。',
-                ),
-                const SizedBox(height: 12),
-                if (_controller.isLoading) const Text('加载中'),
-                if (_controller.error != null) ...[
-                  Text(
-                    '错误：${_controller.error}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+      body: ModuleBody(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const Text(
+                    '演示数据：分类为合成示例。财务记录保存在内存中，完全退出应用后不会保留。本轮仅 Task 安排 JSON 持久化。预算由组合根注入（演示预算 1000.00 元），无预算 CRUD。',
                   ),
+                  const SizedBox(height: 12),
+                  if (_controller.isLoading) const Text('加载中'),
+                  if (_controller.error != null) ...[
+                    Text(
+                      '错误：${_controller.error}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _controller.retry,
+                        child: const Text('重试'),
+                      ),
+                    ),
+                  ],
+                  _SummaryCard(summary: _controller.summary),
+                  const SizedBox(height: 16),
+                  _AddRecordForm(
+                    categories: _controller.categoriesFor(_selectedType),
+                    selectedType: _selectedType,
+                    selectedCategoryId: _selectedCategoryId,
+                    amountController: _amountController,
+                    noteController: _noteController,
+                    onTypeChanged: (type) {
+                      setState(() {
+                        _selectedType = type;
+                        final matching = _controller.categoriesFor(type);
+                        _selectedCategoryId = matching.isEmpty
+                            ? null
+                            : matching.first.id;
+                      });
+                    },
+                    onCategoryChanged: (id) {
+                      setState(() => _selectedCategoryId = id);
+                    },
+                    onSubmit: _selectedCategoryId == null
+                        ? null
+                        : () async {
+                            await _controller.addRecord(
+                              categoryId: _selectedCategoryId!,
+                              amountText: _amountController.text,
+                              note: _noteController.text,
+                            );
+                            if (!mounted) return;
+                            if (_controller.error == null) {
+                              _amountController.clear();
+                              _noteController.clear();
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
-                      onPressed: _controller.retry,
-                      child: const Text('重试'),
+                      onPressed: _controller.refresh,
+                      child: const Text('刷新'),
                     ),
                   ),
+                  const Text('本月记录'),
+                  const SizedBox(height: 8),
+                  if (_controller.monthRecords.isEmpty)
+                    const Text('暂无记录')
+                  else
+                    ..._controller.monthRecords.map(_RecordTile.new),
+                  SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
                 ],
-                _SummaryCard(summary: _controller.summary),
-                const SizedBox(height: 16),
-                _AddRecordForm(
-                  categories: _controller.categoriesFor(_selectedType),
-                  selectedType: _selectedType,
-                  selectedCategoryId: _selectedCategoryId,
-                  amountController: _amountController,
-                  noteController: _noteController,
-                  onTypeChanged: (type) {
-                    setState(() {
-                      _selectedType = type;
-                      final matching = _controller.categoriesFor(type);
-                      _selectedCategoryId = matching.isEmpty
-                          ? null
-                          : matching.first.id;
-                    });
-                  },
-                  onCategoryChanged: (id) {
-                    setState(() => _selectedCategoryId = id);
-                  },
-                  onSubmit: _selectedCategoryId == null
-                      ? null
-                      : () async {
-                          await _controller.addRecord(
-                            categoryId: _selectedCategoryId!,
-                            amountText: _amountController.text,
-                            note: _noteController.text,
-                          );
-                          if (!mounted) return;
-                          if (_controller.error == null) {
-                            _amountController.clear();
-                            _noteController.clear();
-                          }
-                        },
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _controller.refresh,
-                    child: const Text('刷新'),
-                  ),
-                ),
-                const Text('本月记录'),
-                const SizedBox(height: 8),
-                if (_controller.monthRecords.isEmpty)
-                  const Text('暂无记录')
-                else
-                  ..._controller.monthRecords.map(_RecordTile.new),
-                SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

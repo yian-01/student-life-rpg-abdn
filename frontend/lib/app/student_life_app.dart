@@ -12,6 +12,7 @@ class StudentLifeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Student Life RPG',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       initialRoute: initialRoute,
       // Start with one root page, without an implicit '/' underneath.

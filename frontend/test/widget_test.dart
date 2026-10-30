@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
+import 'package:student_life_rpg/app/app_data.dart';
+import 'package:student_life_rpg/features/schedule/repositories/in_memory_task_repository.dart';
+import 'package:student_life_rpg/features/dashboard/presentation/dashboard_page.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
 import 'package:student_life_rpg/features/bedroom/presentation/bedroom_page.dart';
 import 'package:student_life_rpg/features/finance/presentation/finance_page.dart';
@@ -37,10 +40,11 @@ Finder moduleBodyFinder(String name) => switch (name) {
   'Schedule' => find.byType(DaySchedulePage),
   'GPA' => find.byType(GpaPage),
   'Finance' => find.byType(FinancePage),
-  _ => find.text('模块待接入'),
+  _ => find.byType(DashboardPage),
 };
 
 void main() {
+  setUp(() => AppData.useTaskRepository(InMemoryTaskRepository()));
   testWidgets('Starts in bedroom and opens Menu', (tester) async {
     await tester.pumpWidget(const StudentLifeApp());
     expectTitle('Student Life RPG');

@@ -6,8 +6,8 @@ import '../features/finance/presentation/finance_page.dart';
 import '../features/gpa/presentation/gpa_page.dart';
 import '../features/gpa/composition/gpa_composition.dart';
 import '../features/menu/presentation/menu_page.dart';
-import '../features/schedule/presentation/schedule_page.dart';
 import 'unknown_route_page.dart';
+import 'task_schedule_host.dart';
 
 abstract final class AppRoutes {
   static const bedroom = '/bedroom';
@@ -24,7 +24,7 @@ abstract final class AppRoutes {
     final page = switch (settings.name) {
       bedroom => const BedroomPage(),
       menu => const MenuPage(),
-      schedule => const SchedulePage(),
+      schedule => const TaskScheduleHost(),
       gpa => GpaPage(composition: gpaComposition),
       finance => const FinancePage(),
       dashboard => const DashboardPage(),

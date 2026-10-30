@@ -17,8 +17,14 @@ import 'day_schedule_page.dart';
 /// | 未注入 | 已注入 | 读取与写入共用该仓库，不注入演示数据 |
 /// | 未注入 | 未注入 | 内存演示装配，显示“仅存内存”提示并注入演示数据 |
 class SchedulePage extends StatefulWidget {
-  const SchedulePage({super.key, this.loader, this.taskRepository});
+  const SchedulePage({
+    super.key,
+    this.loader,
+    this.taskRepository,
+    this.onRecover,
+  });
 
+  final Future<void> Function()? onRecover;
   final DayScheduleLoader? loader;
   final TaskRepository? taskRepository;
 
@@ -67,5 +73,5 @@ class _SchedulePageState extends State<SchedulePage> {
 
   @override
   Widget build(BuildContext context) =>
-      DaySchedulePage(controller: _controller);
+      DaySchedulePage(controller: _controller, onRecover: widget.onRecover);
 }
