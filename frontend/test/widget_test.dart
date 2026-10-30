@@ -23,7 +23,15 @@ Future<void> tapText(WidgetTester tester, String text) async {
     await tester.pump();
   }
   final target = find.text(text);
-  await tester.ensureVisible(target);
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      target,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await Scrollable.ensureVisible(tester.element(target), alignment: 0.25);
+  await tester.pumpAndSettle();
   await tester.tap(target);
   await tester.pumpAndSettle();
 }

@@ -23,7 +23,9 @@ void main() {
     final font = File('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc');
     if (!await font.exists()) return;
     final bytes = ByteData.sublistView(await font.readAsBytes());
-    for (final family in ['Roboto', 'Arial', 'Segoe UI']) {
+    final icons = await rootBundle.load('fonts/MaterialIcons-Regular.otf');
+    await (FontLoader('MaterialIcons')..addFont(Future.value(icons))).load();
+    for (final family in ['Roboto', 'Arial', 'Segoe UI', 'Ahem']) {
       await (FontLoader(family)..addFont(Future.value(bytes))).load();
     }
   });

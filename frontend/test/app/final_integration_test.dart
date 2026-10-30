@@ -127,6 +127,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Schedule'),
+        80,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Schedule'), findsOneWidget);
       expect(
         tester.getSize(find.byType(Card).first).width,

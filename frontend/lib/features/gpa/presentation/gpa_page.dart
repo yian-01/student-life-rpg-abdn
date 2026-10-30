@@ -130,6 +130,7 @@ class _GpaPageState extends State<GpaPage> {
                       const SizedBox(height: 12),
                       for (final course in controller.courses)
                         Card(
+                          margin: const EdgeInsets.only(bottom: 12),
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Column(
