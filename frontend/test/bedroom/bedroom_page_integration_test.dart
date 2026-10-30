@@ -171,19 +171,26 @@ void main() {
     'Windows hides the mobile joystick and centers controls under scene',
     (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      final movement = PlayerMovementController(start: const Offset(230, 1170));
-      await mount(tester, movement);
-      expect(find.byKey(const Key('movement-joystick')), findsNothing);
-      final background = tester.getRect(
-        find.byKey(const Key('bedroom-background')),
-      );
-      final action = tester.getRect(find.byKey(const Key('menu-interaction')));
-      expect(action.left, greaterThanOrEqualTo(background.left));
-      expect(action.right, lessThanOrEqualTo(background.right));
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      movement.dispose();
+      try {
+        final movement = PlayerMovementController(
+          start: const Offset(230, 1170),
+        );
+        await mount(tester, movement);
+        expect(find.byKey(const Key('movement-joystick')), findsNothing);
+        final background = tester.getRect(
+          find.byKey(const Key('bedroom-background')),
+        );
+        final action = tester.getRect(
+          find.byKey(const Key('menu-interaction')),
+        );
+        expect(action.left, greaterThanOrEqualTo(background.left));
+        expect(action.right, lessThanOrEqualTo(background.right));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        movement.dispose();
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 
