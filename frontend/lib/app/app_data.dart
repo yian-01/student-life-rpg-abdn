@@ -6,12 +6,16 @@ import '../shared/storage/json_document_store.dart';
 
 abstract final class AppData {
   static Future<TaskRepository>? _tasks;
+  static TaskRepository? _injected;
 
-  static Future<TaskRepository> tasks() =>
-      _tasks ??= _openTasks().catchError((Object error) {
-        _tasks = null;
-        throw error;
-      });
+  static Future<TaskRepository> tasks() {
+    final injected = _injected;
+    if (injected != null) return Future.value(injected);
+    return _tasks ??= _openTasks().catchError((Object error) {
+      _tasks = null;
+      throw error;
+    });
+  }
 
   static Future<TaskRepository> _openTasks() async {
     final directory = await getApplicationSupportDirectory();
@@ -24,6 +28,7 @@ abstract final class AppData {
 
   // Tests inject an isolated repository without invoking platform channels.
   static void useTaskRepository(TaskRepository repository) {
-    _tasks = Future.value(repository);
+    _injected = repository;
+    _tasks = null;
   }
 }
