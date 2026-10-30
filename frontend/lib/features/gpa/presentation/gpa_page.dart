@@ -1,3 +1,4 @@
+import '../../../app/module_navigation.dart';
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
@@ -48,6 +49,7 @@ class _GpaPageState extends State<GpaPage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     return Scaffold(
+      bottomNavigationBar: const ModuleNavigation(selectedIndex: 2),
       appBar: AppBar(title: const Text('GPA')),
       body: ModuleBody(
         child: SafeArea(
@@ -65,10 +67,14 @@ class _GpaPageState extends State<GpaPage> {
                   builder: (context, _) => ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      Text('评分上限 ${controller.scoreScaleMax}；由调用方提供'),
+                      Text(
+                        '课程成绩',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 12),
                       if (widget.composition.isDemo)
-                        const Text(
-                          '合成演示数据 · 4.0 演示规则，不代表学校官方 GPA 制度。仅存内存，重启不保留。',
+                        const ModuleNotice(
+                          '合成演示课程 · 4.0 评分规则，非学校官方制度。仅存内存，重启不保留。',
                         ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(

@@ -26,5 +26,15 @@ jobs:
         run: flutter analyze
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed lib test
+      - name: Install fonts for UI review
+        run: sudo apt-get update -qq && sudo apt-get install -y fonts-noto-cjk
       - name: Run tests
         run: flutter test
+
+      - name: Upload mobile UI renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-ui-review
+          path: frontend/build/ui-review/*.png
+          if-no-files-found: warn

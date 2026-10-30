@@ -1,3 +1,4 @@
+import '../../../app/module_navigation.dart';
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
@@ -116,6 +117,7 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
   Widget build(BuildContext context) {
     final schedule = widget.controller.schedule;
     return Scaffold(
+      bottomNavigationBar: const ModuleNavigation(selectedIndex: 1),
       appBar: AppBar(
         title: const Text('Schedule'),
         actions: [
@@ -187,13 +189,10 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
       children: [
         if (widget.onRecover != null)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: Text('任务自动保存在本机。当前日程仅接入任务。'),
-          ),
+          const ModuleNotice('任务自动保存在本机。当前日程仅接入任务。'),
         const _SectionTitle('当天日程'),
         if (schedule.items.isEmpty)
           const _EmptyMessage('今日暂无已排程事项')
@@ -209,7 +208,17 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
         const SizedBox(height: 20),
         const _SectionTitle('未安排任务'),
         if (schedule.unscheduledTasks.isEmpty)
-          const _EmptyMessage('暂无未安排任务')
+          Column(
+            children: [
+              const _EmptyMessage('暂无未安排任务'),
+              if (widget.controller.canEditTasks)
+                TextButton.icon(
+                  onPressed: _adding ? null : _showAddTaskDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('创建第一项任务'),
+                ),
+            ],
+          )
         else
           ...schedule.unscheduledTasks.map(
             (task) => _UnscheduledTaskTile(
@@ -255,26 +264,98 @@ class _DateNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selected = controller.selectedDate;
+    final monday = DateTime(
+      selected.year,
+      selected.month,
+      selected.day - selected.weekday + 1,
+    );
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Column(
         children: [
-          IconButton(
-            tooltip: '前一天',
-            onPressed: controller.isLoading ? null : controller.goToPreviousDay,
-            icon: const Icon(Icons.chevron_left),
+          Row(
+            children: [
+              IconButton(
+                tooltip: '前一天',
+                onPressed: controller.isLoading
+                    ? null
+                    : controller.goToPreviousDay,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: Text(
+                  _formatDate(selected),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: '后一天',
+                onPressed: controller.isLoading ? null : controller.goToNextDay,
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
           ),
-          Expanded(
-            child: Text(
-              _formatDate(controller.selectedDate),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < 7; i++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Material(
+                      color: selected.weekday == i + 1
+                          ? scheme.primary
+                          : scheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: controller.isLoading
+                            ? null
+                            : () => controller.loadDay(
+                                DateTime(
+                                  monday.year,
+                                  monday.month,
+                                  monday.day + i,
+                                ),
+                              ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                const ['一', '二', '三', '四', '五', '六', '日'][i],
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: selected.weekday == i + 1
+                                      ? scheme.onPrimary
+                                      : scheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                '${DateTime(monday.year, monday.month, monday.day + i).day}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: selected.weekday == i + 1
+                                      ? scheme.onPrimary
+                                      : scheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-          IconButton(
-            tooltip: '后一天',
-            onPressed: controller.isLoading ? null : controller.goToNextDay,
-            icon: const Icon(Icons.chevron_right),
           ),
         ],
       ),
@@ -303,9 +384,25 @@ class _EmptyMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Center(child: Text(label, textAlign: TextAlign.center)),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+        child: Row(
+          children: [
+            Icon(
+              Icons.event_available_outlined,
+              size: 28,
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.55),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
