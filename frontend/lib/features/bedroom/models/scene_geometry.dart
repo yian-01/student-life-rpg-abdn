@@ -57,18 +57,25 @@ class SceneGeometry {
     Offset(75, 1385),
   ];
 
-  /// Conservative furniture silhouettes measured against bedroom_world_v1.png.
-  /// These include the furniture's visible height, not just its floor footprint:
-  /// the flattened background cannot occlude a character drawn above it.
-  /// Keep these in this unique world configuration; never scale them for a window.
+  /// Furniture obstacles in world space. Collisions use the ground footprint
+  /// below, not the character's head: a person standing in front of the bed
+  /// naturally draws over its footboard without occupying the bed's floor area.
   static const List<Rect> furnitureObstacles = <Rect>[
-    Rect.fromLTRB(416, 570, 650, 952), // Bed, including footboard.
-    Rect.fromLTRB(293, 650, 443, 765), // Bedside cabinet.
-    Rect.fromLTRB(555, 960, 818, 1420), // Desk, lamp and chair.
+    Rect.fromLTRB(416, 570, 650, 952),
+    Rect.fromLTRB(293, 650, 443, 765),
+    Rect.fromLTRB(555, 960, 818, 1420),
   ];
 
+  /// Ground occupancy relative to the foot, preserving horizontal body clearance
+  /// at the desk without adding the full 195-pixel character height to the bed.
+  static const Rect playerCollisionBounds = Rect.fromLTRB(-43, -14, 44, 8);
+
+  /// Wider floor clearance keeps the sprite visibly off the walls and fence.
+  /// All four corners must lie inside the existing convex floor polygon.
+  static const Rect playerFloorClearance = Rect.fromLTRB(-58, -14, 58, 8);
+
   /// Full sprite rectangle relative to the foot anchor, including transparent
-  /// padding. This deliberately leaves a small visual clearance at furniture.
+  /// padding. Rendering only; this is not the ground collision shape.
   static Rect get playerBodyBounds => Rect.fromLTWH(
     -playerFootAnchor.dx * spriteScale,
     -playerFootAnchor.dy * spriteScale,

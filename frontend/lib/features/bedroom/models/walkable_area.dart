@@ -14,15 +14,26 @@ class WalkableArea {
   const WalkableArea(
     this._polygon, {
     this.bodyBounds = Rect.zero,
+    this.floorBounds = Rect.zero,
     this.obstacles = const <Rect>[],
   });
 
   final Rect bodyBounds;
+  final Rect floorBounds;
   final List<Rect> obstacles;
 
   /// Floor membership and sprite/furniture collision are distinct checks.
   bool canOccupy(Offset foot) {
     if (!foot.dx.isFinite || !foot.dy.isFinite || !contains(foot)) return false;
+    final floor = floorBounds.shift(foot);
+    if (![
+      floor.topLeft,
+      floor.topRight,
+      floor.bottomLeft,
+      floor.bottomRight,
+    ].every(contains)) {
+      return false;
+    }
     final body = bodyBounds.shift(foot);
     return !obstacles.any(body.overlaps);
   }

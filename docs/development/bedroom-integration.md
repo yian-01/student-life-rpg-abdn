@@ -33,18 +33,17 @@ This change connects the bedroom scene only. Task JSON application-data-path wir
 
 ## Visual acceptance correction (2026-10-30)
 
-Native screenshot review found that a legal foot position could still put the
-rendered body over the bed or desk. Movement now checks the complete sprite
-rectangle against conservative world-space furniture silhouettes stored only
-in SceneGeometry. The original polygon remains the floor constraint. All three
-input adapters and initial positions use the same occupancy check. Obstacles
-include the visible height of the bed, cabinet, desk/lamp and chair because the
-background is a single flattened image; there is no foreground occlusion layer.
-This conservative solution may leave extra clearance rather than supporting
-walking behind furniture. Resize never changes these world-space bounds.
+The first full-sprite collision correction removed furniture overlap but added
+an unnatural head-height gap at the bed. The current correction separates three
+shapes: the sprite rectangle for rendering, a shallow ground footprint for
+furniture collision, and a wider clearance rectangle whose four corners must
+remain in the existing convex floor polygon. Both initial positions and every
+movement substep use these checks. This keeps people off the walls while letting
+them stand naturally in front of the bed; upper-body overlap with the footboard
+is expected perspective, not walking through the furniture. Furniture bounds
+and all three shapes remain in the unique SceneGeometry world configuration.
 
-The HUD now uses a compact dark panel, gold border/progress, a shared level/EXP
-row and a 232 logical-pixel maximum width. It remains unscaled at sceneRect's
-fixed logical margin, with scrolling for enlarged text or tiny viewports. The
-application chrome and letterboxing use matching dark colors. Data is still
-explicitly marked as demonstration data. Native visual acceptance is pending.
+The HUD uses a dark/gold panel at sceneRect's top-left fixed logical margin,
+now capped at 156 logical pixels rather than spreading across the scene top.
+It remains unscaled and scrollable for large text or tiny viewports. Data remains
+explicitly labelled demonstration data. Native visual acceptance is pending.

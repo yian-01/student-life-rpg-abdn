@@ -87,9 +87,7 @@ void main() {
   testWidgets(
     'navigation failure is rendered and button retries successfully',
     (tester) async {
-      final movement = PlayerMovementController(
-        start: SceneGeometry.menuInteractionPoint,
-      );
+      final movement = PlayerMovementController(start: const Offset(230, 1170));
       late InteractionController controller;
       var attempts = 0;
       final pop = Completer<void>();
@@ -129,7 +127,7 @@ void main() {
       '${keyboard ? 'E key' : 'touch/button'} waits for actual Navigator pop and preserves movement',
       (tester) async {
         final movement = PlayerMovementController(
-          start: SceneGeometry.menuInteractionPoint,
+          start: const Offset(230, 1170),
         );
         late InteractionController controller;
         await tester.pumpWidget(

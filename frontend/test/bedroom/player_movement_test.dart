@@ -34,9 +34,9 @@ void main() {
     });
   });
 
-  group('sprite and furniture regression', () {
-    test('feet on floor do not permit a body inside the desk or bed', () {
-      for (final foot in [const Offset(550, 1200), const Offset(500, 1060)]) {
+  group('ground footprint and wall clearance regression', () {
+    test('feet on raw floor do not permit furniture or wall penetration', () {
+      for (final foot in [const Offset(550, 1200), const Offset(500, 960)]) {
         expect(
           WalkableArea(SceneGeometry.walkablePolygon).contains(foot),
           isTrue,
@@ -49,7 +49,7 @@ void main() {
     });
 
     test(
-      'all movement directions keep the whole sprite clear of furniture',
+      'all directions keep ground occupancy clear of furniture and walls',
       () {
         for (final direction in [
           const Offset(1, 0),
@@ -65,15 +65,50 @@ void main() {
           controller.setMoveDirection(direction);
           for (var frame = 0; frame < 400; frame++) {
             controller.update(0.05);
-            final body = SceneGeometry.playerBodyBounds.shift(
+            final body = SceneGeometry.playerCollisionBounds.shift(
               controller.footPosition,
             );
+            final floor = SceneGeometry.playerFloorClearance.shift(
+              controller.footPosition,
+            );
+            final area = WalkableArea(SceneGeometry.walkablePolygon);
+            for (final corner in [
+              floor.topLeft,
+              floor.topRight,
+              floor.bottomLeft,
+              floor.bottomRight,
+            ]) {
+              expect(area.contains(corner), isTrue);
+            }
             for (final furniture in SceneGeometry.furnitureObstacles) {
               expect(body.overlaps(furniture), isFalse);
             }
           }
           controller.dispose();
         }
+      },
+    );
+
+    test(
+      'can stand immediately in front of the bed without a head-height gap',
+      () {
+        final controller = PlayerMovementController(
+          start: const Offset(480, 990),
+        );
+        controller.setMoveDirection(const Offset(0, -1));
+        for (var i = 0; i < 100; i++) {
+          controller.update(0.05);
+        }
+        expect(controller.footPosition.dy, lessThan(990));
+        expect(controller.footPosition.dy, greaterThanOrEqualTo(974));
+        // Upper body can visually overlap the footboard while feet remain in front.
+        expect(
+          SceneGeometry.playerBodyBounds
+              .shift(controller.footPosition)
+              .overlaps(SceneGeometry.furnitureObstacles.first),
+          isTrue,
+        );
+        controller.dispose();
       },
     );
 
@@ -179,7 +214,7 @@ void main() {
     });
 
     test('沿边滑动：书桌左侧右下输入不越界', () {
-      final c = PlayerMovementController(start: const Offset(500, 1200));
+      final c = PlayerMovementController(start: const Offset(488, 1200));
       c.setPressedKeys({MoveDirection.right, MoveDirection.down});
       final area = WalkableArea(SceneGeometry.walkablePolygon);
       for (var i = 0; i < 5; i++) {
@@ -189,7 +224,7 @@ void main() {
     });
 
     test('角落压迫：右下角 50 步始终不越界，且不超出 x<=550、y<=1385', () {
-      final c = PlayerMovementController(start: const Offset(500, 1370));
+      final c = PlayerMovementController(start: const Offset(488, 1370));
       c.setPressedKeys({MoveDirection.right, MoveDirection.down});
       final area = WalkableArea(SceneGeometry.walkablePolygon);
       for (var i = 0; i < 50; i++) {
@@ -357,12 +392,12 @@ void main() {
         const Offset(300, 1200),
       ); // 内部
       expect(
-        PlayerMovementController(start: const Offset(498, 1200)).footPosition,
-        const Offset(498, 1200),
+        PlayerMovementController(start: const Offset(488, 1200)).footPosition,
+        const Offset(488, 1200),
       ); // 书桌左侧安全点
       expect(
-        PlayerMovementController(start: const Offset(75, 1385)).footPosition,
-        const Offset(75, 1385),
+        PlayerMovementController(start: const Offset(150, 1370)).footPosition,
+        const Offset(150, 1370),
       ); // 顶点 P5
     });
   });

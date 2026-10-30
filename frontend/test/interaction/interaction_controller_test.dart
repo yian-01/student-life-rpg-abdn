@@ -17,7 +17,7 @@ InteractionTarget menuTarget() => InteractionTarget(
 // The real dependency's input methods do not assert after disposal. This spy
 // makes late access observable rather than accepting a falsely passing test.
 class TrackedMovement extends PlayerMovementController {
-  TrackedMovement() : super(start: SceneGeometry.menuInteractionPoint);
+  TrackedMovement() : super(start: const Offset(230, 1170));
   bool disposed = false;
   int lateCalls = 0;
   int resumes = 0;
@@ -69,9 +69,7 @@ void main() {
   test(
     'ten triggers stay locked until pop; return keeps position and clears input',
     () async {
-      final movement = PlayerMovementController(
-        start: SceneGeometry.menuInteractionPoint,
-      );
+      final movement = PlayerMovementController(start: const Offset(230, 1170));
       final visits = <Completer<void>>[];
       final controller = InteractionController(
         movement: movement,
@@ -118,7 +116,7 @@ void main() {
       'navigation error ($synchronous synchronous) is visible and retryable',
       () async {
         final movement = PlayerMovementController(
-          start: SceneGeometry.menuInteractionPoint,
+          start: const Offset(230, 1170),
         );
         final failure = StateError('Navigation unavailable');
         var attempts = 0;
@@ -184,9 +182,7 @@ void main() {
   test(
     'dispose detaches listener but leaves external movement usable',
     () async {
-      final movement = PlayerMovementController(
-        start: SceneGeometry.menuInteractionPoint,
-      );
+      final movement = PlayerMovementController(start: const Offset(230, 1170));
       final controller = InteractionController(
         movement: movement,
         target: menuTarget(),
@@ -259,9 +255,7 @@ void main() {
   test(
     'local pointer ignores letterbox, non-target and right/bottom boundaries',
     () async {
-      final movement = PlayerMovementController(
-        start: SceneGeometry.menuInteractionPoint,
-      );
+      final movement = PlayerMovementController(start: const Offset(230, 1170));
       var count = 0;
       final controller = InteractionController(
         movement: movement,

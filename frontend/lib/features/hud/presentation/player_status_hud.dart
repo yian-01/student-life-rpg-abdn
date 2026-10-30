@@ -13,7 +13,7 @@ class PlayerStatusHud extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.min(constraints.maxWidth, 232.0);
+        final width = math.min(constraints.maxWidth, 156.0);
         if (!width.isFinite || width <= 0 || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
         }

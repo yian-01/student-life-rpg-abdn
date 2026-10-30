@@ -24,7 +24,7 @@ enum MoveDirection { up, down, left, right }
 ///  - [update] 的 dt 拒绝负值/非有限值（抛 [ArgumentError]），上限 0.05s
 ///    （超出截断）；dt=0 为合法空操作；
 ///  - 位移经 [WalkableArea.resolveMove] 拆 <=2px 子步并沿边滑动；
-///    脚底检查地板，完整精灵矩形检查家具；窗口缩放不影响移动（全部在 world 坐标进行）。
+///    脚底检查地板，地面占位检查家具，四角检查墙边余量；窗口缩放不影响移动（全部在 world 坐标进行）。
 ///
 /// Menu 进出与返回规则（复审意见 4）：
 ///  - 进入 Menu 前调 [pauseForMenu]：暂停更新并清输入，**位置保留**；
@@ -60,7 +60,8 @@ class PlayerMovementController extends ChangeNotifier {
 
   static final WalkableArea _area = WalkableArea(
     SceneGeometry.walkablePolygon,
-    bodyBounds: SceneGeometry.playerBodyBounds,
+    bodyBounds: SceneGeometry.playerCollisionBounds,
+    floorBounds: SceneGeometry.playerFloorClearance,
     obstacles: SceneGeometry.furnitureObstacles,
   );
 

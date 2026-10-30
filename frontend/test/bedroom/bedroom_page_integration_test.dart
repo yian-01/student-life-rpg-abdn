@@ -122,9 +122,7 @@ void main() {
   testWidgets('letterbox tap is ignored; nearby scene target opens Menu', (
     tester,
   ) async {
-    final movement = PlayerMovementController(
-      start: SceneGeometry.menuInteractionPoint,
-    );
+    final movement = PlayerMovementController(start: const Offset(230, 1170));
     await mount(tester, movement);
     final viewport = tester.getRect(find.byKey(const Key('scene-viewport')));
     final transform = SceneTransform.fit(viewport.width, viewport.height);
@@ -209,9 +207,7 @@ void main() {
     tester.view.physicalSize = const Size(240, 320);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final movement = PlayerMovementController(
-      start: SceneGeometry.menuInteractionPoint,
-    );
+    final movement = PlayerMovementController(start: const Offset(230, 1170));
     await tester.pumpWidget(
       MaterialApp(
         builder: (context, child) => MediaQuery(
