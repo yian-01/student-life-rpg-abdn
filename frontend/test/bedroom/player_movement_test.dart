@@ -151,6 +151,29 @@ void main() {
     });
   });
 
+  group('perspective wall following', () {
+    test('W and S follow a sloping wall without sticking or crossing it', () {
+      final controller = PlayerMovementController(
+        start: const Offset(223, 1160),
+      );
+      final start = controller.footPosition;
+      controller.setPressedKeys({MoveDirection.up});
+      for (var i = 0; i < 20; i++) {
+        controller.update(0.05);
+      }
+      final top = controller.footPosition;
+      expect(top.dy, lessThan(start.dy - 100));
+      expect(top.dx, greaterThan(start.dx + 30));
+      expect((top - start).distance, lessThanOrEqualTo(120));
+      controller.setPressedKeys({MoveDirection.down});
+      for (var i = 0; i < 20; i++) {
+        controller.update(0.05);
+      }
+      expect((controller.footPosition - start).distance, lessThan(1e-6));
+      controller.dispose();
+    });
+  });
+
   group('统一移动入口 setMoveDirection（复审意见 3）', () {
     test('非有限分量抛 ArgumentError', () {
       final c = PlayerMovementController();

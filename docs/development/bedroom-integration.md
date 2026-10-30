@@ -52,3 +52,17 @@ The floor envelope now extends to y=780 beside the bed, ending below the
 bedside cabinet. Furniture still excludes the bed from that envelope. A new
 regression walks from spawn up this aisle, then attempts to move into the bed.
 HUD text/padding/progress spacing were reduced with the 128-pixel width cap.
+
+## Platform controls and wall following
+
+Desktop hides the mobile joystick and centers the keyboard hint/door action
+under the scene. Android/iOS retain the touch joystick in a bounded strip under
+the scene. Platform visibility has a Windows widget regression; Android native
+placement still requires device acceptance.
+
+Vertical input within two world pixels of a sloping floor edge projects onto
+that edge's tangent. W and S follow the same perspective wall line in opposite
+directions without moving through it. Projected speed never exceeds requested
+speed. Away from contact the original world axes are unchanged; geometry and
+input/pointer conversions are not warped. All projected substeps still pass
+floor clearance and furniture occupancy checks.

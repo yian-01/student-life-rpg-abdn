@@ -74,6 +74,44 @@ class WalkableArea {
     return inside;
   }
 
+  /// Follow a nearby sloping floor edge for vertical input. Projection onto its
+  /// tangent preserves the wall distance for both W and S; it never exceeds the
+  /// requested step length. Every candidate still passes full occupancy checks.
+  Offset? _verticalWallSlide(Offset position, Offset step) {
+    if (step.dx.abs() > 1e-9 || step.dy.abs() < 1e-9) return null;
+    final floor = floorBounds.shift(position);
+    final corners = [
+      floor.topLeft,
+      floor.topRight,
+      floor.bottomLeft,
+      floor.bottomRight,
+    ];
+    Offset? best;
+    var nearest = maxSubstepLength + 1e-9;
+    for (var i = 0; i < _polygon.length; i++) {
+      final a = _polygon[i];
+      final edge = _polygon[(i + 1) % _polygon.length] - a;
+      if (edge.dx.abs() < 1e-9 || edge.dy.abs() < 1e-9) continue;
+      final lengthSquared = edge.distanceSquared;
+      for (final corner in corners) {
+        final relative = corner - a;
+        final along =
+            ((relative.dx * edge.dx + relative.dy * edge.dy) / lengthSquared)
+                .clamp(0.0, 1.0);
+        final distance = (corner - (a + edge * along)).distance;
+        if (distance > nearest) continue;
+        final tangent = edge / edge.distance;
+        final slide = tangent * (step.dx * tangent.dx + step.dy * tangent.dy);
+        final candidate = position + slide;
+        if (slide.distance > 1e-9 && canOccupy(candidate)) {
+          nearest = distance;
+          best = candidate;
+        }
+      }
+    }
+    return best;
+  }
+
   /// 将 [from] 按 [delta] 移动，返回解算后的脚底世界坐标。
   ///
   /// 每个 <= [maxSubstepLength] 的子步依次尝试：整步 -> x-only -> y-only；
@@ -85,6 +123,11 @@ class WalkableArea {
     final step = delta / steps.toDouble();
     var pos = from;
     for (var i = 0; i < steps; i++) {
+      final wallSlide = _verticalWallSlide(pos, step);
+      if (wallSlide != null) {
+        pos = wallSlide;
+        continue;
+      }
       final next = pos + step;
       if (canOccupy(next)) {
         pos = next;

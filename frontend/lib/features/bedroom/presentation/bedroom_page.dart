@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
@@ -197,70 +199,96 @@ class _BedroomPageState extends State<BedroomPage>
             child: ListenableBuilder(
               listenable: _interaction,
               builder: (context, _) => LayoutBuilder(
-                builder: (context, constraints) => Column(
-                  children: [
-                    Expanded(
-                      child: SceneViewport(
-                        footPosition: _movement.footPosition,
-                        hud: _hud,
-                        onSceneTap: (local, transform) {
-                          if (!_acceptsInput) return;
-                          _focus.requestFocus();
-                          unawaited(
-                            _interaction.triggerAtLocalPosition(
-                              localPosition: local,
-                              transform: transform,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      height: math.min(144, constraints.maxHeight * 0.4),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            MovementJoystick(
-                              enabled: _acceptsInput,
-                              onChanged: _onJoystick,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'WASD / 方向键，或拖动摇杆移动',
-                                    style: const TextStyle(
-                                      color: Color(0xFFAFBDB8),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  if (_interaction.canInteract)
-                                    FilledButton(
-                                      key: const Key('menu-interaction'),
-                                      onPressed:
-                                          _interaction.triggerInteraction,
-                                      child: const Text('进入菜单'),
-                                    )
-                                  else
-                                    const Text('靠近左侧 Menu 门后按 E 或点击进入'),
-                                  if (_interaction.error != null)
-                                    const Text('导航失败，请靠近门后重试'),
-                                ],
+                builder: (context, constraints) {
+                  final touchControls =
+                      defaultTargetPlatform == TargetPlatform.android ||
+                      defaultTargetPlatform == TargetPlatform.iOS;
+                  final controlHeight = math.min(
+                    touchControls ? 112.0 : 72.0,
+                    constraints.maxHeight * 0.4,
+                  );
+                  final sceneWidth =
+                      (constraints.maxHeight - controlHeight) *
+                      SceneGeometry.worldWidth /
+                      SceneGeometry.worldHeight;
+                  final controlWidth = math.min(
+                    constraints.maxWidth,
+                    math.max(sceneWidth, touchControls ? 240.0 : 200.0),
+                  );
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: SceneViewport(
+                          footPosition: _movement.footPosition,
+                          hud: _hud,
+                          onSceneTap: (local, transform) {
+                            if (!_acceptsInput) return;
+                            _focus.requestFocus();
+                            unawaited(
+                              _interaction.triggerAtLocalPosition(
+                                localPosition: local,
+                                transform: transform,
                               ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: controlWidth,
+                          height: controlHeight,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                if (touchControls) ...[
+                                  MovementJoystick(
+                                    enabled: _acceptsInput,
+                                    onChanged: _onJoystick,
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                                Expanded(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        touchControls
+                                            ? '拖动摇杆移动'
+                                            : 'WASD / 方向键移动 · E 交互',
+                                        style: const TextStyle(
+                                          color: Color(0xFFAFBDB8),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      if (_interaction.canInteract)
+                                        FilledButton(
+                                          key: const Key('menu-interaction'),
+                                          onPressed:
+                                              _interaction.triggerInteraction,
+                                          child: const Text('进入菜单'),
+                                        )
+                                      else
+                                        const Text('靠近左侧 Menu 门后按 E 或点击进入'),
+                                      if (_interaction.error != null)
+                                        const Text('导航失败，请靠近门后重试'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),

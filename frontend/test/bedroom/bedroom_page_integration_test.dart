@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
@@ -164,6 +166,26 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     movement.dispose();
   });
+
+  testWidgets(
+    'Windows hides the mobile joystick and centers controls under scene',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final movement = PlayerMovementController(start: const Offset(230, 1170));
+      await mount(tester, movement);
+      expect(find.byKey(const Key('movement-joystick')), findsNothing);
+      final background = tester.getRect(
+        find.byKey(const Key('bedroom-background')),
+      );
+      final action = tester.getRect(find.byKey(const Key('menu-interaction')));
+      expect(action.left, greaterThanOrEqualTo(background.left));
+      expect(action.right, lessThanOrEqualTo(background.right));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      movement.dispose();
+    },
+  );
 
   testWidgets('focus loss clears held keyboard input', (tester) async {
     final movement = PlayerMovementController();
