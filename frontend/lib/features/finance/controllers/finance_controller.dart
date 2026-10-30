@@ -42,6 +42,7 @@ class FinanceController extends ChangeNotifier {
   List<FinanceCategory> _availableCategories = const [];
   int _loadToken = 0;
   int _recordSeq = 0;
+  bool _disposed = false;
 
   DateTime get month => _month;
   bool get isLoading => _isLoading;
@@ -52,6 +53,7 @@ class FinanceController extends ChangeNotifier {
   List<String> get diagnostics => _service.diagnostics;
 
   Future<void> load({DateTime? month}) async {
+    if (_disposed) return;
     if (month != null) {
       requireLocalDateTime(month, 'month');
       _month = DateTime(month.year, month.month);
@@ -68,8 +70,10 @@ class FinanceController extends ChangeNotifier {
     required String amountText,
     String? note,
   }) async {
+    if (_disposed) return;
     try {
       final category = await _categories.getById(categoryId);
+      if (_disposed) return;
       if (category == null) {
         _fail(StateError('Unknown finance category: $categoryId'));
         return;
@@ -99,6 +103,7 @@ class FinanceController extends ChangeNotifier {
   }
 
   void _fail(Object error) {
+    if (_disposed) return;
     _error = error;
     notifyListeners();
   }
@@ -110,21 +115,23 @@ class FinanceController extends ChangeNotifier {
   }
 
   Future<void> _loadCurrent() async {
+    if (_disposed) return;
+    final requestedMonth = _month;
     final token = ++_loadToken;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final summary = await _service.loadMonth(_month);
+      final summary = await _service.loadMonth(requestedMonth);
       final categories = await _categories.list();
       final monthRecords =
           (await _records.list())
               .where(
                 (record) =>
-                    !record.occurredAt.isBefore(_month) &&
+                    !record.occurredAt.isBefore(requestedMonth) &&
                     record.occurredAt.isBefore(
-                      DateTime(_month.year, _month.month + 1),
+                      DateTime(requestedMonth.year, requestedMonth.month + 1),
                     ),
               )
               .toList()
@@ -133,22 +140,29 @@ class FinanceController extends ChangeNotifier {
               return byTime != 0 ? byTime : a.id.compareTo(b.id);
             });
 
-      if (token != _loadToken) {
+      if (_disposed || token != _loadToken) {
         return;
       }
       _summary = summary;
-      _availableCategories = categories;
-      _monthRecords = monthRecords;
+      _availableCategories = List.unmodifiable(categories);
+      _monthRecords = List.unmodifiable(monthRecords);
       _isLoading = false;
       _error = null;
       notifyListeners();
     } catch (error) {
-      if (token != _loadToken) {
+      if (_disposed || token != _loadToken) {
         return;
       }
       _isLoading = false;
       _error = error;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _loadToken++;
+    super.dispose();
   }
 }

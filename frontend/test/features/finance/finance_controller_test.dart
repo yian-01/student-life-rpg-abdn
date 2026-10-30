@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/features/finance/controllers/finance_controller.dart';
 import 'package:student_life_rpg/features/finance/models/finance_category.dart';
@@ -70,6 +72,8 @@ void main() {
     await controller.load();
   });
 
+  tearDown(() => controller.dispose());
+
   test(
     'category lookup failure is reported through error, not thrown',
     () async {
@@ -134,6 +138,7 @@ void main() {
       clock: () =>
           brokenClock ? DateTime.utc(2026, 10, 15) : DateTime(2026, 10, 15, 12),
     );
+    addTearDown(broken.dispose);
     brokenClock = true;
     await broken.load();
     await expectLater(
@@ -144,4 +149,71 @@ void main() {
     expect(broken.error, isArgumentError);
     expect(broken.monthRecords, isEmpty);
   });
+  test('dispose during load ignores late completion', () async {
+    final budget = Completer<int?>();
+    final pendingController = FinanceController(
+      records: records,
+      categories: categories,
+      service: FinanceSummaryService(
+        records: records,
+        categories: categories,
+        loadBudget: (_) => budget.future,
+      ),
+      clock: () => DateTime(2026, 10, 15),
+    );
+    var notifications = 0;
+    pendingController.addListener(() => notifications++);
+    final pending = pendingController.load();
+    expect(notifications, 1);
+    pendingController.dispose();
+    budget.complete(null);
+    await expectLater(pending, completes);
+    expect(notifications, 1);
+    expect(pendingController.summary, isNull);
+  });
+
+  test(
+    'only latest month updates state and exposed lists are immutable',
+    () async {
+      final budgets = <int, Completer<int?>>{};
+      final entered = <int, Completer<void>>{
+        9: Completer<void>(),
+        10: Completer<void>(),
+      };
+      final pendingController = FinanceController(
+        records: records,
+        categories: categories,
+        service: FinanceSummaryService(
+          records: records,
+          categories: categories,
+          loadBudget: (month) {
+            final budget = Completer<int?>();
+            budgets[month.month] = budget;
+            entered[month.month]!.complete();
+            return budget.future;
+          },
+        ),
+        clock: () => DateTime(2026, 10, 15),
+      );
+      addTearDown(pendingController.dispose);
+      final older = pendingController.load(month: DateTime(2026, 9));
+      await entered[9]!.future;
+      final newer = pendingController.load(month: DateTime(2026, 10));
+      await entered[10]!.future;
+      budgets[10]!.complete(1000);
+      await newer;
+      budgets[9]!.complete(900);
+      await older;
+      expect(pendingController.summary!.month, DateTime(2026, 10));
+      expect(pendingController.summary!.budgetMinor, 1000);
+      expect(
+        () => pendingController.monthRecords.clear(),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => pendingController.availableCategories.clear(),
+        throwsUnsupportedError,
+      );
+    },
+  );
 }

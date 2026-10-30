@@ -38,7 +38,7 @@ class _FinancePageState extends State<FinancePage> {
     }
     _controller.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.load();
+      if (mounted) _controller.load();
     });
   }
 
@@ -124,6 +124,7 @@ class _FinancePageState extends State<FinancePage> {
                             amountText: _amountController.text,
                             note: _noteController.text,
                           );
+                          if (!mounted) return;
                           if (_controller.error == null) {
                             _amountController.clear();
                             _noteController.clear();
