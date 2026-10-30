@@ -79,6 +79,16 @@ void main() {
             child: StudentLifeApp(initialRoute: route),
           ),
         );
+        await tester.runAsync(() async {
+          final context = tester.element(find.byType(StudentLifeApp));
+          for (final asset in [
+            'assets/images/bedroom_world_v1.png',
+            'assets/images/campus_hall_v1.png',
+            'assets/images/player_idle_down.png',
+          ]) {
+            await precacheImage(AssetImage(asset), context);
+          }
+        });
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         final navigator = find.byType(Navigator).first;
@@ -99,6 +109,21 @@ void main() {
                     : 'bedroom-background',
               ),
             ),
+          );
+          final backgroundImage = find.descendant(
+            of: find.byKey(
+              Key(
+                route == AppRoutes.menu
+                    ? 'hall-background'
+                    : 'bedroom-background',
+              ),
+            ),
+            matching: find.byType(RawImage),
+          );
+          expect(
+            tester.widget<RawImage>(backgroundImage).image,
+            isNotNull,
+            reason: 'Review captures must contain decoded room artwork',
           );
           expect(background.left, lessThanOrEqualTo(viewport.left + 0.01));
           expect(background.right, greaterThanOrEqualTo(viewport.right - 0.01));
