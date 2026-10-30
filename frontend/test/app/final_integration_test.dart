@@ -109,7 +109,7 @@ void main() {
     const Size(390, 844),
     const Size(1600, 900),
   ]) {
-    testWidgets('Menu cards fit $size with enlarged text', (tester) async {
+    testWidgets('Hall doors fit $size with enlarged text', (tester) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -127,17 +127,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Schedule'),
-        80,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Schedule'), findsOneWidget);
-      expect(
-        tester.getSize(find.byType(Card).first).width,
-        lessThanOrEqualTo(452),
-      );
+      for (final id in ['schedule', 'gpa', 'finance', 'dashboard']) {
+        expect(find.byKey(Key('door-$id')), findsOneWidget);
+      }
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(AppBar), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

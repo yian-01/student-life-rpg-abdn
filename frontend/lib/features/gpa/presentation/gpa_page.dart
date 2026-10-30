@@ -1,4 +1,3 @@
-import '../../../app/module_navigation.dart';
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
@@ -49,8 +48,7 @@ class _GpaPageState extends State<GpaPage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     return Scaffold(
-      bottomNavigationBar: const ModuleNavigation(selectedIndex: 2),
-      appBar: AppBar(title: const Text('GPA')),
+      appBar: AppBar(title: const Text('学业档案')),
       body: ModuleBody(
         child: SafeArea(
           child: controller == null

@@ -1,4 +1,3 @@
-import '../../../app/module_navigation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_data.dart';
@@ -105,9 +104,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    bottomNavigationBar: const ModuleNavigation(selectedIndex: 4),
     appBar: AppBar(
-      title: const Text('Dashboard'),
+      title: const Text('生活总览'),
       actions: [
         IconButton(
           tooltip: '刷新总览',

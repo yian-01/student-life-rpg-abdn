@@ -1,4 +1,3 @@
-import '../../../app/module_navigation.dart';
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
@@ -117,9 +116,8 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
   Widget build(BuildContext context) {
     final schedule = widget.controller.schedule;
     return Scaffold(
-      bottomNavigationBar: const ModuleNavigation(selectedIndex: 1),
       appBar: AppBar(
-        title: const Text('Schedule'),
+        title: const Text('日程手账'),
         actions: [
           if (widget.onRecover != null)
             IconButton(

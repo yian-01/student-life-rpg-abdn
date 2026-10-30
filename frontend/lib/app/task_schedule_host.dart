@@ -68,7 +68,7 @@ class _TaskScheduleHostState extends State<TaskScheduleHost> {
         );
       }
       return Scaffold(
-        appBar: AppBar(title: const Text('Schedule')),
+        appBar: AppBar(title: const Text('日程手账')),
         body: Center(
           child: snapshot.hasError
               ? TextButton(

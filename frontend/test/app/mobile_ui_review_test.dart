@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_data.dart';
+import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/app/app_viewport.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
@@ -36,6 +37,7 @@ void main() {
   tearDown(FinanceMemoryScope.resetShared);
 
   final cases = <(String, String, Size)>[
+    ('bedroom-390', AppRoutes.bedroom, const Size(390, 844)),
     ('menu-360', AppRoutes.menu, const Size(360, 800)),
     ('menu-390', AppRoutes.menu, const Size(390, 844)),
     ('menu-430', AppRoutes.menu, const Size(430, 932)),
@@ -84,8 +86,33 @@ void main() {
           tester.getSize(navigator).width,
           math.min(AppViewport.maxWidth, size.width),
         );
-        final bar = find.byType(AppBar).first;
-        expect(tester.getSize(bar).width, lessThanOrEqualTo(430));
+        if (route == AppRoutes.menu || route == AppRoutes.bedroom) {
+          expect(find.byType(AppBar), findsNothing);
+          final viewport = tester.getRect(
+            find.byKey(const Key('scene-viewport')),
+          );
+          final background = tester.getRect(
+            find.byKey(
+              Key(
+                route == AppRoutes.menu
+                    ? 'hall-background'
+                    : 'bedroom-background',
+              ),
+            ),
+          );
+          expect(background.left, lessThanOrEqualTo(viewport.left + 0.01));
+          expect(background.right, greaterThanOrEqualTo(viewport.right - 0.01));
+          expect(background.top, lessThanOrEqualTo(viewport.top + 0.01));
+          expect(
+            background.bottom,
+            greaterThanOrEqualTo(viewport.bottom - 0.01),
+          );
+        } else {
+          expect(
+            tester.getSize(find.byType(AppBar).first).width,
+            lessThanOrEqualTo(430),
+          );
+        }
         final boundary =
             key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         await tester.runAsync(() async {
@@ -135,22 +162,23 @@ void main() {
     },
   );
 
-  testWidgets('bottom navigation switches modules without growing the stack', (
+  testWidgets('hall has four guarded doors and no app-style navigation', (
     tester,
   ) async {
     await tester.pumpWidget(const StudentLifeApp(initialRoute: AppRoutes.menu));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.event_note_outlined).last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('学业'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('手册'));
-    await tester.pumpAndSettle();
-    expect(find.text('我的校园'), findsOneWidget);
+    expect(find.byType(MenuPage), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    for (final id in ['schedule', 'gpa', 'finance', 'dashboard']) {
+      await tester.tap(find.byKey(Key('door-$id')));
+      await tester.pumpAndSettle();
+      expect(find.byType(MenuPage), findsOneWidget);
+    }
     expect(
       tester.state<NavigatorState>(find.byType(Navigator)).canPop(),
       isFalse,
     );
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 }

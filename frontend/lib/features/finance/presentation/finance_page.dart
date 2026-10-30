@@ -1,4 +1,3 @@
-import '../../../app/module_navigation.dart';
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
@@ -71,8 +70,7 @@ class _FinancePageState extends State<FinancePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: const ModuleNavigation(selectedIndex: 3),
-      appBar: AppBar(title: const Text('Finance')),
+      appBar: AppBar(title: const Text('生活账本')),
       body: ModuleBody(
         child: SafeArea(
           child: LayoutBuilder(

@@ -8,6 +8,7 @@ import '../features/gpa/composition/gpa_composition.dart';
 import '../features/menu/presentation/menu_page.dart';
 import 'unknown_route_page.dart';
 import 'task_schedule_host.dart';
+import 'game_panel_frame.dart';
 
 abstract final class AppRoutes {
   static const bedroom = '/bedroom';
@@ -30,6 +31,11 @@ abstract final class AppRoutes {
       dashboard => const DashboardPage(),
       _ => UnknownRoutePage(routeName: settings.name),
     };
-    return MaterialPageRoute<void>(settings: settings, builder: (_) => page);
+    return MaterialPageRoute<void>(
+      settings: settings,
+      builder: (_) => settings.name == bedroom || settings.name == menu
+          ? page
+          : GamePanelFrame(child: page),
+    );
   }
 }
