@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
+import 'package:student_life_rpg/features/rooms/models/room_spec.dart';
+import 'package:student_life_rpg/features/rooms/presentation/room_scene_page.dart';
+import 'package:student_life_rpg/app/app_data.dart';
+import 'package:student_life_rpg/features/schedule/repositories/in_memory_task_repository.dart';
+import 'package:student_life_rpg/features/dashboard/presentation/dashboard_page.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
 import 'package:student_life_rpg/features/bedroom/presentation/bedroom_page.dart';
 import 'package:student_life_rpg/features/finance/presentation/finance_page.dart';
@@ -10,7 +15,7 @@ import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
 import 'package:student_life_rpg/features/schedule/presentation/day_schedule_page.dart';
 
 Future<void> tapText(WidgetTester tester, String text) async {
-  if (text == '进入菜单' && find.text(text).evaluate().isEmpty) {
+  if (text == '进入校园大厅' && find.text(text).evaluate().isEmpty) {
     // Exercise the real bedroom input adapter, rather than bypassing the door.
     await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
     for (var i = 0; i < 20; i++) {
@@ -19,15 +24,66 @@ Future<void> tapText(WidgetTester tester, String text) async {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
     await tester.pump();
   }
+  final module = {
+    'Schedule': 'schedule',
+    'GPA': 'gpa',
+    'Finance': 'finance',
+    'Dashboard': 'dashboard',
+  }[text];
+  if (module != null && find.byType(MenuPage).evaluate().isNotEmpty) {
+    final scene = tester.state<RoomScenePageState>(find.byType(RoomScenePage));
+    final door = RoomSpec.hall.doors.firstWhere((door) => door.id == module);
+    for (
+      var i = 0;
+      i < 500 && (scene.movement.footPosition - door.point).distance > 16;
+      i++
+    ) {
+      scene.movement.setMoveDirection(door.point - scene.movement.footPosition);
+      scene.movement.update(.05);
+    }
+    scene.movement.clearInput();
+    await tester.pump();
+    expect(
+      (scene.movement.footPosition - door.point).distance,
+      lessThan(door.radius),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+    await tester.pumpAndSettle();
+    return;
+  }
   final target = find.text(text);
-  await tester.ensureVisible(target);
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      target,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+  await Scrollable.ensureVisible(tester.element(target), alignment: 0.25);
+  await tester.pumpAndSettle();
   await tester.tap(target);
   await tester.pumpAndSettle();
 }
 
 void expectTitle(String title) {
+  if (title == 'Student Life RPG' || title == 'Menu') {
+    expect(find.text(title == 'Menu' ? '校园大厅' : '我的卧室'), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing);
+    return;
+  }
   expect(
-    find.descendant(of: find.byType(AppBar), matching: find.text(title)),
+    find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text(
+        const {
+              'Schedule': '日程手账',
+              'GPA': '学业档案',
+              'Finance': '生活账本',
+              'Dashboard': '生活总览',
+            }[title] ??
+            title,
+      ),
+    ),
     findsOneWidget,
   );
 }
@@ -37,21 +93,22 @@ Finder moduleBodyFinder(String name) => switch (name) {
   'Schedule' => find.byType(DaySchedulePage),
   'GPA' => find.byType(GpaPage),
   'Finance' => find.byType(FinancePage),
-  _ => find.text('模块待接入'),
+  _ => find.byType(DashboardPage),
 };
 
 void main() {
+  setUp(() => AppData.useTaskRepository(InMemoryTaskRepository()));
   testWidgets('Starts in bedroom and opens Menu', (tester) async {
     await tester.pumpWidget(const StudentLifeApp());
     expectTitle('Student Life RPG');
     expect(find.byKey(const Key('bedroom-background')), findsOneWidget);
-    expect(find.text('进入菜单'), findsNothing);
+    expect(find.text('进入校园大厅'), findsNothing);
     expect(find.byType(BackButton), findsNothing);
 
-    await tapText(tester, '进入菜单');
+    await tapText(tester, '进入校园大厅');
     expectTitle('Menu');
-    for (final name in ['Schedule', 'GPA', 'Finance', 'Dashboard']) {
-      expect(find.text(name), findsOneWidget);
+    for (final door in RoomSpec.hall.doors) {
+      expect(find.byKey(Key('door-${door.id}')), findsOneWidget);
     }
   });
 
@@ -62,7 +119,7 @@ void main() {
       await tester.pumpWidget(const StudentLifeApp());
       final bedroom = tester.element(find.byType(BedroomPage));
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-      await tapText(tester, '进入菜单');
+      await tapText(tester, '进入校园大厅');
       final menu = tester.element(find.byType(MenuPage));
 
       await tapText(tester, name);
@@ -97,7 +154,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(const StudentLifeApp());
-    await tapText(tester, '进入菜单');
+    await tapText(tester, '进入校园大厅');
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pushNamed('/missing');
     await tester.pumpAndSettle();
@@ -111,7 +168,7 @@ void main() {
       tester.state<NavigatorState>(find.byType(Navigator)),
       same(navigator),
     );
-    await tapText(tester, '进入菜单');
+    await tapText(tester, '进入校园大厅');
     expectTitle('Menu');
   });
 
@@ -134,7 +191,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(const StudentLifeApp());
     expect(tester.takeException(), isNull);
-    await tapText(tester, '进入菜单');
+    await tapText(tester, '进入校园大厅');
     expect(tester.takeException(), isNull);
     for (final name in ['Schedule', 'GPA', 'Finance', 'Dashboard']) {
       await tapText(tester, name);

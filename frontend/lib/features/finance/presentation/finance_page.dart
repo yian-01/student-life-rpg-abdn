@@ -1,3 +1,4 @@
+import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/finance_controller.dart';
@@ -69,86 +70,88 @@ class _FinancePageState extends State<FinancePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Finance')),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const Text(
-                  '演示数据：分类为合成示例。财务记录保存在内存中，完全退出应用后不会保留。本轮仅 Task 安排 JSON 持久化。预算由组合根注入（演示预算 1000.00 元），无预算 CRUD。',
-                ),
-                const SizedBox(height: 12),
-                if (_controller.isLoading) const Text('加载中'),
-                if (_controller.error != null) ...[
-                  Text(
-                    '错误：${_controller.error}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+      appBar: AppBar(title: const Text('生活账本')),
+      body: ModuleBody(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  const ModuleNotice(
+                    '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
                   ),
+                  const SizedBox(height: 12),
+                  if (_controller.isLoading) const Text('加载中'),
+                  if (_controller.error != null) ...[
+                    Text(
+                      '错误：${_controller.error}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _controller.retry,
+                        child: const Text('重试'),
+                      ),
+                    ),
+                  ],
+                  _SummaryCard(summary: _controller.summary),
+                  const SizedBox(height: 16),
+                  _AddRecordForm(
+                    categories: _controller.categoriesFor(_selectedType),
+                    selectedType: _selectedType,
+                    selectedCategoryId: _selectedCategoryId,
+                    amountController: _amountController,
+                    noteController: _noteController,
+                    onTypeChanged: (type) {
+                      setState(() {
+                        _selectedType = type;
+                        final matching = _controller.categoriesFor(type);
+                        _selectedCategoryId = matching.isEmpty
+                            ? null
+                            : matching.first.id;
+                      });
+                    },
+                    onCategoryChanged: (id) {
+                      setState(() => _selectedCategoryId = id);
+                    },
+                    onSubmit: _selectedCategoryId == null
+                        ? null
+                        : () async {
+                            await _controller.addRecord(
+                              categoryId: _selectedCategoryId!,
+                              amountText: _amountController.text,
+                              note: _noteController.text,
+                            );
+                            if (!mounted) return;
+                            if (_controller.error == null) {
+                              _amountController.clear();
+                              _noteController.clear();
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
-                      onPressed: _controller.retry,
-                      child: const Text('重试'),
+                      onPressed: _controller.refresh,
+                      child: const Text('刷新'),
                     ),
                   ),
+                  const Text('本月记录'),
+                  const SizedBox(height: 8),
+                  if (_controller.monthRecords.isEmpty)
+                    const Text('暂无记录')
+                  else
+                    ..._controller.monthRecords.map(_RecordTile.new),
+                  SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
                 ],
-                _SummaryCard(summary: _controller.summary),
-                const SizedBox(height: 16),
-                _AddRecordForm(
-                  categories: _controller.categoriesFor(_selectedType),
-                  selectedType: _selectedType,
-                  selectedCategoryId: _selectedCategoryId,
-                  amountController: _amountController,
-                  noteController: _noteController,
-                  onTypeChanged: (type) {
-                    setState(() {
-                      _selectedType = type;
-                      final matching = _controller.categoriesFor(type);
-                      _selectedCategoryId = matching.isEmpty
-                          ? null
-                          : matching.first.id;
-                    });
-                  },
-                  onCategoryChanged: (id) {
-                    setState(() => _selectedCategoryId = id);
-                  },
-                  onSubmit: _selectedCategoryId == null
-                      ? null
-                      : () async {
-                          await _controller.addRecord(
-                            categoryId: _selectedCategoryId!,
-                            amountText: _amountController.text,
-                            note: _noteController.text,
-                          );
-                          if (!mounted) return;
-                          if (_controller.error == null) {
-                            _amountController.clear();
-                            _noteController.clear();
-                          }
-                        },
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _controller.refresh,
-                    child: const Text('刷新'),
-                  ),
-                ),
-                const Text('本月记录'),
-                const SizedBox(height: 8),
-                if (_controller.monthRecords.isEmpty)
-                  const Text('暂无记录')
-                else
-                  ..._controller.monthRecords.map(_RecordTile.new),
-                SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -180,7 +183,13 @@ class _SummaryCard extends StatelessWidget {
             ),
             Text('收入 ${formatAmountMinor(data.incomeMinor)} 元'),
             Text('支出 ${formatAmountMinor(data.expenseMinor)} 元'),
-            Text('余额 ${formatAmountMinor(data.balanceMinor)} 元'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                '余额 ${formatAmountMinor(data.balanceMinor)} 元',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
             Text(
               remaining == null
                   ? '预算剩余 未设置'
@@ -249,6 +258,7 @@ class _AddRecordForm extends StatelessWidget {
               .toList(),
           onChanged: onCategoryChanged,
         ),
+        const SizedBox(height: 12),
         TextField(
           controller: amountController,
           decoration: const InputDecoration(
@@ -257,6 +267,7 @@ class _AddRecordForm extends StatelessWidget {
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
+        const SizedBox(height: 12),
         TextField(
           controller: noteController,
           decoration: const InputDecoration(labelText: '备注（可选）'),

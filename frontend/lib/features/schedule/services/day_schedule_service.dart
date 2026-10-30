@@ -67,6 +67,7 @@ class DayScheduleService implements DayScheduleLoader {
       items: items,
       unscheduledTasks: unscheduledTasks,
       completedTaskIds: completedTaskIds,
+      completedTasks: tasks.where((task) => task.isCompleted).toList(),
     );
   }
 }
@@ -78,15 +79,18 @@ class DaySchedule {
     required List<ScheduleItem> items,
     required List<Task> unscheduledTasks,
     required Set<String> completedTaskIds,
+    List<Task> completedTasks = const [],
   }) : date = DateTime(date.year, date.month, date.day),
        items = List<ScheduleItem>.unmodifiable(items),
        unscheduledTasks = List<Task>.unmodifiable(unscheduledTasks),
-       completedTaskIds = Set<String>.unmodifiable(completedTaskIds);
+       completedTaskIds = Set<String>.unmodifiable(completedTaskIds),
+       completedTasks = List<Task>.unmodifiable(completedTasks);
 
   final DateTime date;
   final List<ScheduleItem> items;
   final List<Task> unscheduledTasks;
   final Set<String> completedTaskIds;
+  final List<Task> completedTasks;
 
   DateTime get dayStart => date;
 
