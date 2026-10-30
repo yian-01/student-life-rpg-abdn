@@ -13,7 +13,7 @@ import 'task_repository.dart';
 /// - 串行队列覆盖读取、校验、持久化与内存提交全过程。
 /// - 写盘成功后才更新内存；写盘失败保留旧内存状态，后续请求仍可继续。
 /// - 主文件损坏时，尝试从 `.bak` 恢复；恢复前对备份做完整 Task 文档校验，
-///   且通过回写备份内容使损坏原文件被保留为新的 `.bak`，不直接覆盖丢失。
+///   损坏原件独立归档为 `.corrupt`（已有归档时使用后缀），有效备份保留。
 ///
 /// 错误类型遵循冻结契约第 3 节：
 /// - JSON 结构 / schemaVersion / entityType / records 错误 → [FormatException]
@@ -87,13 +87,17 @@ class FileTaskRepository implements TaskRepository {
   }
 
   /// 将损坏的主文件归档为 `.corrupt`，避免常规覆盖时顶掉有效 `.bak`。
-  /// 若 `.corrupt` 已存在则先删除。
+  /// 已有归档保留，后续使用递增后缀。
   Future<void> _archiveCorruptMain() async {
     final file = File(_path);
     if (!await file.exists()) return;
-    final corrupt = File('$_path.corrupt');
-    if (await corrupt.exists()) await corrupt.delete();
-    await file.rename(corrupt.path);
+    var archivePath = '$_path.corrupt';
+    var suffix = 1;
+    while (await FileSystemEntity.type(archivePath) !=
+        FileSystemEntityType.notFound) {
+      archivePath = '$_path.corrupt.${suffix++}';
+    }
+    await file.rename(archivePath);
   }
 
   Future<List<Task>> _load() async {
@@ -135,27 +139,20 @@ class FileTaskRepository implements TaskRepository {
       await _store.writeDocument(_path, backupRaw);
       // 恢复成功后明确提示。
       // ignore: avoid_print
-      print('WARNING: 主文件 $_path 损坏，已从 .bak 恢复；损坏原件保留为 $_path.corrupt');
+      print(
+        'WARNING: 主文件 $_path 损坏，已从 .bak 恢复；损坏原件已归档至 $_path.corrupt（已有归档时使用后缀）',
+      );
       _tasks = backupTasks;
       return _tasks!;
     }
   }
 
   Future<void> _save(List<Task> next) async {
-    // 保存前重新校验磁盘主文件：运行期间可能被外部损坏。
-    // 若直接 writeDocument，损坏原件会被 rename 为 .bak 并覆盖有效备份。
+    // A normal mutation must not implicitly recover or overwrite corrupt data.
+    // Leave the damaged document and the last valid backup untouched. The caller
+    // can explicitly recover, then retry the rejected mutation.
     final diskRaw = await _store.readDocument(_path);
-    if (diskRaw != null) {
-      try {
-        _decodeTasks(diskRaw);
-      } on FormatException {
-        await _archiveCorruptMain();
-        // ignore: avoid_print
-        print(
-          'WARNING: 检测到主文件 $_path 在运行期间损坏，已保留为 $_path.corrupt，将写入内存中的最后有效状态',
-        );
-      }
-    }
+    if (diskRaw != null) _decodeTasks(diskRaw);
     final content = jsonEncode({
       'schemaVersion': _schemaVersion,
       'entityType': _entityType,
@@ -164,6 +161,22 @@ class FileTaskRepository implements TaskRepository {
     // 先成功写盘，再更新内存；写盘失败时内存保持旧值
     await _store.writeDocument(_path, content);
     _tasks = next;
+  }
+
+  /// Explicitly reload disk data, using a validated backup when necessary.
+  /// A failed recovery leaves the existing in-memory state unchanged. Callers
+  /// must await success before retrying a mutation rejected for corruption.
+  Future<void> recoverFromBackup() {
+    return _queued(() async {
+      final previous = _tasks;
+      _tasks = null;
+      try {
+        await _load();
+      } catch (_) {
+        _tasks = previous;
+        rethrow;
+      }
+    });
   }
 
   static void _requireId(String id, String field) {

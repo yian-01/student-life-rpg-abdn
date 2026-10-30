@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -410,7 +409,7 @@ void main() {
   });
 
   // ---------- 真实 Store 故障与运行期间保护测试 ----------
-  test('真实 Store：备份阶段故障时保留主文件与最后有效 .bak', () async {
+  test('真实 Store：备份路径被目录占用时主文件不变', () async {
     final repo = newRepo();
     await repo.insert(newTask('1'));
     // 第二次写入产生 .bak（保留任务1）
@@ -437,32 +436,45 @@ void main() {
     expect(all.map((t) => t.id), containsAll(['1', '2']));
   });
 
-  test('加载成功后主文件被外部损坏，再次保存时保护并保留原件', () async {
+  test('runtime corruption blocks mutation until explicit recovery', () async {
     final repo = newRepo();
     await repo.insert(newTask('1'));
     await repo.insert(newTask('2'));
+    final backup = await File('$filePath.bak').readAsString();
+    await File(filePath).writeAsString('external corruption');
 
-    // 模拟运行期间外部损坏主文件
-    await File(filePath).writeAsString('外部损坏');
+    await expectLater(repo.insert(newTask('3')), throwsFormatException);
+    expect(await File(filePath).readAsString(), 'external corruption');
+    expect(await File('$filePath.bak').readAsString(), backup);
+    expect((await repo.list()).map((t) => t.id), ['1', '2']);
 
-    // 再次保存应检测到损坏、归档为 .corrupt、写入内存最新状态
+    await repo.recoverFromBackup();
+    expect(
+      await File('$filePath.corrupt').readAsString(),
+      'external corruption',
+    );
+    expect(await File('$filePath.bak').readAsString(), backup);
+    // The backup is the previous successful snapshot: task 1, not task 2.
+    expect((await repo.list()).map((t) => t.id), ['1']);
     await repo.insert(newTask('3'));
+    expect((await newRepo().list()).map((t) => t.id), ['1', '3']);
+  });
 
-    // 验证：新 Repository 能读取全部3条记录
-    final restartedRepo = newRepo();
-    final all = await restartedRepo.list();
-    expect(all.length, 3);
-    expect(all.map((t) => t.id), containsAll(['1', '2', '3']));
-
-    // 损坏原件保留为 .corrupt
-    expect(await File('$filePath.corrupt').readAsString(), '外部损坏');
-
-    // .bak 应保留损坏前最后一次轮换出的有效版本（任务1，第二次写入时生成）
-    final bakContent = await File('$filePath.bak').readAsString();
-    final bakRecords =
-        (jsonDecode(bakContent) as Map<String, dynamic>)['records'] as List;
-    expect(bakRecords.length, 1);
-    expect(bakRecords.first['id'], '1');
+  test('failed explicit recovery retains cache and can retry', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    await repo.insert(newTask('2'));
+    await File(filePath).writeAsString('damaged');
+    await Directory('$filePath.tmp').create();
+    await expectLater(
+      repo.recoverFromBackup(),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect((await repo.list()).map((t) => t.id), ['1', '2']);
+    await Directory('$filePath.tmp').delete();
+    await repo.recoverFromBackup();
+    expect((await newRepo().list()).map((t) => t.id), ['1']);
+    expect(await File('$filePath.corrupt').readAsString(), 'damaged');
   });
 
   test('主文件损坏且恢复失败后仍可重试，不丢失有效数据', () async {

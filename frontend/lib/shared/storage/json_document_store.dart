@@ -18,14 +18,18 @@ abstract interface class JsonDocumentStore {
 
 /// 基于本地文件的 [JsonDocumentStore] 实现。
 class FileJsonDocumentStore implements JsonDocumentStore {
-  const FileJsonDocumentStore();
+  const FileJsonDocumentStore({
+    DocumentFileOperations files = const DocumentFileOperations(),
+  }) : _files = files;
+
+  final DocumentFileOperations _files;
 
   @override
   Future<String?> readDocument(String path) async {
     final file = File(path);
-    if (!await file.exists()) return null;
+    if (!await _files.exists(file)) return null;
     // 文件故障（权限、损坏等）保留原始 FileSystemException，不包装。
-    return await file.readAsString();
+    return await _files.read(file);
   }
 
   @override
@@ -36,36 +40,60 @@ class FileJsonDocumentStore implements JsonDocumentStore {
 
     try {
       // 1. 写临时文件并 flush
-      await tmp.writeAsString(content, flush: true);
+      await _files.writeAndFlush(tmp, content);
 
       // 2. 主文件存在时，把旧内容转为 .bak（先删旧备份）
-      if (await file.exists()) {
-        if (await backup.exists()) {
-          await backup.delete();
+      if (await _files.exists(file)) {
+        if (await _files.exists(backup)) {
+          await _files.delete(backup);
         }
-        await file.rename('$path.bak');
+        await _files.rename(file, '$path.bak');
       }
 
       // 3. 临时文件替换主文件
-      await tmp.rename(path);
+      await _files.rename(tmp, path);
     } on FileSystemException {
       // 失败恢复：主文件丢失且备份存在时，从备份恢复
-      if (!await file.exists() && await backup.exists()) {
+      if (!await _files.exists(file) && await _files.exists(backup)) {
         try {
-          await backup.rename(path);
+          await _files.copy(backup, path);
         } on FileSystemException {
           // 恢复失败也不掩盖原始错误
         }
       }
       rethrow;
     } finally {
-      if (await tmp.exists()) {
+      if (await _files.exists(tmp)) {
         try {
-          await tmp.delete();
+          await _files.delete(tmp);
         } on FileSystemException {
           // 清理失败不影响主流程
         }
       }
     }
+  }
+}
+
+/// Injectable file operations; production and fault tests use the same store
+/// algorithm. Tests override a single operation while retaining real files.
+class DocumentFileOperations {
+  const DocumentFileOperations();
+
+  Future<bool> exists(File file) => file.exists();
+  Future<String> read(File file) => file.readAsString();
+  Future<void> writeAndFlush(File file, String content) async {
+    await file.writeAsString(content, flush: true);
+  }
+
+  Future<void> rename(File file, String destination) async {
+    await file.rename(destination);
+  }
+
+  Future<void> copy(File file, String destination) async {
+    await file.copy(destination);
+  }
+
+  Future<void> delete(File file) async {
+    await file.delete();
   }
 }
