@@ -30,6 +30,9 @@ void main() {
     }
   });
   setUp(() {
+    final previous = debugDisableShadows;
+    debugDisableShadows = false;
+    addTearDown(() => debugDisableShadows = previous);
     AppData.useTaskRepository(InMemoryTaskRepository());
     FinanceMemoryScope.resetShared();
   });

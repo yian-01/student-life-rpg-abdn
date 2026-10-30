@@ -260,6 +260,7 @@ class _AddRecordForm extends StatelessWidget {
               .toList(),
           onChanged: onCategoryChanged,
         ),
+        const SizedBox(height: 12),
         TextField(
           controller: amountController,
           decoration: const InputDecoration(
@@ -268,6 +269,7 @@ class _AddRecordForm extends StatelessWidget {
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
+        const SizedBox(height: 12),
         TextField(
           controller: noteController,
           decoration: const InputDecoration(labelText: '备注（可选）'),

@@ -23,6 +23,7 @@ abstract final class AppTheme {
         color: ink,
         fontSize: 18,
         fontWeight: FontWeight.w600,
+        fontFamily: 'Roboto',
       ),
       centerTitle: false,
       toolbarHeight: 56,
@@ -58,6 +59,7 @@ abstract final class AppTheme {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
+    checkboxTheme: const CheckboxThemeData(shape: CircleBorder()),
     dividerTheme: const DividerThemeData(
       color: Color(0xFFE7EAF2),
       thickness: 1,
