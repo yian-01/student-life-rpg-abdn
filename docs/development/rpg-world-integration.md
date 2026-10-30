@@ -45,6 +45,8 @@ They render as parchment inside a wood frame over the dim hall background. The
 four Chinese panel titles match the door names. No cross-module bottom bar remains.
 Task disk persistence / GPA and Finance memory limits are unchanged. Course,
 event, assignment and exam application integration is still outstanding.
+Task lifecycle/conflict integration and the team module map are recorded in
+module-integration-status.md.
 
 ## Required verification
 

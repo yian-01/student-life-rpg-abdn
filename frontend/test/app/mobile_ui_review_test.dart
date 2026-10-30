@@ -43,6 +43,7 @@ void main() {
     ('menu-430', AppRoutes.menu, const Size(430, 932)),
     ('desktop-phone-frame', AppRoutes.menu, const Size(1280, 900)),
     ('schedule', AppRoutes.schedule, const Size(390, 844)),
+    ('schedule-editor', AppRoutes.schedule, const Size(390, 844)),
     ('gpa', AppRoutes.gpa, const Size(390, 844)),
     ('finance', AppRoutes.finance, const Size(390, 844)),
     ('dashboard', AppRoutes.dashboard, const Size(390, 844)),
@@ -72,6 +73,19 @@ void main() {
             ),
           ),
         );
+        if (route == AppRoutes.schedule) {
+          await repository.insert(
+            Task(
+              id: 'review-overlap',
+              title: '小组讨论',
+              estimatedMinutes: 30,
+              scheduledRange: TimeRange(
+                start: DateTime(now.year, now.month, now.day, 16, 30),
+                end: DateTime(now.year, now.month, now.day, 17),
+              ),
+            ),
+          );
+        }
         final key = GlobalKey();
         await tester.pumpWidget(
           RepaintBoundary(
@@ -137,6 +151,22 @@ void main() {
             tester.getSize(find.byType(AppBar).first).width,
             lessThanOrEqualTo(430),
           );
+        }
+        if (name == 'schedule-editor') {
+          await tester.tap(find.byKey(const Key('day-schedule-add-task')));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const Key('add-task-title')),
+            '完成算法作业',
+          );
+          await tester.ensureVisible(
+            find.byKey(const Key('task-scheduled-switch')),
+          );
+          await tester.tap(find.byKey(const Key('task-scheduled-switch')));
+          await tester.pumpAndSettle();
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
         }
         final boundary =
             key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
