@@ -18,18 +18,16 @@ abstract interface class JsonDocumentStore {
 
 /// 基于本地文件的 [JsonDocumentStore] 实现。
 class FileJsonDocumentStore implements JsonDocumentStore {
-  const FileJsonDocumentStore({
-    DocumentFileOperations files = const DocumentFileOperations(),
-  }) : _files = files;
+  const FileJsonDocumentStore({this.files = const DocumentFileOperations()});
 
-  final DocumentFileOperations _files;
+  final DocumentFileOperations files;
 
   @override
   Future<String?> readDocument(String path) async {
     final file = File(path);
-    if (!await _files.exists(file)) return null;
+    if (!await files.exists(file)) return null;
     // 文件故障（权限、损坏等）保留原始 FileSystemException，不包装。
-    return await _files.read(file);
+    return await files.read(file);
   }
 
   @override
@@ -40,32 +38,32 @@ class FileJsonDocumentStore implements JsonDocumentStore {
 
     try {
       // 1. 写临时文件并 flush
-      await _files.writeAndFlush(tmp, content);
+      await files.writeAndFlush(tmp, content);
 
       // 2. 主文件存在时，把旧内容转为 .bak（先删旧备份）
-      if (await _files.exists(file)) {
-        if (await _files.exists(backup)) {
-          await _files.delete(backup);
+      if (await files.exists(file)) {
+        if (await files.exists(backup)) {
+          await files.delete(backup);
         }
-        await _files.rename(file, '$path.bak');
+        await files.rename(file, '$path.bak');
       }
 
       // 3. 临时文件替换主文件
-      await _files.rename(tmp, path);
+      await files.rename(tmp, path);
     } on FileSystemException {
       // 失败恢复：主文件丢失且备份存在时，从备份恢复
-      if (!await _files.exists(file) && await _files.exists(backup)) {
+      if (!await files.exists(file) && await files.exists(backup)) {
         try {
-          await _files.copy(backup, path);
+          await files.copy(backup, path);
         } on FileSystemException {
           // 恢复失败也不掩盖原始错误
         }
       }
       rethrow;
     } finally {
-      if (await _files.exists(tmp)) {
+      if (await files.exists(tmp)) {
         try {
-          await _files.delete(tmp);
+          await files.delete(tmp);
         } on FileSystemException {
           // 清理失败不影响主流程
         }
