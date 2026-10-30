@@ -51,6 +51,9 @@ class _MovementJoystickState extends State<MovementJoystick> {
         onPanDown: widget.enabled
             ? (event) => _change(event.localPosition)
             : null,
+        onPanStart: widget.enabled
+            ? (event) => _change(event.localPosition)
+            : null,
         onPanUpdate: widget.enabled
             ? (event) => _change(event.localPosition)
             : null,

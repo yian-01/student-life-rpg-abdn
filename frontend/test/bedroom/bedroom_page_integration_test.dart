@@ -152,6 +152,7 @@ void main() {
     final center = tester.getCenter(find.byKey(const Key('movement-joystick')));
     final gesture = await tester.startGesture(center);
     await gesture.moveBy(const Offset(-28, 0));
+    expect(movement.moveDirection.dx, lessThan(0));
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
