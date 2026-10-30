@@ -12,11 +12,13 @@ class PlayerStatusHudOverlay extends StatelessWidget {
     super.key,
     required this.data,
     required this.sceneRect,
+    this.maxHeight,
   });
 
   static const double margin = 12;
   final HudViewData data;
   final Rect sceneRect;
+  final double? maxHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +32,9 @@ class PlayerStatusHudOverlay extends StatelessWidget {
       top: sceneRect.top + margin,
       width: math.min(width, 280),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: height),
+        constraints: BoxConstraints(
+          maxHeight: math.min(height, maxHeight ?? height),
+        ),
         child: PlayerStatusHud(data: data),
       ),
     );
