@@ -99,6 +99,34 @@ void main() {
     });
   }
 
+  testWidgets(
+    'high density phone uses logical width and keeps the task form above the keyboard',
+    (tester) async {
+      tester.view.devicePixelRatio = 3;
+      tester.view.physicalSize = const Size(1170, 2532);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        const StudentLifeApp(initialRoute: AppRoutes.schedule),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(Navigator)).width, 390);
+      await tester.tap(find.byKey(const Key('day-schedule-add-task')));
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+      await tester.pumpAndSettle();
+      final title = find.byKey(const Key('add-task-title'));
+      await tester.ensureVisible(title);
+      await tester.pumpAndSettle();
+      expect(tester.getBottomRight(title).dy, lessThanOrEqualTo(544));
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('bottom navigation switches modules without growing the stack', (
     tester,
   ) async {
