@@ -43,15 +43,13 @@ class SceneGeometry {
   /// （v1.1 数学核查通过，见 docs/development/scene-geometry.md 第 8 节）。
   static const Offset playerStart = Offset(360, 1160);
 
-  /// 可行走区域（顺时针，首版保守版本）。
-  /// 仅覆盖已确认的安全地板走廊：上界在床脚板下沿（y=960），
-  /// 右界沿书桌/椅子左缘（x=550），下界在底部木栅栏上沿（y=1385），
-  /// 左界沿左墙踢脚线斜边。排除床、床头柜、书桌、椅子、墙体与栅栏。
-  /// 只约束脚底点，不构成完整人物轮廓/家具碰撞证明。
+  /// Convex floor envelope, extended up the aisle beside the bed to y=780.
+  /// Furniture inside this envelope is excluded separately by canOccupy.
+  /// The top edge stops below the cabinet; this is not permission to walk
+  /// through the bed. Keep movement's padded footprint inside this envelope.
   static const List<Offset> walkablePolygon = <Offset>[
-    Offset(240, 960),
-    Offset(590, 960),
-    Offset(555, 1010),
+    Offset(300, 780),
+    Offset(590, 780),
     Offset(550, 1060),
     Offset(550, 1385),
     Offset(75, 1385),

@@ -100,7 +100,7 @@ void main() {
           controller.update(0.05);
         }
         expect(controller.footPosition.dy, lessThan(990));
-        expect(controller.footPosition.dy, greaterThanOrEqualTo(974));
+        expect(controller.footPosition.dy, greaterThanOrEqualTo(966));
         // Upper body can visually overlap the footboard while feet remain in front.
         expect(
           SceneGeometry.playerBodyBounds
@@ -111,6 +111,31 @@ void main() {
         controller.dispose();
       },
     );
+
+    test('can walk from spawn into the aisle below the bedside cabinet', () {
+      final controller = PlayerMovementController();
+      controller.setMoveDirection(const Offset(0, -1));
+      for (var i = 0; i < 70; i++) {
+        controller.update(0.05);
+      }
+      expect(controller.footPosition.dx, 360);
+      expect(controller.footPosition.dy, lessThanOrEqualTo(850));
+      expect(controller.footPosition.dy, greaterThanOrEqualTo(794));
+      // Turning into the bed at this depth is still blocked.
+      controller.setMoveDirection(const Offset(1, 0));
+      for (var i = 0; i < 100; i++) {
+        controller.update(0.05);
+      }
+      expect(controller.footPosition.dx, lessThanOrEqualTo(372));
+      final footprint = SceneGeometry.playerCollisionBounds.shift(
+        controller.footPosition,
+      );
+      expect(
+        footprint.overlaps(SceneGeometry.furnitureObstacles.first),
+        isFalse,
+      );
+      controller.dispose();
+    });
 
     test('door remains reachable with body collision enabled', () {
       final controller = PlayerMovementController();
@@ -369,7 +394,7 @@ void main() {
 
     test('可行走区域外的初始位置抛 ArgumentError', () {
       expect(
-        () => PlayerMovementController(start: const Offset(360, 800)),
+        () => PlayerMovementController(start: const Offset(360, 740)),
         throwsArgumentError,
       ); // 上方床区
       expect(

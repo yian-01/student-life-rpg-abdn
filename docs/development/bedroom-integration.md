@@ -37,13 +37,18 @@ The first full-sprite collision correction removed furniture overlap but added
 an unnatural head-height gap at the bed. The current correction separates three
 shapes: the sprite rectangle for rendering, a shallow ground footprint for
 furniture collision, and a wider clearance rectangle whose four corners must
-remain in the existing convex floor polygon. Both initial positions and every
+remain in the convex floor envelope. Both initial positions and every
 movement substep use these checks. This keeps people off the walls while letting
 them stand naturally in front of the bed; upper-body overlap with the footboard
 is expected perspective, not walking through the furniture. Furniture bounds
 and all three shapes remain in the unique SceneGeometry world configuration.
 
 The HUD uses a dark/gold panel at sceneRect's top-left fixed logical margin,
-now capped at 156 logical pixels rather than spreading across the scene top.
+now capped at 128 logical pixels rather than spreading across the scene top.
 It remains unscaled and scrollable for large text or tiny viewports. Data remains
 explicitly labelled demonstration data. Native visual acceptance is pending.
+
+The floor envelope now extends to y=780 beside the bed, ending below the
+bedside cabinet. Furniture still excludes the bed from that envelope. A new
+regression walks from spawn up this aisle, then attempts to move into the bed.
+HUD text/padding/progress spacing were reduced with the 128-pixel width cap.

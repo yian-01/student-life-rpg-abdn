@@ -30,7 +30,7 @@ class PlayerStatusHudOverlay extends StatelessWidget {
     return Positioned(
       left: sceneRect.left + margin,
       top: sceneRect.top + margin,
-      width: math.min(width, 156),
+      width: math.min(width, 128),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: math.min(height, maxHeight ?? height),

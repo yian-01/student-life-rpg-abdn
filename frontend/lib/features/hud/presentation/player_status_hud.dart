@@ -13,7 +13,7 @@ class PlayerStatusHud extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.min(constraints.maxWidth, 156.0);
+        final width = math.min(constraints.maxWidth, 128.0);
         if (!width.isFinite || width <= 0 || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
         }
@@ -41,14 +41,11 @@ class PlayerStatusHud extends StatelessWidget {
             child: DefaultTextStyle(
               style: const TextStyle(
                 color: Color(0xFFF6EBD3),
-                fontSize: 12,
+                fontSize: 11,
                 height: 1.25,
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,9 +58,9 @@ class PlayerStatusHud extends StatelessWidget {
                         letterSpacing: 0.3,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
                     Wrap(
-                      spacing: 12,
+                      spacing: 8,
                       runSpacing: 4,
                       children: [
                         Text(
@@ -79,12 +76,12 @@ class PlayerStatusHud extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(3),
                       child: LinearProgressIndicator(
                         value: data.ratio,
-                        minHeight: 5,
+                        minHeight: 4,
                         color: const Color(0xFFDBB464),
                         backgroundColor: const Color(0xFF404C45),
                       ),
