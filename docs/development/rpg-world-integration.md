@@ -23,16 +23,22 @@ world edges so doors remain reachable. Resizing never mutates world coordinates.
 
 ## Hall geometry / asset
 
-Asset: frontend/assets/images/campus_hall_v1.png, 948 x 1659.
-Original generated background, using the existing bedroom as a style reference.
-Four wooden doors, violet plaster, amber tiles and warm light. No external brand
-assets used. Programmatic Chinese door signs remain readable and translatable.
+Asset: frontend/assets/images/campus_hall_v1.png, 1139 x 1381.
+Temporary artwork approved as the basis for continued development; final art
+acceptance remains separate. Edited from the lead's supplied image(10).png:
+retain its camera and room proportions, furnish the empty floor with a flat
+navy/gold rug, a low left console, a right bench and botanical wall pictures.
+Screenshot controls were removed. The room was not deliberately resized or
+reprojected; generated artwork still requires visual review before final approval.
+Programmatic Chinese door signs remain readable and translatable.
 
-Floor polygon: (201,655), (746,655), (930,1435), (18,1435).
-Start: (474,1260). Door approach points: schedule (320,710), GPA (624,710),
-Finance (175,1085), Dashboard (775,1085). Radius 96 world pixels. The same shallow
-player ground shape and wider wall clearance from the bedroom are applied; the
-central plant and lower corner plants are excluded. Geometry is kept in RoomSpec.
+Floor polygon: (230,430), (910,430), (1130,1350), (10,1350).
+Start: (570,1130). Door approach points: schedule (375,485), GPA (765,485),
+Finance (245,680), Dashboard (895,680). Radius 96 world pixels. The same shallow
+player ground shape and wider wall clearance from the bedroom are applied.
+Obstacles exclude the rear plant, left console/plant and right bench/plant ground
+footprints. The rug is walkable. All asset geometry is kept in RoomSpec; replacing
+artwork requires remeasuring it, not changing module business logic.
 
 Module routes retain the group's existing controllers, repositories and services.
 They render as parchment inside a wood frame over the dim hall background. The

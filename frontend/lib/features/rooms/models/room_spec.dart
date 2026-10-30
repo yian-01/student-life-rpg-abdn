@@ -65,50 +65,52 @@ class RoomSpec {
   );
 
   static const hallFloor = [
-    Offset(201, 655),
-    Offset(746, 655),
-    Offset(930, 1435),
-    Offset(18, 1435),
+    Offset(230, 430),
+    Offset(910, 430),
+    Offset(1130, 1350),
+    Offset(10, 1350),
   ];
   static const hallArea = WalkableArea(
     hallFloor,
     bodyBounds: SceneGeometry.playerCollisionBounds,
     floorBounds: SceneGeometry.playerFloorClearance,
     obstacles: [
-      Rect.fromLTRB(440, 550, 535, 670),
-      Rect.fromLTRB(0, 1050, 110, 1290),
-      Rect.fromLTRB(840, 1050, 948, 1290),
+      // Plant, left console/plant and right bench/plant ground footprints.
+      // The central rug is flat and remains walkable.
+      Rect.fromLTRB(505, 340, 630, 470),
+      Rect.fromLTRB(40, 720, 190, 980),
+      Rect.fromLTRB(945, 720, 1105, 980),
     ],
   );
   static const hall = RoomSpec(
     id: 'hall',
     name: '校园大厅',
     asset: 'assets/images/campus_hall_v1.png',
-    size: Size(948, 1659),
-    start: Offset(474, 1260),
+    size: Size(1139, 1381),
+    start: Offset(570, 1130),
     area: hallArea,
     doors: [
       RoomDoor(
         'schedule',
         '日程手账',
         '/schedule',
-        Offset(320, 710),
-        Offset(320, 350),
+        Offset(375, 485),
+        Offset(375, 235),
       ),
-      RoomDoor('gpa', '学业档案', '/gpa', Offset(624, 710), Offset(624, 350)),
+      RoomDoor('gpa', '学业档案', '/gpa', Offset(765, 485), Offset(765, 235)),
       RoomDoor(
         'finance',
         '生活账本',
         '/finance',
-        Offset(175, 1085),
-        Offset(200, 850),
+        Offset(245, 680),
+        Offset(135, 540),
       ),
       RoomDoor(
         'dashboard',
         '生活总览',
         '/dashboard',
-        Offset(775, 1085),
-        Offset(748, 850),
+        Offset(895, 680),
+        Offset(1005, 540),
       ),
     ],
   );

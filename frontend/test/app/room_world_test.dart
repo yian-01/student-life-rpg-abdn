@@ -71,6 +71,30 @@ void main() {
     );
   }
 
+  test('hall rug stays walkable while added furniture blocks movement', () {
+    final hall = RoomSpec.hall;
+    // Cross the whole rug from the entry toward the rear doors.
+    final movement = PlayerMovementController(
+      start: hall.start,
+      area: hall.area,
+    );
+    movement.setMoveDirection(const Offset(0, -1));
+    for (var i = 0; i < 70; i++) {
+      movement.update(.05);
+      expect(hall.area.canOccupy(movement.footPosition), isTrue);
+    }
+    expect(movement.footPosition.dy, lessThan(740));
+    movement.dispose();
+    for (final furniture in [
+      const Offset(150, 850), // Console/left plant.
+      const Offset(990, 850), // Bench/right plant.
+      const Offset(570, 455), // Rear plant overlaps the open floor.
+    ]) {
+      expect(hall.area.contains(furniture), isTrue);
+      expect(hall.area.canOccupy(furniture), isFalse);
+    }
+  });
+
   test('camera covers phone and short windows without stretching', () {
     for (final viewport in [
       const Size(240, 320),
