@@ -101,7 +101,14 @@ class MenuPage extends StatelessWidget {
                                             context,
                                           ).textTheme.titleLarge,
                                         ),
-                                  …96 tokens truncated…                    const SizedBox(height: 12),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.subtitle,
+                                          style: const TextStyle(
+                                            color: AppTheme.gold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
                                         Text(item.detail),
                                         const SizedBox(height: 16),
                                         const Align(
