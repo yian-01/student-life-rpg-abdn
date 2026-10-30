@@ -34,6 +34,146 @@ void main() {
     });
   });
 
+  group('ground footprint and wall clearance regression', () {
+    test('feet on raw floor do not permit furniture or wall penetration', () {
+      for (final foot in [const Offset(550, 1200), const Offset(500, 960)]) {
+        expect(
+          WalkableArea(SceneGeometry.walkablePolygon).contains(foot),
+          isTrue,
+        );
+        expect(
+          () => PlayerMovementController(start: foot),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test(
+      'all directions keep ground occupancy clear of furniture and walls',
+      () {
+        for (final direction in [
+          const Offset(1, 0),
+          const Offset(0, -1),
+          const Offset(1, -1),
+          const Offset(1, 1),
+          const Offset(-1, 0),
+          const Offset(-1, -1),
+          const Offset(-1, 1),
+          const Offset(0, 1),
+        ]) {
+          final controller = PlayerMovementController();
+          controller.setMoveDirection(direction);
+          for (var frame = 0; frame < 400; frame++) {
+            controller.update(0.05);
+            final body = SceneGeometry.playerCollisionBounds.shift(
+              controller.footPosition,
+            );
+            final floor = SceneGeometry.playerFloorClearance.shift(
+              controller.footPosition,
+            );
+            final area = WalkableArea(SceneGeometry.walkablePolygon);
+            for (final corner in [
+              floor.topLeft,
+              floor.topRight,
+              floor.bottomLeft,
+              floor.bottomRight,
+            ]) {
+              expect(area.contains(corner), isTrue);
+            }
+            for (final furniture in SceneGeometry.furnitureObstacles) {
+              expect(body.overlaps(furniture), isFalse);
+            }
+          }
+          controller.dispose();
+        }
+      },
+    );
+
+    test(
+      'can stand immediately in front of the bed without a head-height gap',
+      () {
+        final controller = PlayerMovementController(
+          start: const Offset(480, 990),
+        );
+        controller.setMoveDirection(const Offset(0, -1));
+        for (var i = 0; i < 100; i++) {
+          controller.update(0.05);
+        }
+        expect(controller.footPosition.dy, lessThan(990));
+        expect(controller.footPosition.dy, greaterThanOrEqualTo(966));
+        // Upper body can visually overlap the footboard while feet remain in front.
+        expect(
+          SceneGeometry.playerBodyBounds
+              .shift(controller.footPosition)
+              .overlaps(SceneGeometry.furnitureObstacles.first),
+          isTrue,
+        );
+        controller.dispose();
+      },
+    );
+
+    test('can walk from spawn into the aisle below the bedside cabinet', () {
+      final controller = PlayerMovementController();
+      controller.setMoveDirection(const Offset(0, -1));
+      for (var i = 0; i < 70; i++) {
+        controller.update(0.05);
+      }
+      expect(controller.footPosition.dx, 360);
+      expect(controller.footPosition.dy, lessThanOrEqualTo(850));
+      expect(controller.footPosition.dy, greaterThanOrEqualTo(794));
+      // Turning into the bed at this depth is still blocked.
+      controller.setMoveDirection(const Offset(1, 0));
+      for (var i = 0; i < 100; i++) {
+        controller.update(0.05);
+      }
+      expect(controller.footPosition.dx, lessThanOrEqualTo(372));
+      final footprint = SceneGeometry.playerCollisionBounds.shift(
+        controller.footPosition,
+      );
+      expect(
+        footprint.overlaps(SceneGeometry.furnitureObstacles.first),
+        isFalse,
+      );
+      controller.dispose();
+    });
+
+    test('door remains reachable with body collision enabled', () {
+      final controller = PlayerMovementController();
+      controller.setMoveDirection(const Offset(-1, 0));
+      for (var i = 0; i < 20; i++) {
+        controller.update(0.05);
+      }
+      expect(
+        (controller.footPosition - SceneGeometry.menuInteractionPoint).distance,
+        lessThanOrEqualTo(SceneGeometry.menuInteractionRadius),
+      );
+      controller.dispose();
+    });
+  });
+
+  group('perspective wall following', () {
+    test('W and S follow a sloping wall without sticking or crossing it', () {
+      final controller = PlayerMovementController(
+        start: const Offset(223, 1160),
+      );
+      final start = controller.footPosition;
+      controller.setPressedKeys({MoveDirection.up});
+      for (var i = 0; i < 20; i++) {
+        controller.update(0.05);
+      }
+      final top = controller.footPosition;
+      expect(top.dy, lessThan(start.dy - 100));
+      expect(top.dx, greaterThan(start.dx + 30));
+      expect((top - start).distance, lessThanOrEqualTo(120));
+      controller.setPressedKeys({MoveDirection.down});
+      for (var i = 0; i < 20; i++) {
+        controller.update(0.05);
+      }
+      expect((controller.footPosition - start).distance, lessThan(1e-6));
+      controller.dispose();
+    });
+  });
+
   group('统一移动入口 setMoveDirection（复审意见 3）', () {
     test('非有限分量抛 ArgumentError', () {
       final c = PlayerMovementController();
@@ -121,8 +261,8 @@ void main() {
       expect(c.footPosition, SceneGeometry.playerStart);
     });
 
-    test('沿边滑动：斜边处右下输入不越界', () {
-      final c = PlayerMovementController(start: const Offset(555, 1000));
+    test('沿边滑动：书桌左侧右下输入不越界', () {
+      final c = PlayerMovementController(start: const Offset(488, 1200));
       c.setPressedKeys({MoveDirection.right, MoveDirection.down});
       final area = WalkableArea(SceneGeometry.walkablePolygon);
       for (var i = 0; i < 5; i++) {
@@ -132,7 +272,7 @@ void main() {
     });
 
     test('角落压迫：右下角 50 步始终不越界，且不超出 x<=550、y<=1385', () {
-      final c = PlayerMovementController(start: const Offset(545, 1378));
+      final c = PlayerMovementController(start: const Offset(488, 1370));
       c.setPressedKeys({MoveDirection.right, MoveDirection.down});
       final area = WalkableArea(SceneGeometry.walkablePolygon);
       for (var i = 0; i < 50; i++) {
@@ -277,7 +417,7 @@ void main() {
 
     test('可行走区域外的初始位置抛 ArgumentError', () {
       expect(
-        () => PlayerMovementController(start: const Offset(360, 800)),
+        () => PlayerMovementController(start: const Offset(360, 740)),
         throwsArgumentError,
       ); // 上方床区
       expect(
@@ -300,12 +440,12 @@ void main() {
         const Offset(300, 1200),
       ); // 内部
       expect(
-        PlayerMovementController(start: const Offset(550, 1200)).footPosition,
-        const Offset(550, 1200),
-      ); // 右边界上
+        PlayerMovementController(start: const Offset(488, 1200)).footPosition,
+        const Offset(488, 1200),
+      ); // 书桌左侧安全点
       expect(
-        PlayerMovementController(start: const Offset(75, 1385)).footPosition,
-        const Offset(75, 1385),
+        PlayerMovementController(start: const Offset(150, 1370)).footPosition,
+        const Offset(150, 1370),
       ); // 顶点 P5
     });
   });

@@ -164,7 +164,7 @@ void main() {
         tester.getTopLeft(find.byType(PlayerStatusHud)),
         const Offset(12, 47),
       );
-      expect(tester.getSize(find.byType(PlayerStatusHud)).width, 136);
+      expect(tester.getSize(find.byType(PlayerStatusHud)).width, 128);
       expect(tester.getSize(find.text('Lv 1')).height, textHeight);
       expect(tester.takeException(), isNull);
     },

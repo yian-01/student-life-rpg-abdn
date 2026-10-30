@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
@@ -9,6 +10,15 @@ import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
 import 'package:student_life_rpg/features/schedule/presentation/day_schedule_page.dart';
 
 Future<void> tapText(WidgetTester tester, String text) async {
+  if (text == '进入菜单' && find.text(text).evaluate().isEmpty) {
+    // Exercise the real bedroom input adapter, rather than bypassing the door.
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
+    await tester.pump();
+  }
   final target = find.text(text);
   await tester.ensureVisible(target);
   await tester.tap(target);
@@ -34,7 +44,8 @@ void main() {
   testWidgets('Starts in bedroom and opens Menu', (tester) async {
     await tester.pumpWidget(const StudentLifeApp());
     expectTitle('Student Life RPG');
-    expect(find.text('进入菜单'), findsOneWidget);
+    expect(find.byKey(const Key('bedroom-background')), findsOneWidget);
+    expect(find.text('进入菜单'), findsNothing);
     expect(find.byType(BackButton), findsNothing);
 
     await tapText(tester, '进入菜单');

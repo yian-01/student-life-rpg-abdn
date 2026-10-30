@@ -43,19 +43,43 @@ class SceneGeometry {
   /// （v1.1 数学核查通过，见 docs/development/scene-geometry.md 第 8 节）。
   static const Offset playerStart = Offset(360, 1160);
 
-  /// 可行走区域（顺时针，首版保守版本）。
-  /// 仅覆盖已确认的安全地板走廊：上界在床脚板下沿（y=960），
-  /// 右界沿书桌/椅子左缘（x=550），下界在底部木栅栏上沿（y=1385），
-  /// 左界沿左墙踢脚线斜边。排除床、床头柜、书桌、椅子、墙体与栅栏。
-  /// 只约束脚底点，不构成完整人物轮廓/家具碰撞证明。
+  /// Convex floor envelope, extended up the aisle beside the bed to y=780.
+  /// Furniture inside this envelope is excluded separately by canOccupy.
+  /// The top edge stops below the cabinet; this is not permission to walk
+  /// through the bed. Keep movement's padded footprint inside this envelope.
   static const List<Offset> walkablePolygon = <Offset>[
-    Offset(240, 960),
-    Offset(590, 960),
-    Offset(555, 1010),
+    Offset(300, 780),
+    Offset(590, 780),
     Offset(550, 1060),
     Offset(550, 1385),
     Offset(75, 1385),
   ];
+
+  /// Furniture obstacles in world space. Collisions use the ground footprint
+  /// below, not the character's head: a person standing in front of the bed
+  /// naturally draws over its footboard without occupying the bed's floor area.
+  static const List<Rect> furnitureObstacles = <Rect>[
+    Rect.fromLTRB(416, 570, 650, 952),
+    Rect.fromLTRB(293, 650, 443, 765),
+    Rect.fromLTRB(555, 960, 818, 1420),
+  ];
+
+  /// Ground occupancy relative to the foot, preserving horizontal body clearance
+  /// at the desk without adding the full 195-pixel character height to the bed.
+  static const Rect playerCollisionBounds = Rect.fromLTRB(-43, -14, 44, 8);
+
+  /// Wider floor clearance keeps the sprite visibly off the walls and fence.
+  /// All four corners must lie inside the existing convex floor polygon.
+  static const Rect playerFloorClearance = Rect.fromLTRB(-58, -14, 58, 8);
+
+  /// Full sprite rectangle relative to the foot anchor, including transparent
+  /// padding. Rendering only; this is not the ground collision shape.
+  static Rect get playerBodyBounds => Rect.fromLTWH(
+    -playerFootAnchor.dx * spriteScale,
+    -playerFootAnchor.dy * spriteScale,
+    playerRenderWidth,
+    playerRenderHeight,
+  );
 
   /// Menu 交互点（世界坐标，门前地板上）。门体绿色门板范围约
   /// x 130..250、y 720..1225，门底中心约 (190,1180)；交互点取门前地板 (200,1170)。

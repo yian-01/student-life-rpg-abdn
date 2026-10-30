@@ -279,8 +279,8 @@ void main() {
       expect(footAfter, footBefore);
       // 世界常量未被修改
       expect(SceneGeometry.playerStart, const Offset(360, 1160));
-      expect(SceneGeometry.walkablePolygon.first, const Offset(240, 960));
-      expect(SceneGeometry.walkablePolygon.length, 6);
+      expect(SceneGeometry.walkablePolygon.first, const Offset(300, 780));
+      expect(SceneGeometry.walkablePolygon.length, 5);
       expect(SceneGeometry.menuInteractionPoint, const Offset(200, 1170));
     });
   });
