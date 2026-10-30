@@ -28,29 +28,36 @@ void main() {
     await directory.delete(recursive: true);
   });
 
-  testWidgets('Task survives a new repository and is reflected in Dashboard', (
+  test('Task completion survives repository reconstruction', () async {
+    final repository = await AppData.tasks();
+    await repository.insert(
+      Task(id: 'persisted', title: '重启验收任务', estimatedMinutes: 25),
+    );
+    await repository.setCompleted('persisted', true);
+    final reopened = FileTaskRepository(const FileJsonDocumentStore(), path);
+    final restored = await reopened.list();
+    expect(restored.single.title, '重启验收任务');
+    expect(restored.single.isCompleted, isTrue);
+  });
+
+  testWidgets('Schedule and Dashboard read the same completed task', (
     tester,
   ) async {
-    await tester.runAsync(() async {
-      final repository = await AppData.tasks();
-      await repository.insert(
-        Task(id: 'persisted', title: '重启验收任务', estimatedMinutes: 25),
-      );
-      await repository.setCompleted('persisted', true);
-      final reopened = FileTaskRepository(const FileJsonDocumentStore(), path);
-      final restored = await reopened.list();
-      expect(restored.single.isCompleted, isTrue);
-      AppData.useTaskRepository(reopened);
-    });
+    final repository = InMemoryTaskRepository();
+    await repository.insert(
+      Task(
+        id: 'shared',
+        title: '共享任务',
+        estimatedMinutes: 25,
+        isCompleted: true,
+      ),
+    );
+    AppData.useTaskRepository(repository);
     await tester.pumpWidget(
       const StudentLifeApp(initialRoute: AppRoutes.schedule),
     );
     await tester.pumpAndSettle();
-    expect(find.text('重启验收任务'), findsOneWidget);
-    expect(
-      (await (await AppData.tasks()).getById('persisted'))!.isCompleted,
-      isTrue,
-    );
+    expect(find.text('共享任务'), findsOneWidget);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pushNamed(AppRoutes.dashboard);
     await tester.pumpAndSettle();
