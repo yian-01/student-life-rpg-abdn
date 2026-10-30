@@ -30,9 +30,6 @@ void main() {
     }
   });
   setUp(() {
-    final previous = debugDisableShadows;
-    debugDisableShadows = false;
-    addTearDown(() => debugDisableShadows = previous);
     AppData.useTaskRepository(InMemoryTaskRepository());
     FinanceMemoryScope.resetShared();
   });
@@ -50,55 +47,63 @@ void main() {
   ];
   for (final (name, route, size) in cases) {
     testWidgets('mobile layout and rendered review: $name', (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = size;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final repository = await AppData.tasks();
-      final now = DateTime.now();
-      await repository.insert(
-        Task(id: 'review-reading', title: '阅读课程资料', estimatedMinutes: 30),
-      );
-      await repository.insert(
-        Task(
-          id: 'review-study',
-          title: '完成编程练习',
-          estimatedMinutes: 60,
-          scheduledRange: TimeRange(
-            start: DateTime(now.year, now.month, now.day, 16),
-            end: DateTime(now.year, now.month, now.day, 17),
+      final previousShadows = debugDisableShadows;
+      debugDisableShadows = false;
+      try {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = size;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final repository = await AppData.tasks();
+        final now = DateTime.now();
+        await repository.insert(
+          Task(id: 'review-reading', title: '阅读课程资料', estimatedMinutes: 30),
+        );
+        await repository.insert(
+          Task(
+            id: 'review-study',
+            title: '完成编程练习',
+            estimatedMinutes: 60,
+            scheduledRange: TimeRange(
+              start: DateTime(now.year, now.month, now.day, 16),
+              end: DateTime(now.year, now.month, now.day, 17),
+            ),
           ),
-        ),
-      );
-      final key = GlobalKey();
-      await tester.pumpWidget(
-        RepaintBoundary(
-          key: key,
-          child: StudentLifeApp(initialRoute: route),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      final navigator = find.byType(Navigator).first;
-      expect(
-        tester.getSize(navigator).width,
-        math.min(AppViewport.maxWidth, size.width),
-      );
-      final bar = find.byType(AppBar).first;
-      expect(tester.getSize(bar).width, lessThanOrEqualTo(430));
-      final boundary =
-          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      await tester.runAsync(() async {
-        final image = await boundary.toImage(pixelRatio: 1);
-        final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
-        final directory = Directory('build/ui-review');
-        await directory.create(recursive: true);
-        await File(
-          '${directory.path}/$name.png',
-        ).writeAsBytes(bytes.buffer.asUint8List());
-        image.dispose();
-      });
-      await tester.pumpWidget(const SizedBox());
+        );
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: key,
+            child: StudentLifeApp(initialRoute: route),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final navigator = find.byType(Navigator).first;
+        expect(
+          tester.getSize(navigator).width,
+          math.min(AppViewport.maxWidth, size.width),
+        );
+        final bar = find.byType(AppBar).first;
+        expect(tester.getSize(bar).width, lessThanOrEqualTo(430));
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.png,
+          ))!;
+          final directory = Directory('build/ui-review');
+          await directory.create(recursive: true);
+          await File(
+            '${directory.path}/$name.png',
+          ).writeAsBytes(bytes.buffer.asUint8List());
+          image.dispose();
+        });
+        await tester.pumpWidget(const SizedBox());
+      } finally {
+        debugDisableShadows = previousShadows;
+      }
     });
   }
 
