@@ -24,7 +24,7 @@ enum MoveDirection { up, down, left, right }
 ///  - [update] 的 dt 拒绝负值/非有限值（抛 [ArgumentError]），上限 0.05s
 ///    （超出截断）；dt=0 为合法空操作；
 ///  - 位移经 [WalkableArea.resolveMove] 拆 <=2px 子步并沿边滑动；
-///    只约束脚底点；窗口缩放不影响移动（全部在 world 坐标进行）。
+///    脚底检查地板，完整精灵矩形检查家具；窗口缩放不影响移动（全部在 world 坐标进行）。
 ///
 /// Menu 进出与返回规则（复审意见 4）：
 ///  - 进入 Menu 前调 [pauseForMenu]：暂停更新并清输入，**位置保留**；
@@ -41,8 +41,10 @@ class PlayerMovementController extends ChangeNotifier {
     if (!start.dx.isFinite || !start.dy.isFinite) {
       throw ArgumentError('start must be finite: $start');
     }
-    if (!WalkableArea(SceneGeometry.walkablePolygon).contains(start)) {
-      throw ArgumentError('start must be inside walkable area: $start');
+    if (!_area.canOccupy(start)) {
+      throw ArgumentError(
+        'start must be on clear floor without furniture overlap: $start',
+      );
     }
     return start;
   }
@@ -56,7 +58,11 @@ class PlayerMovementController extends ChangeNotifier {
   /// 摇杆死区（钳制后幅度小于该值视为无输入）。
   static const double joystickDeadZone = 0.15;
 
-  final WalkableArea _area = WalkableArea(SceneGeometry.walkablePolygon);
+  static final WalkableArea _area = WalkableArea(
+    SceneGeometry.walkablePolygon,
+    bodyBounds: SceneGeometry.playerBodyBounds,
+    obstacles: SceneGeometry.furnitureObstacles,
+  );
 
   Offset _footPosition;
   Offset _direction = Offset.zero; // 统一方向状态（归一化或零向量）

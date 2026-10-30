@@ -57,6 +57,25 @@ class SceneGeometry {
     Offset(75, 1385),
   ];
 
+  /// Conservative furniture silhouettes measured against bedroom_world_v1.png.
+  /// These include the furniture's visible height, not just its floor footprint:
+  /// the flattened background cannot occlude a character drawn above it.
+  /// Keep these in this unique world configuration; never scale them for a window.
+  static const List<Rect> furnitureObstacles = <Rect>[
+    Rect.fromLTRB(416, 570, 650, 952), // Bed, including footboard.
+    Rect.fromLTRB(293, 650, 443, 765), // Bedside cabinet.
+    Rect.fromLTRB(555, 960, 818, 1420), // Desk, lamp and chair.
+  ];
+
+  /// Full sprite rectangle relative to the foot anchor, including transparent
+  /// padding. This deliberately leaves a small visual clearance at furniture.
+  static Rect get playerBodyBounds => Rect.fromLTWH(
+    -playerFootAnchor.dx * spriteScale,
+    -playerFootAnchor.dy * spriteScale,
+    playerRenderWidth,
+    playerRenderHeight,
+  );
+
   /// Menu 交互点（世界坐标，门前地板上）。门体绿色门板范围约
   /// x 130..250、y 720..1225，门底中心约 (190,1180)；交互点取门前地板 (200,1170)。
   static const Offset menuInteractionPoint = Offset(200, 1170);

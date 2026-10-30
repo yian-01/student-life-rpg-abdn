@@ -30,3 +30,21 @@ The current commit's GitHub Actions run is the authoritative evidence for format
 7. On Android, verify portrait display, joystick drag/release/cancel, backgrounding and door navigation independently. Record the tested device/emulator and screenshots.
 
 This change connects the bedroom scene only. Task JSON application-data-path wiring, Dashboard real callbacks and the final end-to-end restart demo remain separate integration work. Finance stays in memory as labelled.
+
+## Visual acceptance correction (2026-10-30)
+
+Native screenshot review found that a legal foot position could still put the
+rendered body over the bed or desk. Movement now checks the complete sprite
+rectangle against conservative world-space furniture silhouettes stored only
+in SceneGeometry. The original polygon remains the floor constraint. All three
+input adapters and initial positions use the same occupancy check. Obstacles
+include the visible height of the bed, cabinet, desk/lamp and chair because the
+background is a single flattened image; there is no foreground occlusion layer.
+This conservative solution may leave extra clearance rather than supporting
+walking behind furniture. Resize never changes these world-space bounds.
+
+The HUD now uses a compact dark panel, gold border/progress, a shared level/EXP
+row and a 232 logical-pixel maximum width. It remains unscaled at sceneRect's
+fixed logical margin, with scrolling for enlarged text or tiny viewports. The
+application chrome and letterboxing use matching dark colors. Data is still
+explicitly marked as demonstration data. Native visual acceptance is pending.

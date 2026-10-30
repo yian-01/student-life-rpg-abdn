@@ -34,6 +34,63 @@ void main() {
     });
   });
 
+  group('sprite and furniture regression', () {
+    test('feet on floor do not permit a body inside the desk or bed', () {
+      for (final foot in [const Offset(550, 1200), const Offset(500, 1060)]) {
+        expect(
+          WalkableArea(SceneGeometry.walkablePolygon).contains(foot),
+          isTrue,
+        );
+        expect(
+          () => PlayerMovementController(start: foot),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test(
+      'all movement directions keep the whole sprite clear of furniture',
+      () {
+        for (final direction in [
+          const Offset(1, 0),
+          const Offset(0, -1),
+          const Offset(1, -1),
+          const Offset(1, 1),
+          const Offset(-1, 0),
+          const Offset(-1, -1),
+          const Offset(-1, 1),
+          const Offset(0, 1),
+        ]) {
+          final controller = PlayerMovementController();
+          controller.setMoveDirection(direction);
+          for (var frame = 0; frame < 400; frame++) {
+            controller.update(0.05);
+            final body = SceneGeometry.playerBodyBounds.shift(
+              controller.footPosition,
+            );
+            for (final furniture in SceneGeometry.furnitureObstacles) {
+              expect(body.overlaps(furniture), isFalse);
+            }
+          }
+          controller.dispose();
+        }
+      },
+    );
+
+    test('door remains reachable with body collision enabled', () {
+      final controller = PlayerMovementController();
+      controller.setMoveDirection(const Offset(-1, 0));
+      for (var i = 0; i < 20; i++) {
+        controller.update(0.05);
+      }
+      expect(
+        (controller.footPosition - SceneGeometry.menuInteractionPoint).distance,
+        lessThanOrEqualTo(SceneGeometry.menuInteractionRadius),
+      );
+      controller.dispose();
+    });
+  });
+
   group('统一移动入口 setMoveDirection（复审意见 3）', () {
     test('非有限分量抛 ArgumentError', () {
       final c = PlayerMovementController();
@@ -121,8 +178,8 @@ void main() {
       expect(c.footPosition, SceneGeometry.playerStart);
     });
 
-    test('沿边滑动：斜边处右下输入不越界', () {
-      final c = PlayerMovementController(start: const Offset(555, 1000));
+    test('沿边滑动：书桌左侧右下输入不越界', () {
+      final c = PlayerMovementController(start: const Offset(500, 1200));
       c.setPressedKeys({MoveDirection.right, MoveDirection.down});
       final area = WalkableArea(SceneGeometry.walkablePolygon);
       for (var i = 0; i < 5; i++) {
@@ -132,7 +189,7 @@ void main() {
     });
 
     test('角落压迫：右下角 50 步始终不越界，且不超出 x<=550、y<=1385', () {
-      final c = PlayerMovementController(start: const Offset(545, 1378));
+      final c = PlayerMovementController(start: const Offset(500, 1370));
       c.setPressedKeys({MoveDirection.right, MoveDirection.down});
       final area = WalkableArea(SceneGeometry.walkablePolygon);
       for (var i = 0; i < 50; i++) {
@@ -300,9 +357,9 @@ void main() {
         const Offset(300, 1200),
       ); // 内部
       expect(
-        PlayerMovementController(start: const Offset(550, 1200)).footPosition,
-        const Offset(550, 1200),
-      ); // 右边界上
+        PlayerMovementController(start: const Offset(498, 1200)).footPosition,
+        const Offset(498, 1200),
+      ); // 书桌左侧安全点
       expect(
         PlayerMovementController(start: const Offset(75, 1385)).footPosition,
         const Offset(75, 1385),

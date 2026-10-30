@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show Offset;
+import 'dart:ui' show Offset, Rect;
 
 /// WalkableArea — 可行走区域判定与移动解算（Issue D，v1.0 草稿）。
 ///
@@ -11,7 +11,21 @@ import 'dart:ui' show Offset;
 ///
 /// 多边形顶点来自唯一配置 SceneGeometry.walkablePolygon，本类不复制数值。
 class WalkableArea {
-  const WalkableArea(this._polygon);
+  const WalkableArea(
+    this._polygon, {
+    this.bodyBounds = Rect.zero,
+    this.obstacles = const <Rect>[],
+  });
+
+  final Rect bodyBounds;
+  final List<Rect> obstacles;
+
+  /// Floor membership and sprite/furniture collision are distinct checks.
+  bool canOccupy(Offset foot) {
+    if (!foot.dx.isFinite || !foot.dy.isFinite || !contains(foot)) return false;
+    final body = bodyBounds.shift(foot);
+    return !obstacles.any(body.overlaps);
+  }
 
   final List<Offset> _polygon;
 
@@ -61,17 +75,17 @@ class WalkableArea {
     var pos = from;
     for (var i = 0; i < steps; i++) {
       final next = pos + step;
-      if (contains(next)) {
+      if (canOccupy(next)) {
         pos = next;
         continue;
       }
       final nextX = Offset(pos.dx + step.dx, pos.dy);
-      if (contains(nextX)) {
+      if (canOccupy(nextX)) {
         pos = nextX;
         continue;
       }
       final nextY = Offset(pos.dx, pos.dy + step.dy);
-      if (contains(nextY)) {
+      if (canOccupy(nextY)) {
         pos = nextY;
         continue;
       }

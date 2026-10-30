@@ -37,7 +37,7 @@ class _BedroomPageState extends State<BedroomPage>
 
   // This is explicitly demo HUD input, not an implemented reward chain.
   final _hud = HudViewData(
-    displayName: 'CS Group6 · 演示数据',
+    displayName: 'CS Group6 · 演示',
     level: 1,
     exp: 0,
     expToNextLevel: 100,
@@ -169,81 +169,98 @@ class _BedroomPageState extends State<BedroomPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Student Life RPG')),
-      body: SafeArea(
-        child: Focus(
-          focusNode: _focus,
-          autofocus: true,
-          onKeyEvent: _onKey,
-          onFocusChange: (focused) {
-            if (!focused) {
-              _clearInput();
-            } else {
-              _syncTicker();
-            }
-          },
-          child: ListenableBuilder(
-            listenable: _interaction,
-            builder: (context, _) => LayoutBuilder(
-              builder: (context, constraints) => Column(
-                children: [
-                  Expanded(
-                    child: SceneViewport(
-                      footPosition: _movement.footPosition,
-                      hud: _hud,
-                      onSceneTap: (local, transform) {
-                        if (!_acceptsInput) return;
-                        _focus.requestFocus();
-                        unawaited(
-                          _interaction.triggerAtLocalPosition(
-                            localPosition: local,
-                            transform: transform,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    height: math.min(144, constraints.maxHeight * 0.4),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          MovementJoystick(
-                            enabled: _acceptsInput,
-                            onChanged: _onJoystick,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'WASD / 方向键，或拖动摇杆移动',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                if (_interaction.canInteract)
-                                  FilledButton(
-                                    key: const Key('menu-interaction'),
-                                    onPressed: _interaction.triggerInteraction,
-                                    child: const Text('进入菜单'),
-                                  )
-                                else
-                                  const Text('靠近左侧 Menu 门后按 E 或点击进入'),
-                                if (_interaction.error != null)
-                                  const Text('导航失败，请靠近门后重试'),
-                              ],
+      appBar: AppBar(
+        title: const Text(
+          'Student Life RPG',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        toolbarHeight: 44,
+        backgroundColor: const Color(0xFF20292A),
+        foregroundColor: const Color(0xFFF6EBD3),
+        surfaceTintColor: Colors.transparent,
+      ),
+      backgroundColor: const Color(0xFF20292A),
+      body: DefaultTextStyle.merge(
+        style: const TextStyle(color: Color(0xFFD9DFDA)),
+        child: SafeArea(
+          child: Focus(
+            focusNode: _focus,
+            autofocus: true,
+            onKeyEvent: _onKey,
+            onFocusChange: (focused) {
+              if (!focused) {
+                _clearInput();
+              } else {
+                _syncTicker();
+              }
+            },
+            child: ListenableBuilder(
+              listenable: _interaction,
+              builder: (context, _) => LayoutBuilder(
+                builder: (context, constraints) => Column(
+                  children: [
+                    Expanded(
+                      child: SceneViewport(
+                        footPosition: _movement.footPosition,
+                        hud: _hud,
+                        onSceneTap: (local, transform) {
+                          if (!_acceptsInput) return;
+                          _focus.requestFocus();
+                          unawaited(
+                            _interaction.triggerAtLocalPosition(
+                              localPosition: local,
+                              transform: transform,
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ],
+                    SizedBox(
+                      height: math.min(144, constraints.maxHeight * 0.4),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            MovementJoystick(
+                              enabled: _acceptsInput,
+                              onChanged: _onJoystick,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'WASD / 方向键，或拖动摇杆移动',
+                                    style: const TextStyle(
+                                      color: Color(0xFFAFBDB8),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (_interaction.canInteract)
+                                    FilledButton(
+                                      key: const Key('menu-interaction'),
+                                      onPressed:
+                                          _interaction.triggerInteraction,
+                                      child: const Text('进入菜单'),
+                                    )
+                                  else
+                                    const Text('靠近左侧 Menu 门后按 E 或点击进入'),
+                                  if (_interaction.error != null)
+                                    const Text('导航失败，请靠近门后重试'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -42,9 +42,7 @@ class SceneViewport extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                ),
+                ColoredBox(color: const Color(0xFF181F20)),
                 Positioned.fromRect(
                   rect: rect,
                   child: Image.asset(

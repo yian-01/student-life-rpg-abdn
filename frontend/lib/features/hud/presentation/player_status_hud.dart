@@ -13,7 +13,7 @@ class PlayerStatusHud extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.min(constraints.maxWidth, 280.0);
+        final width = math.min(constraints.maxWidth, 232.0);
         if (!width.isFinite || width <= 0 || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
         }
@@ -27,24 +27,70 @@ class PlayerStatusHud extends StatelessWidget {
           width: contentWidth,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xF0212828),
+              border: Border.all(color: const Color(0xFFB99552)),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
+              ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(data.displayName, softWrap: true),
-                  Text('Lv ${data.level}', softWrap: true),
-                  Text(
-                    'EXP ${data.exp}/${data.expToNextLevel}',
-                    softWrap: true,
-                  ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(value: data.ratio),
-                ],
+            child: DefaultTextStyle(
+              style: const TextStyle(
+                color: Color(0xFFF6EBD3),
+                fontSize: 12,
+                height: 1.25,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.displayName,
+                      softWrap: true,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          'Lv ${data.level}',
+                          style: const TextStyle(
+                            color: Color(0xFFE8BF70),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'EXP ${data.exp}/${data.expToNextLevel}',
+                          style: const TextStyle(color: Color(0xFFC8D5CD)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: data.ratio,
+                        minHeight: 5,
+                        color: const Color(0xFFDBB464),
+                        backgroundColor: const Color(0xFF404C45),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
