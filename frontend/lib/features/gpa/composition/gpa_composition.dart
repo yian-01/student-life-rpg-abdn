@@ -1,3 +1,6 @@
+// Keep the public named readiness argument separate from its private state.
+// ignore_for_file: prefer_initializing_formals
+
 import '../../../shared/repositories/entity_repository.dart';
 import '../../academic/models/course.dart';
 import '../../academic/models/course_slot.dart';
@@ -15,7 +18,7 @@ class GpaComposition {
     required this.scoreScaleMax,
     this.isDemo = false,
     Future<void>? ready,
-  }) : _ready = ready ?? Future.value() {
+  }) : _ready = ready {
     if (!scoreScaleMax.isFinite || scoreScaleMax <= 0) {
       throw ArgumentError.value(scoreScaleMax, 'scoreScaleMax');
     }

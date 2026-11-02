@@ -17,7 +17,7 @@ class CampusStore {
   final JsonDocumentStore store;
   final String path;
   Map<String, dynamic>? _state;
-  Future<void> _tail = Future.value();
+  Future<void>? _tail;
   static const scoreScaleMax = 4.0;
   static const tables = [
     'semesters',
@@ -28,7 +28,8 @@ class CampusStore {
   ];
 
   Future<T> _queue<T>(Future<T> Function() action) {
-    final result = _tail.then((_) => action());
+    // Start in the caller zone rather than scheduling work at construction.
+    final result = _tail?.then((_) => action()) ?? Future<T>.sync(action);
     _tail = result.then<void>((_) {}, onError: (Object _) {});
     return result;
   }
