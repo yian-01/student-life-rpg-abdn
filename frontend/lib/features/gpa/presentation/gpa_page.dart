@@ -1,3 +1,4 @@
+import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../../academic/models/course.dart';
@@ -5,8 +6,9 @@ import '../composition/gpa_composition.dart';
 import '../controllers/gpa_controller.dart';
 
 class GpaPage extends StatefulWidget {
-  const GpaPage({super.key, required this.composition});
+  const GpaPage({super.key, required this.composition, this.onManage});
   final GpaComposition composition;
+  final Future<void> Function()? onManage;
 
   @override
   State<GpaPage> createState() => _GpaPageState();
@@ -47,113 +49,157 @@ class _GpaPageState extends State<GpaPage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     return Scaffold(
-      appBar: AppBar(title: const Text('GPA')),
-      body: SafeArea(
-        child: controller == null
-            ? (_setupError == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : Center(
-                      child: TextButton(
-                        onPressed: _initialize,
-                        child: const Text('初始化失败，重试'),
+      appBar: AppBar(
+        title: const Text('学业档案'),
+        actions: [
+          if (widget.onManage != null)
+            IconButton(
+              key: const Key('manage-academic'),
+              tooltip: '管理学期与课程',
+              onPressed: () async {
+                await widget.onManage!();
+                if (mounted) await _controller?.retry();
+              },
+              icon: const Icon(Icons.menu_book_outlined),
+            ),
+        ],
+      ),
+      body: ModuleBody(
+        child: SafeArea(
+          child: controller == null
+              ? (_setupError == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Center(
+                        child: TextButton(
+                          onPressed: _initialize,
+                          child: const Text('初始化失败，重试'),
+                        ),
+                      ))
+              : AnimatedBuilder(
+                  animation: controller,
+                  builder: (context, _) => ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Text(
+                        '课程成绩',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    ))
-            : AnimatedBuilder(
-                animation: controller,
-                builder: (context, _) => ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    Text('评分上限 ${controller.scoreScaleMax}；由调用方提供'),
-                    if (widget.composition.isDemo)
-                      const Text(
-                        '合成演示数据 · 4.0 演示规则，不代表学校官方 GPA 制度。仅存内存，重启不保留。',
-                      ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(controller.semesterId),
-                      initialValue: controller.semesterId ?? '',
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: '学期'),
-                      items: [
-                        const DropdownMenuItem(value: '', child: Text('全部学期')),
-                        for (final id in {
-                          ...controller.semesterIds,
-                          if (controller.semesterId != null)
-                            controller.semesterId!,
-                        })
-                          DropdownMenuItem(
-                            value: id,
-                            child: Text(id, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 12),
+                      if (widget.composition.isDemo)
+                        const ModuleNotice(
+                          '合成演示课程 · 4.0 评分规则，非学校官方制度。仅存内存，重启不保留。',
+                        ),
+                      if (!widget.composition.isDemo)
+                        const ModuleNotice(
+                          '课程与成绩保存在本机。采用自定义 4.0 绩点规则，不代表学校官方换算。',
+                        ),
+                      if (widget.onManage != null)
+                        TextButton.icon(
+                          onPressed: () async {
+                            await widget.onManage!();
+                            if (mounted) await _controller?.retry();
+                          },
+                          icon: const Icon(Icons.edit_calendar),
+                          label: const Text('管理学期与课程'),
+                        ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(controller.semesterId),
+                        initialValue: controller.semesterId ?? '',
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: '学期'),
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('全部学期'),
                           ),
-                      ],
-                      onChanged: controller.isLoading
-                          ? null
-                          : (id) => controller.load(
-                              semesterId: id == '' ? null : id,
+                          for (final id in {
+                            ...controller.semesterIds,
+                            if (controller.semesterId != null)
+                              controller.semesterId!,
+                          })
+                            DropdownMenuItem(
+                              value: id,
+                              child: Text(
+                                controller.semesterNames[id] ?? id,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (controller.isLoading) const LinearProgressIndicator(),
-                    if (controller.error != null) ...[
-                      const Text(
-                        'GPA 读取或保存失败，请重试。',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                      TextButton(
-                        onPressed: controller.retry,
-                        child: const Text('重试'),
-                      ),
-                    ],
-                    if (controller.result case final result?) ...[
-                      Text(
-                        result.value == null
-                            ? 'GPA：暂无已评分课程'
-                            : 'GPA：${result.value!.toStringAsFixed(2)}',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      Text(
-                        '已评分学分：${result.gradedCredits} · 已评分课程：${result.gradedCourseCount} · 未评分：${result.missingCount}',
-                      ),
-                      if (controller.courses.isEmpty) const Text('暂无课程'),
-                    ],
-                    const SizedBox(height: 12),
-                    for (final course in controller.courses)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                course.name,
-                                style: Theme.of(context).textTheme.titleMedium,
+                        ],
+                        onChanged: controller.isLoading
+                            ? null
+                            : (id) => controller.load(
+                                semesterId: id == '' ? null : id,
                               ),
-                              Text(
-                                '学期：${course.semesterId} · 学分：${course.credits}',
-                              ),
-                              Text(
-                                course.gradePoint == null
-                                    ? '绩点：未评分'
-                                    : '绩点：${course.gradePoint}',
-                              ),
-                              TextButton(
-                                key: ValueKey('edit-${course.id}'),
-                                onPressed: controller.isLoading
-                                    ? null
-                                    : () => _edit(course, controller),
-                                child: const Text('编辑成绩'),
-                              ),
-                            ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (controller.isLoading) const LinearProgressIndicator(),
+                      if (controller.error != null) ...[
+                        const Text(
+                          'GPA 读取或保存失败，请重试。',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        TextButton(
+                          onPressed: controller.retry,
+                          child: const Text('重试'),
+                        ),
+                      ],
+                      if (controller.result case final result?) ...[
+                        Text(
+                          result.value == null
+                              ? 'GPA：暂无已评分课程'
+                              : 'GPA：${result.value!.toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        Text(
+                          '已评分学分：${result.gradedCredits} · 已评分课程：${result.gradedCourseCount} · 未评分：${result.missingCount}',
+                        ),
+                        if (controller.courses.isEmpty) const Text('暂无课程'),
+                      ],
+                      const SizedBox(height: 12),
+                      for (final course in controller.courses)
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  course.name,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                Text(
+                                  '学期：${controller.semesterNames[course.semesterId] ?? course.semesterId} · 学分：${course.credits}',
+                                ),
+                                Text(
+                                  course.gradePoint == null
+                                      ? '绩点：未评分'
+                                      : '绩点：${course.gradePoint}',
+                                ),
+                                TextButton(
+                                  key: ValueKey('edit-${course.id}'),
+                                  onPressed: controller.isLoading
+                                      ? null
+                                      : () => _edit(course, controller),
+                                  child: const Text('编辑成绩'),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
+                      TextButton(
+                        onPressed: controller.isLoading
+                            ? null
+                            : controller.retry,
+                        child: const Text('刷新'),
                       ),
-                    TextButton(
-                      onPressed: controller.isLoading ? null : controller.retry,
-                      child: const Text('刷新'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

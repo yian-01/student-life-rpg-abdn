@@ -1,6 +1,9 @@
+import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/finance_controller.dart';
+import '../../../shared/presentation/record_editor_dialog.dart';
+import 'finance_record_editor.dart';
 import '../finance_memory_scope.dart';
 import '../models/finance_category.dart';
 import '../models/finance_record.dart';
@@ -9,9 +12,16 @@ import '../models/money.dart';
 import '../models/monthly_finance_summary.dart';
 
 class FinancePage extends StatefulWidget {
-  const FinancePage({super.key, this.controller});
+  const FinancePage({
+    super.key,
+    this.controller,
+    this.isPersistent = false,
+    this.onRecover,
+  });
 
   final FinanceController? controller;
+  final bool isPersistent;
+  final Future<void> Function()? onRecover;
 
   @override
   State<FinancePage> createState() => _FinancePageState();
@@ -69,86 +79,167 @@ class _FinancePageState extends State<FinancePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Finance')),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const Text(
-                  '演示数据：分类为合成示例。财务记录保存在内存中，完全退出应用后不会保留。本轮仅 Task 安排 JSON 持久化。预算由组合根注入（演示预算 1000.00 元），无预算 CRUD。',
-                ),
-                const SizedBox(height: 12),
-                if (_controller.isLoading) const Text('加载中'),
-                if (_controller.error != null) ...[
-                  Text(
-                    '错误：${_controller.error}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+      appBar: AppBar(
+        title: const Text('生活账本'),
+        actions: [
+          if (widget.onRecover != null)
+            IconButton(
+              tooltip: '重新读取 / 从备份恢复',
+              onPressed: widget.onRecover,
+              icon: const Icon(Icons.restore),
+            ),
+        ],
+      ),
+      body: ModuleBody(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  ModuleNotice(
+                    widget.isPersistent
+                        ? '收支记录保存在本机。预算尚未设置。'
+                        : '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
                   ),
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: '上个月',
+                        onPressed: _controller.isLoading
+                            ? null
+                            : () => _controller.load(
+                                month: DateTime(
+                                  _controller.month.year,
+                                  _controller.month.month - 1,
+                                ),
+                              ),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_controller.month.year}-${_controller.month.month.toString().padLeft(2, '0')}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '下个月',
+                        onPressed: _controller.isLoading
+                            ? null
+                            : () => _controller.load(
+                                month: DateTime(
+                                  _controller.month.year,
+                                  _controller.month.month + 1,
+                                ),
+                              ),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_controller.isLoading) const Text('加载中'),
+                  if (_controller.error != null) ...[
+                    Text(
+                      '错误：${_controller.error}',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _controller.retry,
+                        child: const Text('重试'),
+                      ),
+                    ),
+                  ],
+                  _SummaryCard(summary: _controller.summary),
+                  const SizedBox(height: 16),
+                  _AddRecordForm(
+                    categories: _controller.categoriesFor(_selectedType),
+                    selectedType: _selectedType,
+                    selectedCategoryId: _selectedCategoryId,
+                    amountController: _amountController,
+                    noteController: _noteController,
+                    onTypeChanged: (type) {
+                      setState(() {
+                        _selectedType = type;
+                        final matching = _controller.categoriesFor(type);
+                        _selectedCategoryId = matching.isEmpty
+                            ? null
+                            : matching.first.id;
+                      });
+                    },
+                    onCategoryChanged: (id) {
+                      setState(() => _selectedCategoryId = id);
+                    },
+                    onSubmit:
+                        _selectedCategoryId == null ||
+                            _controller.isSaving ||
+                            _controller.isLoading
+                        ? null
+                        : () async {
+                            final saved = await _controller.addRecord(
+                              categoryId: _selectedCategoryId!,
+                              amountText: _amountController.text,
+                              note: _noteController.text,
+                            );
+                            if (!mounted) return;
+                            if (saved) {
+                              _amountController.clear();
+                              _noteController.clear();
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
-                      onPressed: _controller.retry,
-                      child: const Text('重试'),
+                      onPressed: _controller.refresh,
+                      child: const Text('刷新'),
                     ),
                   ),
+                  const Text('本月记录'),
+                  const SizedBox(height: 8),
+                  if (_controller.monthRecords.isEmpty)
+                    const Text('暂无记录')
+                  else
+                    ..._controller.monthRecords.map(
+                      (record) => _RecordTile(
+                        record,
+                        categoryName:
+                            _controller.availableCategories
+                                .where((c) => c.id == record.categoryId)
+                                .map((c) => c.name)
+                                .firstOrNull ??
+                            record.categoryId,
+                        onAction: _controller.isSaving
+                            ? null
+                            : (action) async {
+                                if (action == 'edit') {
+                                  await showDialog<bool>(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (_) => FinanceRecordEditor(
+                                      controller: _controller,
+                                      record: record,
+                                    ),
+                                  );
+                                } else if (await confirmRemoval(
+                                      context,
+                                      '这笔收支记录',
+                                    ) &&
+                                    mounted) {
+                                  await _controller.removeRecord(record.id);
+                                }
+                              },
+                      ),
+                    ),
+                  SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
                 ],
-                _SummaryCard(summary: _controller.summary),
-                const SizedBox(height: 16),
-                _AddRecordForm(
-                  categories: _controller.categoriesFor(_selectedType),
-                  selectedType: _selectedType,
-                  selectedCategoryId: _selectedCategoryId,
-                  amountController: _amountController,
-                  noteController: _noteController,
-                  onTypeChanged: (type) {
-                    setState(() {
-                      _selectedType = type;
-                      final matching = _controller.categoriesFor(type);
-                      _selectedCategoryId = matching.isEmpty
-                          ? null
-                          : matching.first.id;
-                    });
-                  },
-                  onCategoryChanged: (id) {
-                    setState(() => _selectedCategoryId = id);
-                  },
-                  onSubmit: _selectedCategoryId == null
-                      ? null
-                      : () async {
-                          await _controller.addRecord(
-                            categoryId: _selectedCategoryId!,
-                            amountText: _amountController.text,
-                            note: _noteController.text,
-                          );
-                          if (!mounted) return;
-                          if (_controller.error == null) {
-                            _amountController.clear();
-                            _noteController.clear();
-                          }
-                        },
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _controller.refresh,
-                    child: const Text('刷新'),
-                  ),
-                ),
-                const Text('本月记录'),
-                const SizedBox(height: 8),
-                if (_controller.monthRecords.isEmpty)
-                  const Text('暂无记录')
-                else
-                  ..._controller.monthRecords.map(_RecordTile.new),
-                SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -180,7 +271,13 @@ class _SummaryCard extends StatelessWidget {
             ),
             Text('收入 ${formatAmountMinor(data.incomeMinor)} 元'),
             Text('支出 ${formatAmountMinor(data.expenseMinor)} 元'),
-            Text('余额 ${formatAmountMinor(data.balanceMinor)} 元'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                '余额 ${formatAmountMinor(data.balanceMinor)} 元',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
             Text(
               remaining == null
                   ? '预算剩余 未设置'
@@ -249,6 +346,7 @@ class _AddRecordForm extends StatelessWidget {
               .toList(),
           onChanged: onCategoryChanged,
         ),
+        const SizedBox(height: 12),
         TextField(
           controller: amountController,
           decoration: const InputDecoration(
@@ -257,6 +355,7 @@ class _AddRecordForm extends StatelessWidget {
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
+        const SizedBox(height: 12),
         TextField(
           controller: noteController,
           decoration: const InputDecoration(labelText: '备注（可选）'),
@@ -269,7 +368,9 @@ class _AddRecordForm extends StatelessWidget {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile(this.record);
+  const _RecordTile(this.record, {required this.categoryName, this.onAction});
+  final String categoryName;
+  final ValueChanged<String>? onAction;
 
   final FinanceRecord record;
 
@@ -283,9 +384,19 @@ class _RecordTile extends StatelessWidget {
           '$kind ${formatAmountMinor(record.amountMinor)} 元',
           overflow: TextOverflow.ellipsis,
         ),
+        trailing: onAction == null
+            ? null
+            : PopupMenuButton<String>(
+                key: Key('finance-actions-${record.id}'),
+                onSelected: onAction,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('编辑')),
+                  PopupMenuItem(value: 'delete', child: Text('删除')),
+                ],
+              ),
         subtitle: Text(
           [
-            record.categoryId,
+            categoryName,
             record.occurredAt.toIso8601String(),
             if (note != null && note.isNotEmpty) note,
           ].join(' · '),

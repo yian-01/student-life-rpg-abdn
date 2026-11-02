@@ -8,7 +8,13 @@ import 'gpa_controller_test.dart' show ControlledRepository;
 import 'gpa_calculator_test.dart' show course;
 
 Future<void> tap(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
+  if (finder.evaluate().isEmpty) {
+    final scrollable = find.byType(Scrollable).first;
+    tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(finder, 100, scrollable: scrollable);
+  }
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.25);
   await tester.pumpAndSettle();
   for (var i = 0; i < 20 && finder.hitTestable().evaluate().isEmpty; i++) {
     await tester.drag(find.byType(ListView).first, const Offset(0, -180));
@@ -41,6 +47,8 @@ void main() {
         0,
       );
       expect((await composition.loadGpa()).gradedCourseCount, 3);
+      await tester.drag(find.byType(ListView).first, const Offset(0, 1000));
+      await tester.pumpAndSettle();
       expect(find.text('GPA：1.85'), findsOneWidget);
       await tap(tester, find.byKey(const ValueKey('edit-demo-english')));
       await tester.enterText(find.byType(TextFormField), '');

@@ -148,7 +148,7 @@ void main() {
           await tester.tap(find.text('进入菜单'));
         }
         await tester.pumpAndSettle();
-        expect(find.text('Menu'), findsOneWidget);
+        expect(find.byKey(const Key('hall-background')), findsOneWidget);
         expect(controller.isNavigating, isTrue);
         expect(movement.isPaused, isTrue);
         for (var i = 0; i < 9; i++) {
@@ -163,7 +163,7 @@ void main() {
         expect(movement.isMoving, isFalse);
         await tester.tap(find.text('进入菜单'));
         await tester.pumpAndSettle();
-        expect(find.text('Menu'), findsOneWidget);
+        expect(find.byKey(const Key('hall-background')), findsOneWidget);
         navigator.pop();
         await tester.pumpAndSettle();
         await tester.pumpWidget(const SizedBox());
@@ -192,7 +192,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
     await tester.pumpAndSettle();
     expect(controller.isNavigating, isFalse);
-    expect(find.text('Menu'), findsNothing);
+    expect(find.byKey(const Key('hall-background')), findsNothing);
     await tester.pumpWidget(const SizedBox());
     movement.dispose();
   });
