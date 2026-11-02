@@ -1,4 +1,4 @@
-# Module integration status — 2026-10-31
+# Module integration status — 2026-11-02
 
 The hall is temporary art. Art acceptance is separate from functional acceptance.
 The existing models, repositories and algorithms are being connected to the app;
@@ -13,15 +13,18 @@ not an independent attribution of every line or commit.
 | --- | --- | --- |
 | 廖梦溪 | features/bedroom/controllers/player_movement_controller.dart; models/walkable_area.dart | Shared by bedroom and four-door hall, with room-specific geometry |
 | 黎宇轩 | features/interaction/controllers/interaction_controller.dart; features/hud/ | Distance-guarded hall doors connected; fabricated demo HUD removed; real progression/rewards still pending |
-| 蒋子康 | features/academic/models/, repositories/, services/course_occurrence_service.dart | Course repository used by GPA; actual semester/course management, course occurrences in app Schedule, Assignment/Exam UI/storage still pending |
-| 钟顺成 | features/schedule/models/, repositories/, services/day_schedule_service.dart; composition/ | Task reads/writes use one file repository; daily merge and sorting reused; Event model/repository exists but app event entry/persistence pending |
+| 蒋子康 | features/academic/models/, repositories/, services/course_occurrence_service.dart | Course repository used by GPA; semester/course CRUD and weekly occurrences now connected and persisted; Assignment/Exam UI/storage still pending |
+| 钟顺成 | features/schedule/models/, repositories/, services/day_schedule_service.dart; composition/ | Task reads/writes use one file repository; daily merge and sorting reused; Event create/edit/delete and persistence now connected |
 | 郝文聪 | features/schedule/services/conflict_detector.dart; features/gpa/ | GPA connected; conflict detector now consumed by daily task UI; advanced free-slot/splitting/simulation not claimed complete |
-| 吴昕玥 | features/finance/ | CRUD, monthly filtering/calculation use existing controller/services; still explicitly in-memory |
+| 吴昕玥 | features/finance/ | CRUD, monthly filtering/calculation use existing controller/services; now persisted through CampusStore, with month navigation and record edit/delete |
 | 龙梓瑄 | features/dashboard/models/; features/dashboard/presentation/ | Shared task, GPA and finance summary reads connected; chart scope still pending |
-| 李雨真 | shared/storage/; features/schedule/repositories/file_task_repository.dart | JSON task persistence and explicit recovery connected; other entities' durable storage/import/export pending |
+| 李雨真 | shared/storage/; features/schedule/repositories/file_task_repository.dart | JSON task persistence and explicit recovery connected; semester/course/grade/event/category/record persistence now connected; import/export and other entities pending |
 | 陈思翰 | app/; features/rooms/; features/bedroom/ | App routing, scene and module integration; native acceptance/build delivery still pending |
 
-## This functional increment
+Current academic/finance data paths, schema, recovery and acceptance steps:
+[academic-finance-integration.md](academic-finance-integration.md).
+
+## Task lifecycle increment (2026-10-31)
 
 - Task editor supports title, estimate, independent optional deadline and optional
   start/end date-times. Start must precede end; cross-day plans are supported.

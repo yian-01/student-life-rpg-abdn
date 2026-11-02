@@ -2,6 +2,8 @@ import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/finance_controller.dart';
+import '../../../shared/presentation/record_editor_dialog.dart';
+import 'finance_record_editor.dart';
 import '../finance_memory_scope.dart';
 import '../models/finance_category.dart';
 import '../models/finance_record.dart';
@@ -10,9 +12,16 @@ import '../models/money.dart';
 import '../models/monthly_finance_summary.dart';
 
 class FinancePage extends StatefulWidget {
-  const FinancePage({super.key, this.controller});
+  const FinancePage({
+    super.key,
+    this.controller,
+    this.isPersistent = false,
+    this.onRecover,
+  });
 
   final FinanceController? controller;
+  final bool isPersistent;
+  final Future<void> Function()? onRecover;
 
   @override
   State<FinancePage> createState() => _FinancePageState();
@@ -70,7 +79,17 @@ class _FinancePageState extends State<FinancePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('生活账本')),
+      appBar: AppBar(
+        title: const Text('生活账本'),
+        actions: [
+          if (widget.onRecover != null)
+            IconButton(
+              tooltip: '重新读取 / 从备份恢复',
+              onPressed: widget.onRecover,
+              icon: const Icon(Icons.restore),
+            ),
+        ],
+      ),
       body: ModuleBody(
         child: SafeArea(
           child: LayoutBuilder(
@@ -78,8 +97,44 @@ class _FinancePageState extends State<FinancePage> {
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  const ModuleNotice(
-                    '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
+                  ModuleNotice(
+                    widget.isPersistent
+                        ? '收支记录保存在本机。预算尚未设置。'
+                        : '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: '上个月',
+                        onPressed: _controller.isLoading
+                            ? null
+                            : () => _controller.load(
+                                month: DateTime(
+                                  _controller.month.year,
+                                  _controller.month.month - 1,
+                                ),
+                              ),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_controller.month.year}-${_controller.month.month.toString().padLeft(2, '0')}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '下个月',
+                        onPressed: _controller.isLoading
+                            ? null
+                            : () => _controller.load(
+                                month: DateTime(
+                                  _controller.month.year,
+                                  _controller.month.month + 1,
+                                ),
+                              ),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (_controller.isLoading) const Text('加载中'),
@@ -118,16 +173,19 @@ class _FinancePageState extends State<FinancePage> {
                     onCategoryChanged: (id) {
                       setState(() => _selectedCategoryId = id);
                     },
-                    onSubmit: _selectedCategoryId == null
+                    onSubmit:
+                        _selectedCategoryId == null ||
+                            _controller.isSaving ||
+                            _controller.isLoading
                         ? null
                         : () async {
-                            await _controller.addRecord(
+                            final saved = await _controller.addRecord(
                               categoryId: _selectedCategoryId!,
                               amountText: _amountController.text,
                               note: _noteController.text,
                             );
                             if (!mounted) return;
-                            if (_controller.error == null) {
+                            if (saved) {
                               _amountController.clear();
                               _noteController.clear();
                             }
@@ -146,7 +204,37 @@ class _FinancePageState extends State<FinancePage> {
                   if (_controller.monthRecords.isEmpty)
                     const Text('暂无记录')
                   else
-                    ..._controller.monthRecords.map(_RecordTile.new),
+                    ..._controller.monthRecords.map(
+                      (record) => _RecordTile(
+                        record,
+                        categoryName:
+                            _controller.availableCategories
+                                .where((c) => c.id == record.categoryId)
+                                .map((c) => c.name)
+                                .firstOrNull ??
+                            record.categoryId,
+                        onAction: _controller.isSaving
+                            ? null
+                            : (action) async {
+                                if (action == 'edit') {
+                                  await showDialog<bool>(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (_) => FinanceRecordEditor(
+                                      controller: _controller,
+                                      record: record,
+                                    ),
+                                  );
+                                } else if (await confirmRemoval(
+                                      context,
+                                      '这笔收支记录',
+                                    ) &&
+                                    mounted) {
+                                  await _controller.removeRecord(record.id);
+                                }
+                              },
+                      ),
+                    ),
                   SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
                 ],
               );
@@ -280,7 +368,9 @@ class _AddRecordForm extends StatelessWidget {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile(this.record);
+  const _RecordTile(this.record, {required this.categoryName, this.onAction});
+  final String categoryName;
+  final ValueChanged<String>? onAction;
 
   final FinanceRecord record;
 
@@ -294,9 +384,19 @@ class _RecordTile extends StatelessWidget {
           '$kind ${formatAmountMinor(record.amountMinor)} 元',
           overflow: TextOverflow.ellipsis,
         ),
+        trailing: onAction == null
+            ? null
+            : PopupMenuButton<String>(
+                key: Key('finance-actions-${record.id}'),
+                onSelected: onAction,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('编辑')),
+                  PopupMenuItem(value: 'delete', child: Text('删除')),
+                ],
+              ),
         subtitle: Text(
           [
-            record.categoryId,
+            categoryName,
             record.occurredAt.toIso8601String(),
             if (note != null && note.isNotEmpty) note,
           ].join(' · '),

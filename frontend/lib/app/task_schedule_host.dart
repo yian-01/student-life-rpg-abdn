@@ -4,6 +4,7 @@ import '../features/schedule/presentation/schedule_page.dart';
 import '../features/schedule/repositories/file_task_repository.dart';
 import '../features/schedule/repositories/task_repository.dart';
 import 'app_data.dart';
+import 'campus_data_host.dart';
 
 class TaskScheduleHost extends StatefulWidget {
   const TaskScheduleHost({super.key});
@@ -59,12 +60,19 @@ class _TaskScheduleHostState extends State<TaskScheduleHost> {
     builder: (context, snapshot) {
       if (snapshot.hasData) {
         final repository = snapshot.data!;
-        return SchedulePage(
-          key: ValueKey(_generation),
-          taskRepository: repository,
-          onRecover: repository is FileTaskRepository
-              ? () => _recover(repository)
-              : null,
+        return CampusDataHost(
+          title: '日程手账',
+          builder: (context, data) => SchedulePage(
+            key: ValueKey(_generation),
+            loader: data.schedule(repository),
+            onManageEvents: (date) => Navigator.of(
+              context,
+            ).pushNamed<void>('/events', arguments: date),
+            taskRepository: repository,
+            onRecover: repository is FileTaskRepository
+                ? () => _recover(repository)
+                : null,
+          ),
         );
       }
       return Scaffold(

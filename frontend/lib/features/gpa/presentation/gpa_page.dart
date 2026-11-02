@@ -6,8 +6,9 @@ import '../composition/gpa_composition.dart';
 import '../controllers/gpa_controller.dart';
 
 class GpaPage extends StatefulWidget {
-  const GpaPage({super.key, required this.composition});
+  const GpaPage({super.key, required this.composition, this.onManage});
   final GpaComposition composition;
+  final Future<void> Function()? onManage;
 
   @override
   State<GpaPage> createState() => _GpaPageState();
@@ -48,7 +49,21 @@ class _GpaPageState extends State<GpaPage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     return Scaffold(
-      appBar: AppBar(title: const Text('学业档案')),
+      appBar: AppBar(
+        title: const Text('学业档案'),
+        actions: [
+          if (widget.onManage != null)
+            IconButton(
+              key: const Key('manage-academic'),
+              tooltip: '管理学期与课程',
+              onPressed: () async {
+                await widget.onManage!();
+                if (mounted) await _controller?.retry();
+              },
+              icon: const Icon(Icons.menu_book_outlined),
+            ),
+        ],
+      ),
       body: ModuleBody(
         child: SafeArea(
           child: controller == null
@@ -73,6 +88,19 @@ class _GpaPageState extends State<GpaPage> {
                       if (widget.composition.isDemo)
                         const ModuleNotice(
                           '合成演示课程 · 4.0 评分规则，非学校官方制度。仅存内存，重启不保留。',
+                        ),
+                      if (!widget.composition.isDemo)
+                        const ModuleNotice(
+                          '课程与成绩保存在本机。采用自定义 4.0 绩点规则，不代表学校官方换算。',
+                        ),
+                      if (widget.onManage != null)
+                        TextButton.icon(
+                          onPressed: () async {
+                            await widget.onManage!();
+                            if (mounted) await _controller?.retry();
+                          },
+                          icon: const Icon(Icons.edit_calendar),
+                          label: const Text('管理学期与课程'),
                         ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(

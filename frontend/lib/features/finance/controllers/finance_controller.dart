@@ -36,6 +36,7 @@ class FinanceController extends ChangeNotifier {
 
   late DateTime _month;
   bool _isLoading = false;
+  bool _isSaving = false;
   Object? _error;
   MonthlyFinanceSummary? _summary;
   List<FinanceRecord> _monthRecords = const [];
@@ -46,6 +47,7 @@ class FinanceController extends ChangeNotifier {
 
   DateTime get month => _month;
   bool get isLoading => _isLoading;
+  bool get isSaving => _isSaving;
   Object? get error => _error;
   MonthlyFinanceSummary? get summary => _summary;
   List<FinanceRecord> get monthRecords => _monthRecords;
@@ -65,41 +67,73 @@ class FinanceController extends ChangeNotifier {
 
   Future<void> retry() => _loadCurrent();
 
-  Future<void> addRecord({
+  Future<bool> addRecord({
     required String categoryId,
     required String amountText,
     String? note,
-  }) async {
-    if (_disposed) return;
-    try {
-      final category = await _categories.getById(categoryId);
-      if (_disposed) return;
-      if (category == null) {
-        _fail(StateError('Unknown finance category: $categoryId'));
-        return;
-      }
-
-      final amountMinor = parseAmountMinor(amountText);
-
-      final now = _clock();
-      requireLocalDateTime(now, 'now');
-      _recordSeq += 1;
-      final record = FinanceRecord(
+  }) => _write(() async {
+    final category = await _categories.getById(categoryId);
+    if (category == null) throw StateError('Unknown finance category');
+    final now = _clock();
+    requireLocalDateTime(now, 'now');
+    _recordSeq++;
+    await _records.insert(
+      FinanceRecord(
         id: 'rec-${now.microsecondsSinceEpoch}-$_recordSeq',
         categoryId: category.id,
         type: category.type,
-        amountMinor: amountMinor,
+        amountMinor: parseAmountMinor(amountText),
         occurredAt: now,
-        note: note == null || note.trim().isEmpty ? null : note,
-      );
+        note: note == null || note.trim().isEmpty ? null : note.trim(),
+      ),
+    );
+  });
 
-      await _records.insert(record);
+  Future<bool> updateRecord(
+    String id, {
+    required String categoryId,
+    required String amountText,
+    required DateTime occurredAt,
+    String? note,
+  }) => _write(() async {
+    final existing = await _records.getById(id);
+    final category = await _categories.getById(categoryId);
+    if (existing == null || category == null) {
+      throw StateError('Unknown record/category');
+    }
+    await _records.update(
+      existing.copyWith(
+        categoryId: category.id,
+        type: category.type,
+        amountMinor: parseAmountMinor(amountText),
+        occurredAt: occurredAt,
+        note: note == null || note.trim().isEmpty ? null : note.trim(),
+      ),
+    );
+  });
+
+  Future<bool> removeRecord(String id) => _write(() async {
+    if (!await _records.remove(id)) throw StateError('Unknown record');
+  });
+
+  Future<bool> _write(Future<void> Function() action) async {
+    if (_disposed || _isSaving) return false;
+    _isSaving = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await action();
+      await _loadCurrent();
+      // A refresh error is displayed, but cannot turn a committed write into a
+      // retryable insert: the form must clear after a successful disk commit.
+      return true;
     } catch (error) {
       _fail(error);
-      return;
+      return false;
+    } finally {
+      _isSaving = false;
+      if (!_disposed) notifyListeners();
     }
-
-    await _loadCurrent();
   }
 
   void _fail(Object error) {

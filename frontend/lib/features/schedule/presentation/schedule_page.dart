@@ -22,9 +22,11 @@ class SchedulePage extends StatefulWidget {
     this.loader,
     this.taskRepository,
     this.onRecover,
+    this.onManageEvents,
   });
 
   final Future<void> Function()? onRecover;
+  final Future<void> Function(DateTime date)? onManageEvents;
   final DayScheduleLoader? loader;
   final TaskRepository? taskRepository;
 
@@ -72,6 +74,9 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      DaySchedulePage(controller: _controller, onRecover: widget.onRecover);
+  Widget build(BuildContext context) => DaySchedulePage(
+    controller: _controller,
+    onRecover: widget.onRecover,
+    onManageEvents: widget.onManageEvents,
+  );
 }

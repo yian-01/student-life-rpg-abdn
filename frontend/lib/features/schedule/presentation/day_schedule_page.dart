@@ -9,9 +9,15 @@ import 'task_editor_dialog.dart';
 
 /// 单日日程页面：由外部注入 [DayScheduleController]，页面不创建仓库。
 class DaySchedulePage extends StatefulWidget {
-  const DaySchedulePage({super.key, required this.controller, this.onRecover});
+  const DaySchedulePage({
+    super.key,
+    required this.controller,
+    this.onRecover,
+    this.onManageEvents,
+  });
 
   final Future<void> Function()? onRecover;
+  final Future<void> Function(DateTime date)? onManageEvents;
   final DayScheduleController controller;
 
   @override
@@ -205,6 +211,17 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
       appBar: AppBar(
         title: const Text('日程手账'),
         actions: [
+          if (widget.onManageEvents != null)
+            IconButton(
+              key: const Key('manage-events'),
+              tooltip: '管理事件',
+              icon: const Icon(Icons.event_note),
+              onPressed: () async {
+                await widget.onManageEvents!(widget.controller.selectedDate);
+                if (mounted) await widget.controller.loadDay();
+              },
+            ),
+
           if (widget.onRecover != null)
             IconButton(
               tooltip: '重新读取 / 从备份恢复',

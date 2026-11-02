@@ -1,3 +1,4 @@
+import '../support/campus_fixture.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -7,6 +8,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/app_data.dart';
+import 'package:student_life_rpg/features/academic/models/semester.dart';
+import 'package:student_life_rpg/features/academic/models/course.dart';
+import 'package:student_life_rpg/features/academic/models/course_slot.dart';
+import 'package:student_life_rpg/features/schedule/models/event.dart';
 import 'package:student_life_rpg/features/menu/presentation/menu_page.dart';
 import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/app/app_viewport.dart';
@@ -31,6 +36,7 @@ void main() {
     }
   });
   setUp(() {
+    AppData.useCampusData(emptyCampusData());
     AppData.useTaskRepository(InMemoryTaskRepository());
     FinanceMemoryScope.resetShared();
   });
@@ -45,6 +51,9 @@ void main() {
     ('schedule', AppRoutes.schedule, const Size(390, 844)),
     ('schedule-editor', AppRoutes.schedule, const Size(390, 844)),
     ('gpa', AppRoutes.gpa, const Size(390, 844)),
+    ('academic-semesters', AppRoutes.academic, const Size(390, 844)),
+    ('academic-courses', AppRoutes.academic, const Size(390, 844)),
+    ('events', AppRoutes.events, const Size(390, 844)),
     ('finance', AppRoutes.finance, const Size(390, 844)),
     ('dashboard', AppRoutes.dashboard, const Size(390, 844)),
   ];
@@ -86,6 +95,48 @@ void main() {
             ),
           );
         }
+        final campus = await AppData.campus();
+        await campus.semesters.insert(
+          Semester(
+            id: 'review-term',
+            name: '2026 秋季',
+            startDate: DateTime(now.year, now.month, now.day),
+            endDate: DateTime(now.year, now.month, now.day + 120),
+            week1Monday: DateTime(
+              now.year,
+              now.month,
+              now.day - now.weekday + 1,
+            ),
+          ),
+        );
+        await campus.courses.insert(
+          Course(
+            id: 'review-course',
+            semesterId: 'review-term',
+            name: '数据结构与算法',
+            credits: 3,
+            gradePoint: 3.5,
+            scoreScaleMax: 4,
+            slots: [
+              CourseSlot(
+                weekday: now.weekday,
+                startMinute: 540,
+                endMinute: 600,
+                weeks: List.generate(16, (i) => i + 1),
+              ),
+            ],
+          ),
+        );
+        await campus.events.insert(
+          Event(
+            id: 'review-event',
+            title: '项目讨论',
+            range: TimeRange(
+              start: DateTime(now.year, now.month, now.day, 14),
+              end: DateTime(now.year, now.month, now.day, 15),
+            ),
+          ),
+        );
         final key = GlobalKey();
         await tester.pumpWidget(
           RepaintBoundary(
@@ -151,6 +202,11 @@ void main() {
             tester.getSize(find.byType(AppBar).first).width,
             lessThanOrEqualTo(430),
           );
+        }
+        if (name == 'academic-courses') {
+          await tester.tap(find.text('课程').first);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
         }
         if (name == 'schedule-editor') {
           await tester.tap(find.byKey(const Key('day-schedule-add-task')));

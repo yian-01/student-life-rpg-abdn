@@ -1,3 +1,4 @@
+import 'support/campus_fixture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -97,7 +98,10 @@ Finder moduleBodyFinder(String name) => switch (name) {
 };
 
 void main() {
-  setUp(() => AppData.useTaskRepository(InMemoryTaskRepository()));
+  setUp(() {
+    AppData.useTaskRepository(InMemoryTaskRepository());
+    AppData.useCampusData(emptyCampusData());
+  });
   testWidgets('Starts in bedroom and opens Menu', (tester) async {
     await tester.pumpWidget(const StudentLifeApp());
     expectTitle('Student Life RPG');

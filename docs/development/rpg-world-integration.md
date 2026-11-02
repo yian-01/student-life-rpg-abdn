@@ -43,8 +43,9 @@ artwork requires remeasuring it, not changing module business logic.
 Module routes retain the group's existing controllers, repositories and services.
 They render as parchment inside a wood frame over the dim hall background. The
 four Chinese panel titles match the door names. No cross-module bottom bar remains.
-Task disk persistence / GPA and Finance memory limits are unchanged. Course,
-event, assignment and exam application integration is still outstanding.
+Task persistence remains unchanged. As of 2026-11-02, semester/course/event
+management, weekly course occurrences and academic/finance persistence are connected;
+Assignment/Exam integration is still outstanding. See academic-finance-integration.md.
 Task lifecycle/conflict integration and the team module map are recorded in
 module-integration-status.md.
 

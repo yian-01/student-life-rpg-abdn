@@ -1,3 +1,4 @@
+import '../support/campus_fixture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +12,10 @@ import 'package:student_life_rpg/features/rooms/presentation/room_scene_page.dar
 import 'package:student_life_rpg/features/schedule/repositories/in_memory_task_repository.dart';
 
 void main() {
-  setUp(() => AppData.useTaskRepository(InMemoryTaskRepository()));
+  setUp(() {
+    AppData.useTaskRepository(InMemoryTaskRepository());
+    AppData.useCampusData(emptyCampusData());
+  });
 
   for (final door in RoomSpec.hall.doors) {
     test('hall floor has an unobstructed path from entry to ${door.id}', () {

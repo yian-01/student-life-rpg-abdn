@@ -1,3 +1,4 @@
+import '../support/campus_fixture.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ void main() {
   late String path;
 
   setUp(() async {
+    AppData.useCampusData(emptyCampusData());
     directory = await Directory.systemTemp.createTemp('app-integration-');
     path = '${directory.path}/tasks.json';
     AppData.useTaskRepository(
@@ -77,7 +79,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('加载失败'), findsOneWidget);
-    expect(find.textContaining('GPA '), findsOneWidget);
+    expect(find.text('暂无已评分课程'), findsOneWidget);
     expect(find.textContaining('收入  ¥'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_data.dart';
 import '../../../app/app_routes.dart';
-import '../../finance/finance_memory_scope.dart';
 import '../../finance/models/monthly_finance_summary.dart';
 import '../../gpa/models/gpa_result.dart';
 import '../models/section_state.dart';
@@ -58,12 +57,12 @@ class _DashboardPageState extends State<DashboardPage> {
         request,
       ),
       _read(
-        () => AppRoutes.gpaComposition.loadGpa(),
+        () async => (await AppData.campus()).gpa.loadGpa(),
         (state) => _gpa = state,
         request,
       ),
       _read(
-        () => FinanceMemoryScope.shared.service.loadMonth(
+        () async => (await AppData.campus()).financeService.loadMonth(
           DateTime(now.year, now.month),
         ),
         (state) => _finance = state,
@@ -124,7 +123,7 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 Text('生活总览', style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 8),
-                const Text('任务保存在本机；学业和财务为内存演示，重启后重置。'),
+                const Text('任务、学业与账本保存在本机。'),
               ],
             ),
           ),
@@ -151,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           DashboardSectionView<GpaResult>(
-            title: '学业 · 内存演示',
+            title: '学业',
             state: _gpa,
             onRetry: _load,
             contentBuilder: (context, data) => Column(
@@ -160,20 +159,20 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(
                   data.value == null
                       ? '暂无已评分课程'
-                      : 'GPA ${data.value!.toStringAsFixed(2)} / ${AppRoutes.gpaComposition.scoreScaleMax}',
+                      : 'GPA ${data.value!.toStringAsFixed(2)} / 4.0',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '已评分 ${data.gradedCourseCount} 门 · 待评分 ${data.missingCount} 门',
                 ),
-                const Text('全部学期 · 合成课程，非学校官方绩点规则'),
+                const Text('全部学期 · 自定义 4.0 规则，非学校官方换算'),
                 _link(AppRoutes.gpa),
               ],
             ),
           ),
           DashboardSectionView<MonthlyFinanceSummary>(
-            title: '本月收支 · 内存演示',
+            title: '本月收支',
             state: _finance,
             onRetry: _load,
             contentBuilder: (context, data) => Column(
@@ -188,7 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text('支出  ${_money(data.expenseMinor)}'),
                 Text('结余  ${_money(data.balanceMinor)}'),
                 if (data.remainingBudgetMinor != null)
-                  Text('演示预算剩余  ${_money(data.remainingBudgetMinor!)}'),
+                  Text('预算剩余  ${_money(data.remainingBudgetMinor!)}'),
                 _link(AppRoutes.finance),
               ],
             ),
