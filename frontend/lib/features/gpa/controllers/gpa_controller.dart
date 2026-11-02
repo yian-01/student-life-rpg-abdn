@@ -2,11 +2,16 @@ import 'package:flutter/foundation.dart';
 
 import '../../../shared/repositories/entity_repository.dart';
 import '../../academic/models/course.dart';
+import '../../academic/models/semester.dart';
 import '../models/gpa_result.dart';
 import '../services/gpa_calculator.dart';
 
 class GpaController extends ChangeNotifier {
-  GpaController({required this.courseRepository, required this.scoreScaleMax}) {
+  GpaController({
+    required this.courseRepository,
+    required this.scoreScaleMax,
+    this.semesterRepository,
+  }) {
     if (!scoreScaleMax.isFinite || scoreScaleMax <= 0) {
       throw ArgumentError.value(scoreScaleMax, 'scoreScaleMax');
     }
@@ -14,6 +19,9 @@ class GpaController extends ChangeNotifier {
 
   final EntityRepository<Course> courseRepository;
   final double scoreScaleMax;
+  final EntityRepository<Semester>? semesterRepository;
+  Map<String, String> _semesterNames = const {};
+  Map<String, String> get semesterNames => _semesterNames;
   final _calculator = GpaCalculator();
   GpaResult? _result;
   Object? _error;
@@ -43,6 +51,12 @@ class GpaController extends ChangeNotifier {
         throw ArgumentError.value(semesterId, 'semesterId');
       }
       final all = await courseRepository.list();
+      final names = <String, String>{};
+      if (semesterRepository != null) {
+        for (final semester in await semesterRepository!.list()) {
+          names[semester.id] = semester.name;
+        }
+      }
       final selected = all
           .where((c) => semesterId == null || c.semesterId == semesterId)
           .toList();
@@ -51,6 +65,7 @@ class GpaController extends ChangeNotifier {
         scoreScaleMax: scoreScaleMax,
       );
       if (_disposed || request != _request) return;
+      _semesterNames = Map.unmodifiable(names);
       _allCourses = List.unmodifiable(all);
       _courses = List.unmodifiable(selected);
       _result = result;

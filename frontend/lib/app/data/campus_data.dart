@@ -50,6 +50,7 @@ class CampusData {
     eventController = EventController(events);
     gpa = GpaComposition(
       courseRepository: courses,
+      semesterRepository: semesters,
       scoreScaleMax: CampusStore.scoreScaleMax,
     );
     financeService = FinanceSummaryService(

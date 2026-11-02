@@ -120,7 +120,10 @@ class _GpaPageState extends State<GpaPage> {
                           })
                             DropdownMenuItem(
                               value: id,
-                              child: Text(id, overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                controller.semesterNames[id] ?? id,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                         ],
                         onChanged: controller.isLoading
@@ -169,7 +172,7 @@ class _GpaPageState extends State<GpaPage> {
                                   ).textTheme.titleMedium,
                                 ),
                                 Text(
-                                  '学期：${course.semesterId} · 学分：${course.credits}',
+                                  '学期：${controller.semesterNames[course.semesterId] ?? course.semesterId} · 学分：${course.credits}',
                                 ),
                                 Text(
                                   course.gradePoint == null

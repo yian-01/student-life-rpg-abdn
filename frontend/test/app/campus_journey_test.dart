@@ -53,6 +53,7 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.text('GPA：3.50'), findsOneWidget);
+      expect(find.textContaining('学期：我的学期'), findsOneWidget);
       final navigator = tester.state<NavigatorState>(
         find.byType(Navigator).first,
       );

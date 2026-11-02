@@ -17,6 +17,7 @@ class GpaComposition {
     required this.courseRepository,
     required this.scoreScaleMax,
     this.isDemo = false,
+    this.semesterRepository,
     Future<void>? ready,
   }) : _ready = ready {
     if (!scoreScaleMax.isFinite || scoreScaleMax <= 0) {
@@ -27,6 +28,7 @@ class GpaComposition {
   final EntityRepository<Course> courseRepository;
   final double scoreScaleMax;
   final bool isDemo;
+  final EntityRepository<Semester>? semesterRepository;
   Future<void>? _ready;
 
   Future<GpaController> createController() async {
@@ -37,6 +39,7 @@ class GpaComposition {
     return GpaController(
       courseRepository: courseRepository,
       scoreScaleMax: scoreScaleMax,
+      semesterRepository: semesterRepository,
     );
   }
 
