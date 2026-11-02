@@ -92,14 +92,22 @@ void main() {
     },
   );
 
-  test('unknown category sets error and notifies listeners', () async {
-    final errors = <Object?>[];
-    controller.addListener(() => errors.add(controller.error));
+  test('unknown category exposes saving lifecycle and visible error', () async {
+    final states = <({bool saving, Object? error})>[];
+    controller.addListener(
+      () => states.add((saving: controller.isSaving, error: controller.error)),
+    );
 
-    await controller.addRecord(categoryId: 'ghost', amountText: '5');
+    expect(
+      await controller.addRecord(categoryId: 'ghost', amountText: '5'),
+      isFalse,
+    );
 
     expect(controller.error, isStateError);
-    expect(errors.single, isStateError);
+    expect(states.first.saving, isTrue);
+    expect(states.last.saving, isFalse);
+    expect(states.last.error, isStateError);
+    expect(controller.monthRecords, isEmpty);
   });
 
   test('a later valid submission succeeds after earlier failures', () async {
