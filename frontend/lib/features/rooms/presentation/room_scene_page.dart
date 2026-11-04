@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../bedroom/controllers/player_movement_controller.dart';
 import '../../bedroom/models/scene_geometry.dart';
 import '../../bedroom/presentation/movement_joystick.dart';
+import '../../bedroom/presentation/player_sprite.dart';
 import '../../interaction/controllers/interaction_controller.dart';
 import '../models/room_spec.dart';
 
@@ -37,6 +38,7 @@ class RoomScenePageState extends State<RoomScenePage>
         PlayerMovementController(
           start: widget.room.start,
           area: widget.room.area,
+          floorVanishingPoint: widget.room.floorVanishingPoint,
         );
     _ticker = createTicker(_tick);
     _doors = [
@@ -170,9 +172,15 @@ class RoomScenePageState extends State<RoomScenePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _clearInput();
+    // 先断开 door 对本页状态的监听，再清输入：clearInput 现在会
+    // notifyListeners（为切回站立帧），若 listener 未先移除，notify 会经
+    // InteractionController 回到 _changed 调 setState，而此时 element 正在
+    // unmount（defunct），触发 markNeedsBuild 崩溃。
     for (final door in _doors) {
       door.removeListener(_changed);
+    }
+    _clearInput();
+    for (final door in _doors) {
       door.dispose();
     }
     _ticker.dispose();
@@ -255,11 +263,9 @@ class RoomScenePageState extends State<RoomScenePage>
                               SceneGeometry.playerRenderHeight *
                               transform.scale,
                           child: IgnorePointer(
-                            child: Image.asset(
-                              'assets/images/player_idle_down.png',
+                            child: PlayerSprite(
                               key: Key('${room.id}-player'),
-                              fit: BoxFit.fill,
-                              semanticLabel: '角色',
+                              controller: _movement,
                             ),
                           ),
                         ),

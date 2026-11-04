@@ -43,6 +43,19 @@ class SceneGeometry {
   /// （v1.1 数学核查通过，见 docs/development/scene-geometry.md 第 8 节）。
   static const Offset playerStart = Offset(360, 1160);
 
+  /// 地板砖缝透视灭点（世界坐标，位于图像上方负 y 区域）。
+  ///
+  /// 测量方法（2026-11-04）：在砖块内部行（y≈1022/1108/1205/1306，
+  /// 避开横向砖缝与床/柜/桌/门遮挡）做多高度暗线扫描，对每条纵深
+  /// 砖缝线性拟合 x = a + b·y，再按 x = xv + k·(y − yv) 最小二乘
+  /// 解出公共灭点，约为 (691, -1235)。走廊中央（x≈360）处砖缝走向
+  /// 约为每上移 1px 右移 0.138px。
+  ///
+  /// 用途：键盘"上/下"移动沿该灭点射线方向（见
+  /// PlayerMovementController 的 floorVanishingPoint），使上下移动
+  /// 轨迹与地砖透视线一致，而不是纯竖直。
+  static const Offset floorVanishingPoint = Offset(691, -1235);
+
   /// Convex floor envelope, extended up the aisle beside the bed to y=780.
   /// Furniture inside this envelope is excluded separately by canOccupy.
   /// The top edge stops below the cabinet; this is not permission to walk
