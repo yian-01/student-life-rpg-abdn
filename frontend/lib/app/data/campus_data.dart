@@ -1,5 +1,7 @@
 import '../../features/academic/models/course.dart';
 import '../../features/academic/controllers/academic_controller.dart';
+import '../../features/academic/repositories/assignment_repository.dart';
+import '../../features/academic/repositories/exam_repository.dart';
 import '../../features/schedule/controllers/event_controller.dart';
 import '../../features/academic/models/semester.dart';
 import '../../features/academic/services/course_occurrence_service.dart';
@@ -47,6 +49,11 @@ class CampusData {
       (v) => v.toJson(),
     );
     academic = AcademicController(semesters, courses);
+    // 作业/考试当前使用内存仓库：CampusStore 的文档要求固定 8 个顶层键，
+    // 新增表属于共享持久化扩展，由李雨真（#30）接入；
+    // 在此之前不另建独立数据源，也不把内存实现当作持久化证据。
+    assignments = InMemoryAssignmentRepository();
+    exams = InMemoryExamRepository();
     eventController = EventController(events);
     gpa = GpaComposition(
       courseRepository: courses,
@@ -71,6 +78,8 @@ class CampusData {
   late final CampusRepository<FinanceCategory> categories;
   late final CampusRepository<FinanceRecord> records;
   late final AcademicController academic;
+  late final AssignmentRepository assignments;
+  late final ExamRepository exams;
   late final EventController eventController;
   late final GpaComposition gpa;
   late final FinanceSummaryService financeService;
