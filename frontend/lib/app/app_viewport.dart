@@ -29,4 +29,3 @@ class AppViewport extends StatelessWidget {
     },
   );
 }
-

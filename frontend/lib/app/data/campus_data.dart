@@ -54,7 +54,10 @@ class CampusData {
     assignments = StoredAssignmentRepository(store);
     exams = StoredExamRepository(store);
     budgets = CampusBudgetRepository(store);
-    budgetController = BudgetController(budgets: budgets, categories: categories);
+    budgetController = BudgetController(
+      budgets: budgets,
+      categories: categories,
+    );
     academic = AcademicController(semesters, courses);
     eventController = EventController(events);
     gpa = GpaComposition(

@@ -73,4 +73,3 @@ abstract final class AppRoutes {
     );
   }
 }
-

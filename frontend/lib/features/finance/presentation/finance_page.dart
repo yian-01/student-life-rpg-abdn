@@ -58,7 +58,9 @@ class _FinancePageState extends State<FinancePage> {
     });
   }
 
-  void _onBudgetChanged() { if (mounted) setState(() {}); }
+  void _onBudgetChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
@@ -93,7 +95,8 @@ class _FinancePageState extends State<FinancePage> {
         actions: [
           IconButton(
             tooltip: '分类管理',
-            onPressed: () => showCategoryManager(context, controller: _controller),
+            onPressed: () =>
+                showCategoryManager(context, controller: _controller),
             icon: const Icon(Icons.category),
           ),
           if (widget.onRecover != null)
@@ -168,21 +171,24 @@ class _FinancePageState extends State<FinancePage> {
                     ),
                   ],
                   _SummaryCard(summary: _controller.summary),
-                  if (widget.budgetController != null) TextButton.icon(
-                    icon: const Icon(Icons.account_balance_wallet),
-                    label: const Text('分类月度预算'),
-                    onPressed: () async {
-                      final budgets = widget.budgetController!;
-                      await budgets.load(month: _controller.month);
-                      if (!context.mounted) return;
-                      if (budgets.error != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('预算读取失败，请重试')));
-                        return;
-                      }
-                      await showBudgetEditor(context, controller: budgets);
-                      await _controller.retry();
-                    },
-                  ),
+                  if (widget.budgetController != null)
+                    TextButton.icon(
+                      icon: const Icon(Icons.account_balance_wallet),
+                      label: const Text('分类月度预算'),
+                      onPressed: () async {
+                        final budgets = widget.budgetController!;
+                        await budgets.load(month: _controller.month);
+                        if (!context.mounted) return;
+                        if (budgets.error != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('预算读取失败，请重试')),
+                          );
+                          return;
+                        }
+                        await showBudgetEditor(context, controller: budgets);
+                        await _controller.retry();
+                      },
+                    ),
                   const SizedBox(height: 16),
                   _AddRecordForm(
                     categories: _controller.categoriesFor(_selectedType),

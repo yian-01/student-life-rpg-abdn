@@ -37,23 +37,21 @@ void main() {
   });
 
   Task sampleTask(String id) => Task(
-        id: id,
-        title: '任务$id',
-        estimatedMinutes: 30,
-        isCompleted: false,
-        dueAt: DateTime(2026, 11, 10),
-        scheduledRange: TimeRange(
-          start: DateTime(2026, 11, 10, 9, 0),
-          end: DateTime(2026, 11, 10, 10, 0),
-        ),
-      );
+    id: id,
+    title: '任务$id',
+    estimatedMinutes: 30,
+    isCompleted: false,
+    dueAt: DateTime(2026, 11, 10),
+    scheduledRange: TimeRange(
+      start: DateTime(2026, 11, 10, 9, 0),
+      end: DateTime(2026, 11, 10, 10, 0),
+    ),
+  );
 
   test('双坏：Task 和 Campus 同时损坏时各自独立报错，互不掩盖', () async {
     // 正常写入两份有效数据，制造 .bak
     final campus = openCampus();
-    await campus.semesters.insert(
-      _semester(),
-    );
+    await campus.semesters.insert(_semester());
     await campus.courses.insert(_course());
     // 多一次写入，让 .bak 有内容
     await campus.courses.insert(_course(id: 'cs102'));
@@ -102,26 +100,21 @@ void main() {
 }
 
 Semester _semester() => Semester(
-      id: 'sem-1',
-      name: '2026 秋季',
-      startDate: DateTime(2026, 9, 1),
-      endDate: DateTime(2027, 1, 15),
-      week1Monday: DateTime(2026, 8, 31),
-    );
+  id: 'sem-1',
+  name: '2026 秋季',
+  startDate: DateTime(2026, 9, 1),
+  endDate: DateTime(2027, 1, 15),
+  week1Monday: DateTime(2026, 8, 31),
+);
 
 Course _course({String id = 'cs101'}) => Course(
-      id: id,
-      semesterId: 'sem-1',
-      name: '计算机基础',
-      credits: 3,
-      gradePoint: null,
-      scoreScaleMax: 4,
-      slots: [
-        CourseSlot(
-          weekday: 1,
-          startMinute: 540,
-          endMinute: 600,
-          weeks: [1, 3],
-        ),
-      ],
-    );
+  id: id,
+  semesterId: 'sem-1',
+  name: '计算机基础',
+  credits: 3,
+  gradePoint: null,
+  scoreScaleMax: 4,
+  slots: [
+    CourseSlot(weekday: 1, startMinute: 540, endMinute: 600, weeks: [1, 3]),
+  ],
+);

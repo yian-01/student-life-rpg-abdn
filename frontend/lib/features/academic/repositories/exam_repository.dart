@@ -66,13 +66,20 @@ class InMemoryExamRepository implements ExamRepository {
 }
 
 /// Persistent implementation shared by application pages and services.
-class StoredExamRepository extends CampusRepository<Exam> implements ExamRepository {
-  StoredExamRepository(CampusStore store) : super(store, 'exams', Exam.fromJson, (v) => v.toJson());
+class StoredExamRepository extends CampusRepository<Exam>
+    implements ExamRepository {
+  StoredExamRepository(CampusStore store)
+    : super(store, 'exams', Exam.fromJson, (v) => v.toJson());
   @override
   Future<List<Exam>> listForCourse(String courseId) async {
-    if (courseId.trim().isEmpty) throw ArgumentError.value(courseId, 'courseId');
-    final rows = (await list()).where((row) => row.courseId == courseId).toList()
-      ..sort((a,b) { final byTime = a.range.start.compareTo(b.range.start); return byTime != 0 ? byTime : a.id.compareTo(b.id); });
+    if (courseId.trim().isEmpty)
+      throw ArgumentError.value(courseId, 'courseId');
+    final rows =
+        (await list()).where((row) => row.courseId == courseId).toList()
+          ..sort((a, b) {
+            final byTime = a.range.start.compareTo(b.range.start);
+            return byTime != 0 ? byTime : a.id.compareTo(b.id);
+          });
     return List.unmodifiable(rows);
   }
 }

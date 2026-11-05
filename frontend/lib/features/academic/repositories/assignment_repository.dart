@@ -69,13 +69,20 @@ class InMemoryAssignmentRepository implements AssignmentRepository {
 }
 
 /// Persistent implementation shared by application pages and services.
-class StoredAssignmentRepository extends CampusRepository<Assignment> implements AssignmentRepository {
-  StoredAssignmentRepository(CampusStore store) : super(store, 'assignments', Assignment.fromJson, (v) => v.toJson());
+class StoredAssignmentRepository extends CampusRepository<Assignment>
+    implements AssignmentRepository {
+  StoredAssignmentRepository(CampusStore store)
+    : super(store, 'assignments', Assignment.fromJson, (v) => v.toJson());
   @override
   Future<List<Assignment>> listForCourse(String courseId) async {
-    if (courseId.trim().isEmpty) throw ArgumentError.value(courseId, 'courseId');
-    final rows = (await list()).where((row) => row.courseId == courseId).toList()
-      ..sort((a,b) { final byTime = a.dueAt.compareTo(b.dueAt); return byTime != 0 ? byTime : a.id.compareTo(b.id); });
+    if (courseId.trim().isEmpty)
+      throw ArgumentError.value(courseId, 'courseId');
+    final rows =
+        (await list()).where((row) => row.courseId == courseId).toList()
+          ..sort((a, b) {
+            final byTime = a.dueAt.compareTo(b.dueAt);
+            return byTime != 0 ? byTime : a.id.compareTo(b.id);
+          });
     return List.unmodifiable(rows);
   }
 }

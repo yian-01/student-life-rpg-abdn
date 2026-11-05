@@ -32,11 +32,10 @@ class InMemoryBudgetRepository implements BudgetRepository {
 
   @override
   Future<List<Budget>> list() async => List<Budget>.unmodifiable(
-    _budgets.values.toList()
-      ..sort((a, b) {
-        final byMonth = a.month.compareTo(b.month);
-        return byMonth != 0 ? byMonth : a.categoryId.compareTo(b.categoryId);
-      }),
+    _budgets.values.toList()..sort((a, b) {
+      final byMonth = a.month.compareTo(b.month);
+      return byMonth != 0 ? byMonth : a.categoryId.compareTo(b.categoryId);
+    }),
   );
 
   @override
@@ -58,10 +57,7 @@ class InMemoryBudgetRepository implements BudgetRepository {
   }
 
   @override
-  Future<bool> removeForCategoryMonth(
-    String categoryId,
-    DateTime month,
-  ) async {
+  Future<bool> removeForCategoryMonth(String categoryId, DateTime month) async {
     _requireCategoryId(categoryId);
     return _budgets.remove(budgetKey(categoryId, month)) != null;
   }

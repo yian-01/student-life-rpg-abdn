@@ -28,14 +28,15 @@ class InMemoryFinanceCategoryRepository
   InMemoryFinanceCategoryRepository({
     required Set<String> Function() referencedCategoryIds,
     Set<String> Function()? budgetReferencedCategoryIds,
-  })  : _referencedCategoryIds = referencedCategoryIds,
-        _budgetReferencedCategoryIds = budgetReferencedCategoryIds;
+  }) : _referencedCategoryIds = referencedCategoryIds,
+       _budgetReferencedCategoryIds = budgetReferencedCategoryIds;
 
   final Map<String, FinanceCategory> _items = {};
   final Set<String> Function() _referencedCategoryIds;
   final Set<String> Function()? _budgetReferencedCategoryIds;
 
-  Set<String> _budgetRefs() => _budgetReferencedCategoryIds?.call() ?? <String>{};
+  Set<String> _budgetRefs() =>
+      _budgetReferencedCategoryIds?.call() ?? <String>{};
 
   @override
   Future<List<FinanceCategory>> list() async {
@@ -59,7 +60,8 @@ class InMemoryFinanceCategoryRepository
       (existing) =>
           existing.type == entity.type &&
           existing.id != entity.id &&
-          existing.name.trim().toLowerCase() == entity.name.trim().toLowerCase(),
+          existing.name.trim().toLowerCase() ==
+              entity.name.trim().toLowerCase(),
     );
     if (duplicateName) {
       throw StateError('同类型下已存在同名分类。');

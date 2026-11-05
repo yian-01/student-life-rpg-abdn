@@ -166,7 +166,9 @@ class _CategoryManagerDialogState extends State<CategoryManagerDialog> {
                         .map(
                           (type) => DropdownMenuItem(
                             value: type,
-                            child: Text(type == FinanceType.expense ? '支出' : '收入'),
+                            child: Text(
+                              type == FinanceType.expense ? '支出' : '收入',
+                            ),
                           ),
                         )
                         .toList(),

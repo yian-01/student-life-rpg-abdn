@@ -51,10 +51,7 @@ void main() {
       await controller.addCategory(name: '交通', type: FinanceType.expense),
       isTrue,
     );
-    expect(
-      controller.availableCategories.map((c) => c.name),
-      contains('交通'),
-    );
+    expect(controller.availableCategories.map((c) => c.name), contains('交通'));
   });
 
   test('blank category name is rejected', () async {
@@ -72,10 +69,7 @@ void main() {
       isFalse,
     );
     expect(controller.error, isStateError);
-    expect(
-      (controller.error as StateError).message,
-      contains('同类型下已存在同名分类'),
-    );
+    expect((controller.error as StateError).message, contains('同类型下已存在同名分类'));
     expect(
       await categories.list().then((list) => list.where((c) => c.name == '餐饮')),
       hasLength(1),
@@ -88,21 +82,24 @@ void main() {
       isTrue,
     );
     expect(
-      controller.availableCategories
-          .where((c) => c.name == '餐饮' && c.type == FinanceType.income),
+      controller.availableCategories.where(
+        (c) => c.name == '餐饮' && c.type == FinanceType.income,
+      ),
       hasLength(1),
     );
   });
 
   test('rename updates name and refreshes available categories', () async {
     expect(
-      await controller.editCategory('food', name: '餐饮（改名）', type: FinanceType.expense),
+      await controller.editCategory(
+        'food',
+        name: '餐饮（改名）',
+        type: FinanceType.expense,
+      ),
       isTrue,
     );
     expect(
-      controller.availableCategories
-          .firstWhere((c) => c.id == 'food')
-          .name,
+      controller.availableCategories.firstWhere((c) => c.id == 'food').name,
       '餐饮（改名）',
     );
   });
@@ -113,23 +110,26 @@ void main() {
     );
     await controller.load();
     expect(
-      await controller.editCategory('food', name: '交通', type: FinanceType.expense),
+      await controller.editCategory(
+        'food',
+        name: '交通',
+        type: FinanceType.expense,
+      ),
       isFalse,
     );
     expect(controller.error, isStateError);
-    expect(
-      (controller.error as StateError).message,
-      contains('同类型下已存在同名分类'),
-    );
+    expect((controller.error as StateError).message, contains('同类型下已存在同名分类'));
   });
 
   test('type change is blocked when referenced by a record', () async {
-    await records.insert(
-      _record('rec-1', 'food', FinanceType.expense),
-    );
+    await records.insert(_record('rec-1', 'food', FinanceType.expense));
     await controller.load();
     expect(
-      await controller.editCategory('food', name: '餐饮', type: FinanceType.income),
+      await controller.editCategory(
+        'food',
+        name: '餐饮',
+        type: FinanceType.income,
+      ),
       isFalse,
     );
     expect(controller.error, isStateError);
@@ -137,51 +137,37 @@ void main() {
       (controller.error as StateError).message,
       contains('被收支记录引用，无法修改类型'),
     );
-    expect(
-      (await categories.getById('food'))!.type,
-      FinanceType.expense,
-    );
+    expect((await categories.getById('food'))!.type, FinanceType.expense);
   });
 
   test('type change is blocked when referenced by a budget', () async {
-    await budgets.put(
-      _budget('food', DateTime(2026, 11), 100),
-    );
+    await budgets.put(_budget('food', DateTime(2026, 11), 100));
     expect(
-      await controller.editCategory('food', name: '餐饮', type: FinanceType.income),
+      await controller.editCategory(
+        'food',
+        name: '餐饮',
+        type: FinanceType.income,
+      ),
       isFalse,
     );
     expect(controller.error, isStateError);
-    expect(
-      (controller.error as StateError).message,
-      contains('被预算引用，无法修改类型'),
-    );
+    expect((controller.error as StateError).message, contains('被预算引用，无法修改类型'));
   });
 
   test('delete is blocked when referenced by a record', () async {
-    await records.insert(
-      _record('rec-1', 'food', FinanceType.expense),
-    );
+    await records.insert(_record('rec-1', 'food', FinanceType.expense));
     await controller.load();
     expect(await controller.deleteCategory('food'), isFalse);
     expect(controller.error, isStateError);
-    expect(
-      (controller.error as StateError).message,
-      contains('被收支记录引用，无法删除'),
-    );
+    expect((controller.error as StateError).message, contains('被收支记录引用，无法删除'));
     expect(await categories.getById('food'), isNotNull);
   });
 
   test('delete is blocked when referenced by a budget', () async {
-    await budgets.put(
-      _budget('food', DateTime(2026, 11), 100),
-    );
+    await budgets.put(_budget('food', DateTime(2026, 11), 100));
     expect(await controller.deleteCategory('food'), isFalse);
     expect(controller.error, isStateError);
-    expect(
-      (controller.error as StateError).message,
-      contains('被预算引用，无法删除'),
-    );
+    expect((controller.error as StateError).message, contains('被预算引用，无法删除'));
     expect(await categories.getById('food'), isNotNull);
   });
 
@@ -192,7 +178,11 @@ void main() {
 
   test('editing an unknown category fails', () async {
     expect(
-      await controller.editCategory('ghost', name: 'X', type: FinanceType.expense),
+      await controller.editCategory(
+        'ghost',
+        name: 'X',
+        type: FinanceType.expense,
+      ),
       isFalse,
     );
     expect(controller.error, isStateError);
@@ -223,8 +213,8 @@ class _FakeSummaryService extends FinanceSummaryService {
     InMemoryFinanceRecordRepository records,
     InMemoryFinanceCategoryRepository categories,
   ) : super(
-          records: records,
-          categories: categories,
-          loadBudget: (_) async => null,
-        );
+        records: records,
+        categories: categories,
+        loadBudget: (_) async => null,
+      );
 }
