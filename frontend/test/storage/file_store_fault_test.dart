@@ -67,7 +67,7 @@ void main() {
     },
   );
 
-  test('failed rollback retains backup for restart recovery', () async {
+  test('failed rollback retains backup for explicit recovery', () async {
     final repo = repository();
     await repo.insert(task('1'));
     final committed = await File(path).readAsString();
@@ -80,7 +80,12 @@ void main() {
     );
     expect(await File(path).exists(), isFalse);
     expect(await File('$path.bak').readAsString(), committed);
-    expect((await repository().list()).map((t) => t.id), ['1']);
+
+    // 主文件缺失但有备份：读取报错，需显式恢复
+    final restarted = repository();
+    await expectLater(restarted.list(), throwsA(isA<FormatException>()));
+    await restarted.recoverFromBackup();
+    expect((await restarted.list()).map((t) => t.id), ['1']);
   });
 
   test('failed main rotation retains committed file', () async {

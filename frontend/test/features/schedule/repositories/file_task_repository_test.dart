@@ -219,7 +219,7 @@ void main() {
   });
 
   // ---------- 备份恢复测试 ----------
-  test('重启后从经过完整校验的备份恢复', () async {
+  test('主文件损坏时读取不静默恢复，显式恢复才使用备份', () async {
     // 先写入有效数据，再制造 .bak
     final repo = newRepo();
     await repo.insert(newTask('persist', title: '备份任务'));
@@ -230,8 +230,15 @@ void main() {
     await File(filePath).writeAsString('损坏的内容');
     await File('$filePath.bak').writeAsString(mainContent);
 
-    // 重新创建 Repository，应从 .bak 恢复
+    // 重新创建 Repository：读取必须报错，且不改动任何文件
     final restartedRepo = newRepo();
+    await expectLater(restartedRepo.list(), throwsA(isA<FormatException>()));
+    expect(await File(filePath).readAsString(), '损坏的内容');
+    expect(await File('$filePath.bak').readAsString(), mainContent);
+    expect(await File('$filePath.corrupt').exists(), isFalse);
+
+    // 用户显式恢复后，才从经过完整校验的备份恢复
+    await restartedRepo.recoverFromBackup();
     final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, 'persist');
@@ -261,7 +268,7 @@ void main() {
     await expectLater(repo.list(), throwsA(isA<FormatException>()));
   });
 
-  test('主文件丢失但备份存在时从备份恢复', () async {
+  test('主文件丢失但备份存在时读取报错，显式恢复才使用备份', () async {
     final repo = newRepo();
     await repo.insert(newTask('persist'));
     // 第二次写入才会产生 .bak（保留上一版内容）
@@ -271,6 +278,9 @@ void main() {
     await File(filePath).delete();
 
     final restartedRepo = newRepo();
+    await expectLater(restartedRepo.list(), throwsA(isA<FormatException>()));
+
+    await restartedRepo.recoverFromBackup();
     final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, 'persist');
@@ -367,8 +377,10 @@ void main() {
       throwsA(isA<FileSystemException>()),
     );
 
-    // 重新创建 Repository 验证磁盘数据可恢复
+    // 重新创建 Repository：主文件缺失但有备份，读取报错，需显式恢复
     final restartedRepo = FileTaskRepository(fakeStore, filePath);
+    await expectLater(restartedRepo.list(), throwsA(isA<FormatException>()));
+    await restartedRepo.recoverFromBackup();
     final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
@@ -486,15 +498,22 @@ void main() {
     await File(filePath).writeAsString('损坏');
     await File('$filePath.bak').writeAsString(mainContent);
 
+    // 读取阶段只报错，不改动文件
+    final repo1 = newRepo();
+    await expectLater(repo1.list(), throwsA(isA<FormatException>()));
+    expect(await File(filePath).readAsString(), '损坏');
+    expect(await File('$filePath.bak').readAsString(), mainContent);
+
     // 阻塞 tmp 路径，使恢复写入失败
     await Directory('$filePath.tmp').create();
+    await expectLater(
+      repo1.recoverFromBackup(),
+      throwsA(isA<FileSystemException>()),
+    );
 
-    // 第一次恢复应失败
-    final repo1 = newRepo();
-    await expectLater(repo1.list(), throwsA(isA<FileSystemException>()));
-
-    // 不丢失最后有效数据：Store 的失败恢复会把 .bak 内容写回主文件，
-    // 因此主文件或 .bak 中必有一份有效内容。
+    // 不丢失最后有效数据：损坏原件已归档，Store 的失败恢复也会把 .bak
+    // 内容写回主文件，因此主文件或 .bak 中必有一份有效内容。
+    expect(await File('$filePath.corrupt').readAsString(), '损坏');
     final mainExists = await File(filePath).exists();
     final bakExists = await File('$filePath.bak').exists();
     expect(mainExists || bakExists, isTrue);
@@ -506,12 +525,9 @@ void main() {
 
     // 解除阻塞后重试应成功读取旧记录
     await Directory('$filePath.tmp').delete();
-    final repo2 = newRepo();
-    final all = await repo2.list();
+    await repo1.recoverFromBackup();
+    final all = await repo1.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
-
-    // 损坏原件已归档为 .corrupt，未被静默丢弃
-    expect(await File('$filePath.corrupt').readAsString(), '损坏');
   });
 }
