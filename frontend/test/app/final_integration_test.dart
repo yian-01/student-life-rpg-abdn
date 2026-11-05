@@ -86,6 +86,26 @@ void main() {
   });
 
   testWidgets(
+    'Dashboard shows explicit not-integrated and unset budget states',
+    (tester) async {
+      AppData.useTaskRepository(InMemoryTaskRepository());
+      await tester.pumpWidget(
+        const StudentLifeApp(initialRoute: AppRoutes.dashboard),
+      );
+      await tester.pumpAndSettle();
+      // 未接入的作业/考试分区与未设置预算都必须显式说明，不能吞成 0。
+      expect(find.text('作业与考试'), findsOneWidget);
+      expect(find.text('未接入'), findsOneWidget);
+      expect(find.text('预算剩余  未设置'), findsOneWidget);
+      expect(find.text('本月暂无收支记录（收支为 0）'), findsOneWidget);
+      expect(find.text('暂无任务'), findsOneWidget);
+      expect(find.text('暂无已评分课程'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'Dashboard reloads the shared repository after a module returns',
     (tester) async {
       AppData.useTaskRepository(InMemoryTaskRepository());

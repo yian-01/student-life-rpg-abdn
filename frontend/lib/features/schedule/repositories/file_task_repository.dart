@@ -12,8 +12,10 @@ import 'task_repository.dart';
 /// - JSON 解析与 schemaVersion / entityType / records 完整校验（Store 只负责原始读写）。
 /// - 串行队列覆盖读取、校验、持久化与内存提交全过程。
 /// - 写盘成功后才更新内存；写盘失败保留旧内存状态，后续请求仍可继续。
-/// - 主文件损坏时，尝试从 `.bak` 恢复；恢复前对备份做完整 Task 文档校验，
-///   损坏原件独立归档为 `.corrupt`（已有归档时使用后缀），有效备份保留。
+/// - 普通读取只校验、不写盘：主文件损坏或缺失（即使 `.bak` 存在）都直接报错，
+///   绝不静默恢复旧数据，由用户显式调用 [recoverFromBackup] 触发恢复。
+/// - 显式恢复先完整校验备份，再归档损坏原件为 `.corrupt`（已有归档时使用后缀），
+///   写回成功后才提交内存；失败时保留原件、有效备份与旧内存状态。
 ///
 /// 错误类型遵循冻结契约第 3 节：
 /// - JSON 结构 / schemaVersion / entityType / records 错误 → [FormatException]
@@ -105,46 +107,19 @@ class FileTaskRepository implements TaskRepository {
 
     final raw = await _store.readDocument(_path);
     if (raw == null) {
-      // 主文件不存在：可能是首次运行，也可能是主文件丢失（如替换失败）。
-      // 仅当 .bak 存在时尝试恢复；否则视为首次，返回空列表。
+      // 主文件缺失时不能当作首次运行：只要存在备份，就必须显式恢复。
+      // 普通读取保持只读，不写主文件、不复活旧数据。
       final backupRaw = await _store.readDocument('$_path.bak');
-      if (backupRaw == null) {
-        _tasks = const [];
-        return _tasks!;
+      if (backupRaw != null) {
+        throw const FormatException('主文件缺失但备份存在，需要显式恢复后才能读取');
       }
-      final backupTasks = _decodeTasks(backupRaw);
-      // 先归档（主文件即使不存在也无害），再写回，确保 .bak 不被覆盖。
-      await _archiveCorruptMain();
-      await _store.writeDocument(_path, backupRaw);
-      // 恢复成功后明确提示；失败时异常自然上抛，不输出成功提示。
-      // ignore: avoid_print
-      print('WARNING: 主文件 $_path 不存在，已从 .bak 恢复');
-      _tasks = backupTasks;
+      _tasks = const [];
       return _tasks!;
     }
 
-    try {
-      _tasks = _decodeTasks(raw);
-      return _tasks!;
-    } on FormatException {
-      // 主文件损坏：尝试从 .bak 恢复
-      final backupRaw = await _store.readDocument('$_path.bak');
-      if (backupRaw == null) {
-        throw FormatException('主文件损坏且无备份，拒绝加载: $_path');
-      }
-
-      final backupTasks = _decodeTasks(backupRaw);
-      // 先归档损坏原件，再写回；这样 writeDocument 不会触碰到有效 .bak。
-      await _archiveCorruptMain();
-      await _store.writeDocument(_path, backupRaw);
-      // 恢复成功后明确提示。
-      // ignore: avoid_print
-      print(
-        'WARNING: 主文件 $_path 损坏，已从 .bak 恢复；损坏原件已归档至 $_path.corrupt（已有归档时使用后缀）',
-      );
-      _tasks = backupTasks;
-      return _tasks!;
-    }
+    // 主文件损坏时直接报错，不做任何静默恢复或磁盘写入。
+    _tasks = _decodeTasks(raw);
+    return _tasks!;
   }
 
   Future<void> _save(List<Task> next) async {
@@ -163,20 +138,44 @@ class FileTaskRepository implements TaskRepository {
     _tasks = next;
   }
 
-  /// Explicitly reload disk data, using a validated backup when necessary.
-  /// A failed recovery leaves the existing in-memory state unchanged. Callers
-  /// must await success before retrying a mutation rejected for corruption.
+  /// 显式恢复：仅在用户确认后调用。
+  ///
+  /// 顺序保证：先完整校验备份，再归档损坏原件，最后写回主文件；
+  /// 只有写盘成功后才提交内存。任一步失败都保留损坏原件（归档后仍在磁盘上）
+  /// 与有效 `.bak`，内存保持调用前的状态，待故障排除后可再次恢复。
   Future<void> recoverFromBackup() {
     return _queued(() async {
       final previous = _tasks;
-      _tasks = null;
       try {
-        await _load();
+        final raw = await _store.readDocument(_path);
+        if (raw != null) {
+          try {
+            _tasks = _decodeTasks(raw);
+            return;
+          } on FormatException {
+            // 主文件损坏：继续尝试显式备份恢复。
+          }
+        }
+        // 主文件缺失或损坏：走显式恢复流程。
+        _tasks = await _restoreFromBackupDocument();
       } catch (_) {
         _tasks = previous;
         rethrow;
       }
     });
+  }
+
+  /// 校验备份 → 归档损坏原件 → 写回主文件 → 返回已校验的备份数据。
+  /// 校验或写盘失败时向上抛出，此时原件与 `.bak` 均未被覆盖。
+  Future<List<Task>> _restoreFromBackupDocument() async {
+    final backupRaw = await _store.readDocument('$_path.bak');
+    if (backupRaw == null) {
+      throw FormatException('主文件损坏或缺失，且无备份可恢复: $_path');
+    }
+    final backupTasks = _decodeTasks(backupRaw);
+    await _archiveCorruptMain();
+    await _store.writeDocument(_path, backupRaw);
+    return backupTasks;
   }
 
   static void _requireId(String id, String field) {
