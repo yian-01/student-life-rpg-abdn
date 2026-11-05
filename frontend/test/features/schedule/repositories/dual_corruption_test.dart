@@ -101,7 +101,7 @@ void main() {
   });
 }
 
-_semester() => Semester(
+Semester _semester() => Semester(
       id: 'sem-1',
       name: '2026 秋季',
       startDate: DateTime(2026, 9, 1),
@@ -109,7 +109,7 @@ _semester() => Semester(
       week1Monday: DateTime(2026, 8, 31),
     );
 
-_course({String id = 'cs101'}) => Course(
+Course _course({String id = 'cs101'}) => Course(
       id: id,
       semesterId: 'sem-1',
       name: '计算机基础',

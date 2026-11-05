@@ -52,16 +52,14 @@ void main() {
     ),
   );
 
-  Budget newBudget(
-    String id, {
+  Budget newBudget({
     String categoryId = 'food',
-    String month = '2026-11',
-    int limitMinor = 50000,
+    DateTime? month,
+    int amountMinor = 50000,
   }) => Budget(
-    id: id,
     categoryId: categoryId,
-    month: month,
-    limitMinor: limitMinor,
+    month: month ?? DateTime(2026, 11),
+    amountMinor: amountMinor,
   );
 
   test('v1 文档自动升级为 v2，原记录逐表完整保留', () async {
@@ -101,13 +99,16 @@ void main() {
     final data = open();
     await data.assignments.insert(newAssignment('a1'));
     await data.exams.insert(newExam('e1'));
-    await data.budgets.insert(newBudget('b1'));
+    await data.budgets.put(newBudget());
 
     expect((await data.assignments.listForCourse('course-cs101')).length, 1);
     expect((await data.exams.listForCourse('course-cs101')).length, 1);
-    expect((await data.budgets.listForMonth('2026-11')).length, 1);
+    expect((await data.budgets.list()).length, 1);
     expect(
-      (await data.budgets.forCategoryMonth('food', '2026-11'))?.limitMinor,
+      (await data.budgets.getForCategoryMonth(
+        'food',
+        DateTime(2026, 11),
+      ))?.amountMinor,
       50000,
     );
 
@@ -115,7 +116,7 @@ void main() {
     final reopened = open();
     expect((await reopened.assignments.list()).single.title, '作业a1');
     expect((await reopened.exams.list()).single.title, '考试e1');
-    expect((await reopened.budgets.list()).single.limitMinor, 50000);
+    expect((await reopened.budgets.list()).single.amountMinor, 50000);
   });
 
   test('引用保护：作业/考试必须指向已存在课程，预算必须指向支出分类', () async {
@@ -131,20 +132,22 @@ void main() {
       throwsStateError,
     );
     await expectLater(
-      data.budgets.insert(newBudget('bad', categoryId: 'no-category')),
+      data.budgets.put(newBudget(categoryId: 'no-category')),
       throwsStateError,
     );
     // 收入分类不能建预算
     await expectLater(
-      data.budgets.insert(newBudget('bad-income', categoryId: 'allowance')),
+      data.budgets.put(newBudget(categoryId: 'allowance')),
       throwsStateError,
     );
 
-    // (categoryId, month) 组合唯一
-    await data.budgets.insert(newBudget('b1'));
-    await expectLater(data.budgets.insert(newBudget('b2')), throwsStateError);
+    // 同一类别+月份只有一行：重复 put 为替换，不产生第二行
+    await data.budgets.put(newBudget());
+    await data.budgets.put(newBudget(amountMinor: 60000));
+    expect(await data.budgets.list(), hasLength(1));
+    expect((await data.budgets.list()).single.amountMinor, 60000);
     // 同分类不同月份允许
-    await data.budgets.insert(newBudget('b3', month: '2026-12'));
+    await data.budgets.put(newBudget(month: DateTime(2026, 12)));
 
     // 删除仍被作业引用的课程被拒绝
     await data.assignments.insert(newAssignment('a1'));
@@ -152,7 +155,7 @@ void main() {
     // 删除仍被预算引用的分类被拒绝
     await expectLater(data.categories.remove('food'), throwsStateError);
 
-    // 被阻止的写入不落盘：重启后新表仍为空
+    // 被阻止的写入不落盘：重启后新表仍为本次成功写入的记录
     final reopened = open();
     expect(await reopened.assignments.list(), hasLength(1));
     expect(await reopened.budgets.list(), hasLength(2));

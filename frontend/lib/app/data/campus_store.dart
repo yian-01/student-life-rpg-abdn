@@ -140,7 +140,8 @@ class CampusStore {
           case 'records':
             FinanceRecord.fromJson(row);
           case 'budgets':
-            Budget.fromJson(row);
+            // 预算行沿用 finance 模块模型，额外带派生 `id`（= 唯一键）。
+            Budget.fromJson(Map<String, dynamic>.from(row)..remove('id'));
         }
         if (!ids.add(row['id'] as String)) {
           throw FormatException('Duplicate $table ID');
@@ -174,13 +175,16 @@ class CampusStore {
     }
     final budgetKeys = <String>{};
     for (final row in value['budgets'] as List) {
+      final budget = Budget.fromJson(
+        Map<String, dynamic>.from(row as Map<String, dynamic>)..remove('id'),
+      );
       // 预算只能建在支出分类上；(categoryId, month) 组合唯一。
-      if (categories[row['categoryId']] != 'expense') {
+      if (categories[budget.categoryId] != 'expense') {
         throw const FormatException(
           'Budget must reference an expense category',
         );
       }
-      if (!budgetKeys.add('${row['categoryId']}|${row['month']}')) {
+      if (!budgetKeys.add(budget.key)) {
         throw const FormatException('Duplicate budget for category/month');
       }
     }
@@ -239,6 +243,13 @@ class CampusStore {
     if (operation == 'remove' && index < 0) return false;
     if (operation == 'remove') {
       records.removeAt(index);
+    } else if (operation == 'put') {
+      // 同一唯一键视为同一行：存在则替换，不存在则追加。
+      if (index >= 0) {
+        records[index] = row;
+      } else {
+        records.add(row);
+      }
     } else if (operation == 'insert') {
       records.add(row);
     } else {

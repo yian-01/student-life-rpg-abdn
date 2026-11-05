@@ -9,7 +9,7 @@ import 'package:student_life_rpg/features/schedule/repositories/file_task_reposi
 import 'package:student_life_rpg/features/schedule/services/day_schedule_service.dart';
 import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
-/// D13 UI 层验证：主文件损坏时显示错误 UI
+/// D13 UI 层验证：主文件损坏时必须显示可识别错误 UI，且恢复只在用户确认后发生。
 void main() {
   late Directory tempDir;
   late String taskPath;
@@ -25,26 +25,23 @@ void main() {
     }
   });
 
+  /// 写入两次，让 Store 生成 `.bak`（首次写入主文件时不会产生备份）。
   Future<void> seedGoodData() async {
-    final repo = FileTaskRepository(
-      const FileJsonDocumentStore(),
-      taskPath,
-    );
-    await repo.insert(
-      Task(
-        id: 'good',
-        title: '有效任务',
-        estimatedMinutes: 30,
-        isCompleted: false,
-        dueAt: DateTime(2026, 11, 10, 23, 59),
-      ),
-    );
+    final repo = FileTaskRepository(const FileJsonDocumentStore(), taskPath);
+    for (final id in ['t1', 't2']) {
+      await repo.insert(
+        Task(
+          id: id,
+          title: '有效任务$id',
+          estimatedMinutes: 30,
+          isCompleted: false,
+          dueAt: DateTime(2026, 11, 10, 23, 59),
+        ),
+      );
+    }
   }
 
-  testWidgets('主文件损坏时 DaySchedulePage 显示错误 UI', (tester) async {
-    await seedGoodData();
-    await File(taskPath).writeAsString('{坏JSON');
-
+  testWidgets('主文件损坏时显示错误 UI，不静默复活旧数据', (tester) async {
     final loader = _ErrorLoader(const FormatException('主文件损坏'));
     final controller = DayScheduleController(
       loader: loader,
@@ -57,39 +54,38 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: DaySchedulePage(controller: controller)),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.byIcon(Icons.error_outline), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
-    expect(find.text('有效任务'), findsNothing);
+    expect(find.textContaining('日程加载失败'), findsOneWidget);
+    // 未恢复前不展示旧数据
+    expect(find.textContaining('有效任务'), findsNothing);
+
     controller.dispose();
   });
 
-  test('恢复取消不调用 recoverFromBackup，继续则恢复', () async {
+  test('用户取消后不写盘，确认后从备份恢复并归档损坏原件', () async {
     await seedGoodData();
     final bakContent = await File('$taskPath.bak').readAsString();
     await File(taskPath).writeAsString('{坏JSON');
 
     final repo = FileTaskRepository(const FileJsonDocumentStore(), taskPath);
 
-    // 模拟 UI 流程：用户先看到错误 → 弹确认框 → 取消
-    var confirmed = false;
-    if (confirmed) {
-      await repo.recoverFromBackup();
-    }
-    // 取消：磁盘不变
+    // 取消：磁盘完全不变
     expect(await File(taskPath).readAsString(), '{坏JSON');
     expect(await File('$taskPath.bak').readAsString(), bakContent);
     expect(await File('$taskPath.corrupt').exists(), isFalse);
 
-    // 模拟用户第二次尝试 → 弹确认框 → 继续
-    confirmed = true;
-    if (confirmed) {
-      await repo.recoverFromBackup();
-    }
-    // 继续：主文件恢复，损坏原件归档
+    // 确认：恢复为备份内容，损坏原件归档
+    await repo.recoverFromBackup();
     expect(await File(taskPath).readAsString(), bakContent);
-    expect(await File('$taskPath.corrupt').exists(), isTrue);
+    expect(await File('$taskPath.corrupt').readAsString(), '{坏JSON');
+
+    // 恢复后可正常读取，且读到备份版本的记录
+    final items = await repo.list();
+    expect(items, hasLength(1));
+    expect(items.single.id, 't1');
   });
 }
 

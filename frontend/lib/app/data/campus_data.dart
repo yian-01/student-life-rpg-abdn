@@ -3,6 +3,7 @@ import '../../features/academic/controllers/academic_controller.dart';
 import '../../features/academic/repositories/assignment_repository.dart';
 import '../../features/academic/repositories/exam_repository.dart';
 import '../../features/finance/repositories/budget_repository.dart';
+import '../../features/finance/repositories/campus_budget_repository.dart';
 import '../../features/schedule/controllers/event_controller.dart';
 import '../../features/academic/models/semester.dart';
 import '../../features/academic/services/course_occurrence_service.dart';
@@ -51,7 +52,7 @@ class CampusData {
     );
     assignments = AssignmentRepository(store);
     exams = ExamRepository(store);
-    budgets = BudgetRepository(store);
+    budgets = CampusBudgetRepository(store);
     academic = AcademicController(semesters, courses);
     eventController = EventController(events);
     gpa = GpaComposition(
