@@ -4,6 +4,7 @@ import 'package:student_life_rpg/app/app_theme.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
 import 'package:student_life_rpg/features/academic/models/course.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
+import 'package:student_life_rpg/features/academic/models/semester.dart';
 import 'package:student_life_rpg/features/academic/presentation/assignment_exam_page.dart';
 import 'package:student_life_rpg/features/academic/repositories/assignment_repository.dart';
 import 'package:student_life_rpg/features/academic/repositories/exam_repository.dart';
@@ -107,6 +108,16 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
 
     final data = emptyCampusData();
+    await data.semesters.insert(
+      Semester(
+        id: 's1',
+        name: '测试学期',
+        startDate: DateTime(2026, 9, 1),
+        endDate: DateTime(2027, 1, 31),
+        week1Monday: DateTime(2026, 8, 31),
+      ),
+    );
+    await data.courses.insert(_course());
     await data.assignments.insert(
       Assignment(
         id: 'a1',
