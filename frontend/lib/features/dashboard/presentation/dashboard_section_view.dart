@@ -13,11 +13,15 @@ class DashboardSectionView<T> extends StatelessWidget {
     super.key,
     required this.title,
     required this.state,
+    this.description,
     this.contentBuilder,
     this.onRetry,
   });
 
   final String title;
+
+  /// 分区口径说明；为空时不显示。
+  final String? description;
   final SectionState<T> state;
   final Widget Function(BuildContext context, T data)? contentBuilder;
   final VoidCallback? onRetry;
@@ -32,6 +36,14 @@ class DashboardSectionView<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(title, style: Theme.of(context).textTheme.titleMedium),
+            if (description != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  description!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             const SizedBox(height: 12),
             ...[_buildBody(context)],
           ],
