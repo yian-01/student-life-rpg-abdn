@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../features/academic/models/assignment.dart';
 import '../../features/academic/models/course.dart';
+import '../../features/academic/models/exam.dart';
 import '../../features/academic/models/semester.dart';
+import '../../features/finance/models/budget.dart';
 import '../../features/finance/models/finance_category.dart';
 import '../../features/finance/models/finance_record.dart';
 import '../../features/finance/models/finance_type.dart';
@@ -19,13 +22,27 @@ class CampusStore {
   Map<String, dynamic>? _state;
   Future<void>? _tail;
   static const scoreScaleMax = 4.0;
+
+  /// 持久化契约 v2：新增 assignments / exams / budgets 三张表。
+  static const schemaVersion = 2;
   static const tables = [
+    'semesters',
+    'courses',
+    'assignments',
+    'exams',
+    'events',
+    'categories',
+    'records',
+    'budgets',
+  ];
+  static const _v1Tables = [
     'semesters',
     'courses',
     'events',
     'categories',
     'records',
   ];
+  static const _baseKeys = {'schemaVersion', 'entityType', 'scoreScaleMax'};
 
   Future<T> _queue<T>(Future<T> Function() action) {
     // Start in the caller zone rather than scheduling work at construction.
@@ -35,7 +52,7 @@ class CampusStore {
   }
 
   Map<String, dynamic> _fresh() => {
-    'schemaVersion': 1,
+    'schemaVersion': schemaVersion,
     'entityType': 'CampusData',
     'scoreScaleMax': scoreScaleMax,
     for (final table in tables) table: <dynamic>[],
@@ -68,19 +85,35 @@ class CampusStore {
     ],
   };
 
-  Map<String, dynamic> _decode(String raw) {
+  /// 解码并校验 CampusData 文档。
+  ///
+  /// schemaVersion 1 的旧文档自动补齐 v2 新增空表（assignments/exams/budgets），
+  /// 原记录保持不变，返回规范 v2 结构并标记 `migrated`；schemaVersion > 2
+  /// 或顶层键不匹配的未知未来文档一律拒绝。
+  ({Map<String, dynamic> doc, bool migrated}) _decode(String raw) {
     final value = jsonDecode(raw);
     if (value is! Map<String, dynamic> ||
-        value.length != 8 ||
-        value['schemaVersion'] != 1 ||
         value['entityType'] != 'CampusData' ||
-        value['scoreScaleMax'] != scoreScaleMax ||
-        !value.keys.toSet().containsAll([
-          'schemaVersion',
-          'entityType',
-          'scoreScaleMax',
-          ...tables,
-        ])) {
+        value['scoreScaleMax'] != scoreScaleMax) {
+      throw const FormatException('Unsupported CampusData document');
+    }
+    var migrated = false;
+    final keys = value.keys.toSet();
+    final isV1 =
+        value['schemaVersion'] == 1 &&
+        keys.length == _v1Tables.length + _baseKeys.length &&
+        keys.containsAll({..._baseKeys, ..._v1Tables});
+    final isV2 =
+        value['schemaVersion'] == schemaVersion &&
+        keys.length == tables.length + _baseKeys.length &&
+        keys.containsAll({..._baseKeys, ...tables});
+    if (isV1) {
+      value['schemaVersion'] = schemaVersion;
+      value['assignments'] = <dynamic>[];
+      value['exams'] = <dynamic>[];
+      value['budgets'] = <dynamic>[];
+      migrated = true;
+    } else if (!isV2) {
       throw const FormatException('Unsupported CampusData document');
     }
     for (final table in tables) {
@@ -96,12 +129,18 @@ class CampusStore {
             Semester.fromJson(row);
           case 'courses':
             Course.fromJson(row, scoreScaleMax: scoreScaleMax);
+          case 'assignments':
+            Assignment.fromJson(row);
+          case 'exams':
+            Exam.fromJson(row);
           case 'events':
             Event.fromJson(row);
           case 'categories':
             FinanceCategory.fromJson(row);
           case 'records':
             FinanceRecord.fromJson(row);
+          case 'budgets':
+            Budget.fromJson(row);
         }
         if (!ids.add(row['id'] as String)) {
           throw FormatException('Duplicate $table ID');
@@ -116,6 +155,14 @@ class CampusStore {
         throw const FormatException('Missing semester reference');
       }
     }
+    final courseIds = (value['courses'] as List).map((v) => v['id']).toSet();
+    for (final table in const ['assignments', 'exams']) {
+      for (final row in value[table] as List) {
+        if (!courseIds.contains(row['courseId'])) {
+          throw FormatException('Missing course reference in $table');
+        }
+      }
+    }
     final categories = {
       for (final row in value['categories'] as List) row['id']: row['type'],
     };
@@ -125,7 +172,19 @@ class CampusStore {
         throw const FormatException('Invalid category reference/type');
       }
     }
-    return value;
+    final budgetKeys = <String>{};
+    for (final row in value['budgets'] as List) {
+      // 预算只能建在支出分类上；(categoryId, month) 组合唯一。
+      if (categories[row['categoryId']] != 'expense') {
+        throw const FormatException(
+          'Budget must reference an expense category',
+        );
+      }
+      if (!budgetKeys.add('${row['categoryId']}|${row['month']}')) {
+        throw const FormatException('Duplicate budget for category/month');
+      }
+    }
+    return (doc: value, migrated: migrated);
   }
 
   Future<Map<String, dynamic>> _load() async {
@@ -139,9 +198,13 @@ class CampusStore {
       }
       return _state = _fresh();
     }
-    final loaded = _decode(raw);
+    final decoded = _decode(raw);
+    if (decoded.migrated) {
+      // v1 → v2：先写回升级后的文档（旧版自动留存为 .bak），再提交内存。
+      await store.writeDocument(path, jsonEncode(decoded.doc));
+    }
     _hasWritten = true;
-    return _state = loaded;
+    return _state = decoded.doc;
   }
 
   Future<void> initialize() => _queue(() async {
@@ -191,7 +254,7 @@ class CampusStore {
     // already read by this store. Never refresh stale state by silently dropping it.
     final disk = await store.readDocument(path);
     if (disk != null) {
-      final decoded = _decode(disk);
+      final decoded = _decode(disk).doc;
       if (jsonEncode(decoded) != jsonEncode(state)) {
         throw StateError('Storage changed; reload first');
       }
@@ -210,7 +273,7 @@ class CampusStore {
     final raw = await store.readDocument(path);
     if (raw != null) {
       try {
-        final valid = _decode(raw);
+        final valid = _decode(raw).doc;
         _state = valid;
         _hasWritten = true;
         return;
@@ -220,7 +283,7 @@ class CampusStore {
     }
     final backup = await store.readDocument('$path.bak');
     if (backup == null) throw const FormatException('No valid backup');
-    final valid = _decode(backup);
+    final valid = _decode(backup).doc;
     final main = File(path);
     if (await main.exists()) {
       var archive = '$path.corrupt';

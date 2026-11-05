@@ -1,5 +1,8 @@
 import '../../features/academic/models/course.dart';
 import '../../features/academic/controllers/academic_controller.dart';
+import '../../features/academic/repositories/assignment_repository.dart';
+import '../../features/academic/repositories/exam_repository.dart';
+import '../../features/finance/repositories/budget_repository.dart';
 import '../../features/schedule/controllers/event_controller.dart';
 import '../../features/academic/models/semester.dart';
 import '../../features/academic/services/course_occurrence_service.dart';
@@ -46,6 +49,9 @@ class CampusData {
       FinanceRecord.fromJson,
       (v) => v.toJson(),
     );
+    assignments = AssignmentRepository(store);
+    exams = ExamRepository(store);
+    budgets = BudgetRepository(store);
     academic = AcademicController(semesters, courses);
     eventController = EventController(events);
     gpa = GpaComposition(
@@ -70,6 +76,9 @@ class CampusData {
   late final CampusRepository<Event> events;
   late final CampusRepository<FinanceCategory> categories;
   late final CampusRepository<FinanceRecord> records;
+  late final AssignmentRepository assignments;
+  late final ExamRepository exams;
+  late final BudgetRepository budgets;
   late final AcademicController academic;
   late final EventController eventController;
   late final GpaComposition gpa;
