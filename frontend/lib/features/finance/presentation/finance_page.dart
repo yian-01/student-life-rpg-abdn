@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../controllers/finance_controller.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import 'finance_record_editor.dart';
+import 'category_manager.dart';
 import '../finance_memory_scope.dart';
 import '../models/finance_category.dart';
 import '../models/finance_record.dart';
@@ -82,6 +83,11 @@ class _FinancePageState extends State<FinancePage> {
       appBar: AppBar(
         title: const Text('生活账本'),
         actions: [
+          IconButton(
+            tooltip: '分类管理',
+            onPressed: () => showCategoryManager(context, controller: _controller),
+            icon: const Icon(Icons.category),
+          ),
           if (widget.onRecover != null)
             IconButton(
               tooltip: '重新读取 / 从备份恢复',
