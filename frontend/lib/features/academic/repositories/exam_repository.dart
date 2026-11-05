@@ -9,7 +9,13 @@ class ExamRepository extends CampusRepository<Exam> {
   ExamRepository(CampusStore store)
     : super(store, 'exams', Exam.fromJson, (v) => v.toJson());
 
-  /// 返回指定课程的考试，按插入顺序。
-  Future<List<Exam>> listForCourse(String courseId) async =>
-      List.unmodifiable((await list()).where((e) => e.courseId == courseId));
+  /// 返回指定课程的考试，按 `range.start` 升序（开始时间早的在前）。
+  ///
+  /// 排序放在仓库层：多个消费方都需要同一顺序，避免各自实现导致展示不一致。
+  /// `range` 在模型中非空，因此无需处理“无时间”的边界。
+  Future<List<Exam>> listForCourse(String courseId) async {
+    final items = (await list()).where((e) => e.courseId == courseId).toList()
+      ..sort((a, b) => a.range.start.compareTo(b.range.start));
+    return List.unmodifiable(items);
+  }
 }

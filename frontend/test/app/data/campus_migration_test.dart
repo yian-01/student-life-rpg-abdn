@@ -34,21 +34,30 @@ void main() {
   CampusData open() =>
       CampusData(CampusStore(const FileJsonDocumentStore(), path));
 
-  Assignment newAssignment(String id, {String courseId = 'course-cs101'}) =>
-      Assignment(
-        id: id,
-        courseId: courseId,
-        title: '作业$id',
-        dueAt: DateTime(2026, 11, 20, 23, 59),
-      );
+  Assignment newAssignment(
+    String id, {
+    String courseId = 'course-cs101',
+    DateTime? dueAt,
+  }) => Assignment(
+    id: id,
+    courseId: courseId,
+    title: '作业$id',
+    dueAt: dueAt ?? DateTime(2026, 11, 20, 23, 59),
+  );
 
-  Exam newExam(String id, {String courseId = 'course-cs101'}) => Exam(
+  Exam newExam(
+    String id, {
+    String courseId = 'course-cs101',
+    DateTime? start,
+  }) => Exam(
     id: id,
     courseId: courseId,
     title: '考试$id',
     range: TimeRange(
-      start: DateTime(2026, 12, 20, 9, 0),
-      end: DateTime(2026, 12, 20, 11, 0),
+      start: start ?? DateTime(2026, 12, 20, 9, 0),
+      end: (start ?? DateTime(2026, 12, 20, 9, 0)).add(
+        const Duration(hours: 2),
+      ),
     ),
   );
 
@@ -185,6 +194,46 @@ void main() {
       (jsonDecode(await File(path).readAsString())
           as Map<String, dynamic>)['unknownFutureTable'],
       isNotNull,
+    );
+  });
+
+  test('listForCourse 按时间排序：作业按 dueAt、考试按 range.start 升序', () async {
+    await File(path).writeAsString(fixture);
+    final data = open();
+
+    // 故意打乱插入顺序
+    await data.assignments.insert(
+      newAssignment('late', dueAt: DateTime(2026, 12, 1)),
+    );
+    await data.assignments.insert(
+      newAssignment('early', dueAt: DateTime(2026, 11, 10)),
+    );
+    await data.assignments.insert(
+      newAssignment('mid', dueAt: DateTime(2026, 11, 20)),
+    );
+    await data.exams.insert(
+      newExam('e-late', start: DateTime(2026, 12, 25, 9, 0)),
+    );
+    await data.exams.insert(
+      newExam('e-early', start: DateTime(2026, 12, 10, 9, 0)),
+    );
+
+    expect(
+      (await data.assignments.listForCourse('course-cs101')).map((a) => a.id),
+      ['early', 'mid', 'late'],
+    );
+    expect(
+      (await data.exams.listForCourse('course-cs101')).map((e) => e.id),
+      ['e-early', 'e-late'],
+    );
+
+    // 重启后排序仍成立（排序不依赖内存中的插入顺序）
+    final reopened = open();
+    expect(
+      (await reopened.assignments.listForCourse('course-cs101')).map(
+        (a) => a.id,
+      ),
+      ['early', 'mid', 'late'],
     );
   });
 }
