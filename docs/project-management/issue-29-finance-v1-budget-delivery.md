@@ -37,7 +37,7 @@ D1 契约（已提供）：由 `Budget` 类与 `budgetKey` 表达，见
 | 格式化 | `dart format --output=none --set-exit-if-changed lib test` | 通过（151 文件，0 改动） |
 | 静态分析 | `flutter analyze` | `No issues found!` |
 | 新增测试 | `flutter test .../budget_*` | 29 项全部通过 |
-| 全套测试 | `flutter test` | 470 项全部通过（含新增 29 项） |
+| 全套测试 | `flutter test` | 483 项全部通过（含新增 29 项 Budget + 13 项分类管理） |
 | Windows 原生运行 | `flutter run -d windows` | 未执行 |
 | Android 原生运行 | `flutter run -d android` | 未执行 |
 
@@ -75,3 +75,15 @@ D1 契约（已提供）：由 `Budget` 类与 `budgetKey` 表达，见
   `dart format`/`flutter analyze`/`flutter test` 全部通过。
 - 尚未接入正式应用与持久化，不宣称“分类月度预算”功能整体闭环；
   上述缺陷项须由对应负责人集成后再做原生验收。
+
+## 6. 分类管理增量（同分支追加）
+
+- 新增/改名/删除分类：`FinanceController.addCategory/editCategory/deleteCategory`。
+- 空白名称：模型抛出 `ArgumentError`，控制器面化为错误。
+- 同类型下同名分类（大小写不敏感、trim 后比较）被拒绝。
+- 被记录引用时阻止删除与类型修改，并说明原因。
+- 被预算引用时阻止删除与类型修改，并说明原因。
+- 类型与记录匹配沿用既有 `_assertCategoryMatches`。
+- 重命名后刷新可用分类列表与摘要；UI 入口为 `FinancePage` AppBar “分类管理”。
+- 测试：`finance_category_management_test.dart` 13 项全部通过。
+
