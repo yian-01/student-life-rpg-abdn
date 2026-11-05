@@ -72,8 +72,9 @@ class StoredExamRepository extends CampusRepository<Exam>
     : super(store, 'exams', Exam.fromJson, (v) => v.toJson());
   @override
   Future<List<Exam>> listForCourse(String courseId) async {
-    if (courseId.trim().isEmpty)
+    if (courseId.trim().isEmpty) {
       throw ArgumentError.value(courseId, 'courseId');
+    }
     final rows =
         (await list()).where((row) => row.courseId == courseId).toList()
           ..sort((a, b) {

@@ -75,8 +75,9 @@ class StoredAssignmentRepository extends CampusRepository<Assignment>
     : super(store, 'assignments', Assignment.fromJson, (v) => v.toJson());
   @override
   Future<List<Assignment>> listForCourse(String courseId) async {
-    if (courseId.trim().isEmpty)
+    if (courseId.trim().isEmpty) {
       throw ArgumentError.value(courseId, 'courseId');
+    }
     final rows =
         (await list()).where((row) => row.courseId == courseId).toList()
           ..sort((a, b) {
