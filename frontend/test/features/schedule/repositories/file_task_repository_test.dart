@@ -251,6 +251,31 @@ void main() {
     expect(bakContent, mainContent);
   });
 
+  test('备份含已删除任务时冷启动不回滚，显式恢复才恢复旧数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('a'));
+    await repo.insert(newTask('b'));
+    await repo.insert(newTask('c'));
+    // 删除 b 后主文件为 [a, c]，而 .bak 仍保留 [a, b, c]
+    await repo.remove('b');
+    final bakContent = await File('$filePath.bak').readAsString();
+    expect(bakContent, contains('"id":"b"'));
+
+    // 主文件损坏，模拟冷启动
+    await File(filePath).writeAsString('损坏的内容');
+    final restartedRepo = newRepo();
+    await expectLater(restartedRepo.list(), throwsFormatException);
+    // 普通读取不得复活已删除任务，也不得改写磁盘
+    expect(await File(filePath).readAsString(), '损坏的内容');
+    expect(await File('$filePath.bak').readAsString(), bakContent);
+    expect(await File('$filePath.corrupt').exists(), isFalse);
+
+    // 用户确认显式恢复后，回滚到备份内容（含已删除的 b）
+    await restartedRepo.recoverFromBackup();
+    expect((await restartedRepo.list()).map((t) => t.id), ['a', 'b', 'c']);
+    expect(await File('$filePath.corrupt').readAsString(), '损坏的内容');
+  });
+
   test('非空但非法的备份被拒绝，显式恢复也不覆盖原件', () async {
     await File(filePath).writeAsString('损坏的主文件');
     await File('$filePath.bak').writeAsString('{非空但非法的备份}');
