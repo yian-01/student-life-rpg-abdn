@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../bedroom/controllers/player_movement_controller.dart';
 import '../../bedroom/models/scene_geometry.dart';
 import '../../bedroom/presentation/movement_joystick.dart';
+import '../../bedroom/presentation/player_sprite.dart';
 import '../../interaction/controllers/interaction_controller.dart';
 import '../models/room_spec.dart';
 
@@ -28,6 +29,7 @@ class RoomScenePageState extends State<RoomScenePage>
   late final Ticker _ticker;
   Duration? _lastTick;
   bool _foreground = true;
+  Completer<void>? _revealWaiter;
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class RoomScenePageState extends State<RoomScenePage>
         PlayerMovementController(
           start: widget.room.start,
           area: widget.room.area,
+          floorVanishingPoint: widget.room.floorVanishingPoint,
         );
     _ticker = createTicker(_tick);
     _doors = [
@@ -47,7 +50,13 @@ class RoomScenePageState extends State<RoomScenePage>
           navigate: (route) async {
             _clearInput();
             await Navigator.of(context).pushNamed<void>(route);
-            if (mounted && _foreground) _focus.requestFocus();
+            if (!mounted) return;
+            await _waitForRoomReveal();
+            if (mounted &&
+                _foreground &&
+                (ModalRoute.of(context)?.isCurrent ?? false)) {
+              _focus.requestFocus();
+            }
           },
         ),
     ];
@@ -111,6 +120,35 @@ class RoomScenePageState extends State<RoomScenePage>
     _lastTick = null;
   }
 
+  Future<void> _waitForRoomReveal() async {
+    // pushNamed completes when the next route is popped, before its reverse
+    // transition finishes. The room's secondary animation reaches dismissed
+    // only after the covering route has released focus.
+    final animation = ModalRoute.of(context)?.secondaryAnimation;
+    if (animation == null || animation.status == AnimationStatus.dismissed) {
+      await SchedulerBinding.instance.endOfFrame;
+      return;
+    }
+    final waiter = Completer<void>();
+    _revealWaiter = waiter;
+    void onStatus(AnimationStatus status) {
+      if (status == AnimationStatus.dismissed && !waiter.isCompleted) {
+        waiter.complete();
+      }
+    }
+
+    animation.addStatusListener(onStatus);
+    try {
+      if (animation.status == AnimationStatus.dismissed) {
+        waiter.complete();
+      }
+      await waiter.future;
+    } finally {
+      animation.removeStatusListener(onStatus);
+      if (identical(_revealWaiter, waiter)) _revealWaiter = null;
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
@@ -170,9 +208,13 @@ class RoomScenePageState extends State<RoomScenePage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _clearInput();
+    final waiter = _revealWaiter;
+    if (waiter != null && !waiter.isCompleted) waiter.complete();
     for (final door in _doors) {
       door.removeListener(_changed);
+    }
+    _clearInput();
+    for (final door in _doors) {
       door.dispose();
     }
     _ticker.dispose();
@@ -255,11 +297,9 @@ class RoomScenePageState extends State<RoomScenePage>
                               SceneGeometry.playerRenderHeight *
                               transform.scale,
                           child: IgnorePointer(
-                            child: Image.asset(
-                              'assets/images/player_idle_down.png',
+                            child: PlayerSprite(
                               key: Key('${room.id}-player'),
-                              fit: BoxFit.fill,
-                              semanticLabel: '角色',
+                              controller: _movement,
                             ),
                           ),
                         ),
@@ -306,6 +346,7 @@ class RoomScenePageState extends State<RoomScenePage>
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF34291E),
                                 foregroundColor: const Color(0xFFFFE6A6),
+                                minimumSize: const Size(48, 48),
                                 side: const BorderSide(
                                   color: Color(0xFFBC9658),
                                   width: 2,
@@ -356,7 +397,7 @@ class RoomScenePageState extends State<RoomScenePage>
     SceneTransform transform,
   ) {
     final position = transform.worldToLocal(door.sign);
-    final width = 190 * transform.scale;
+    final width = (190 * transform.scale).clamp(72.0, 190.0);
     return Positioned(
       left: position.dx - width / 2,
       top: position.dy - 20 * transform.scale,
@@ -364,17 +405,17 @@ class RoomScenePageState extends State<RoomScenePage>
       child: Semantics(
         label: '${door.label}门，靠近后交互',
         button: true,
+        enabled: controller.canInteract,
         child: GestureDetector(
           key: Key('door-${door.id}'),
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             if (_acceptsInput) unawaited(controller.triggerInteraction());
           },
           child: Container(
             alignment: Alignment.center,
-            padding: EdgeInsets.symmetric(
-              horizontal: 6 * transform.scale,
-              vertical: 5 * transform.scale,
-            ),
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFF33261C).withValues(alpha: .94),
               border: Border.all(
@@ -390,7 +431,7 @@ class RoomScenePageState extends State<RoomScenePage>
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: const Color(0xFFFFE5AC),
-                fontSize: 26 * transform.scale,
+                fontSize: (26 * transform.scale).clamp(12.0, 26.0),
                 fontWeight: FontWeight.w700,
               ),
             ),

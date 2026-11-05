@@ -17,6 +17,8 @@ class EventManagementPage extends StatefulWidget {
 class _EventManagementPageState extends State<EventManagementPage> {
   List<Event> _events = [];
   bool _busy = false;
+  bool _editing = false;
+  bool _confirming = false;
   String? _error;
   @override
   void initState() {
@@ -41,29 +43,43 @@ class _EventManagementPageState extends State<EventManagementPage> {
   }
 
   Future<void> _edit([Event? event]) async {
-    final saved = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => EventEditor(
-        data: widget.data,
-        event: event,
-        initialDate: widget.initialDate,
-      ),
-    );
-    if (saved == true && mounted) await _load();
+    if (_editing || _busy || _confirming) return;
+    setState(() => _editing = true);
+    try {
+      final saved = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => EventEditor(
+          data: widget.data,
+          event: event,
+          initialDate: widget.initialDate,
+        ),
+      );
+      if (saved == true && mounted) await _load();
+    } finally {
+      if (mounted) setState(() => _editing = false);
+    }
   }
 
   Future<void> _remove(Event event) async {
-    if (!await confirmRemoval(context, event.title) || !mounted) return;
-    setState(() => _busy = true);
+    if (_busy || _editing || _confirming) return;
+    setState(() => _confirming = true);
     try {
+      if (!await confirmRemoval(context, event.title) || !mounted) return;
+      setState(() => _busy = true);
       await widget.data.eventController.remove(event.id);
       if (mounted) await _load();
     } catch (_) {
       if (mounted) {
         setState(() {
-          _busy = false;
           _error = '删除失败，请重试。';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _confirming = false;
         });
       }
     }
@@ -76,12 +92,12 @@ class _EventManagementPageState extends State<EventManagementPage> {
       actions: [
         IconButton(
           tooltip: '刷新',
-          onPressed: _busy ? null : _load,
+          onPressed: _busy || _confirming || _editing ? null : _load,
           icon: const Icon(Icons.refresh),
         ),
         IconButton(
           tooltip: '重新读取 / 从备份恢复',
-          onPressed: _busy
+          onPressed: _busy || _confirming || _editing
               ? null
               : () async {
                   if (await recoverCampusData(context, widget.data) &&
@@ -108,7 +124,7 @@ class _EventManagementPageState extends State<EventManagementPage> {
               ),
               trailing: PopupMenuButton<String>(
                 key: Key('event-actions-${event.id}'),
-                enabled: !_busy,
+                enabled: !_busy && !_editing && !_confirming,
                 onSelected: (v) {
                   if (v == 'edit') {
                     _edit(event);
@@ -127,7 +143,7 @@ class _EventManagementPageState extends State<EventManagementPage> {
     ),
     floatingActionButton: FloatingActionButton.extended(
       key: const Key('new-event'),
-      onPressed: _busy ? null : () => _edit(),
+      onPressed: _busy || _editing || _confirming ? null : () => _edit(),
       icon: const Icon(Icons.add),
       label: const Text('新增事件'),
     ),

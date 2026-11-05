@@ -43,6 +43,7 @@ class FinanceController extends ChangeNotifier {
   List<FinanceCategory> _availableCategories = const [];
   int _loadToken = 0;
   int _recordSeq = 0;
+  int _categorySeq = 0;
   bool _disposed = false;
 
   DateTime get month => _month;
@@ -114,6 +115,41 @@ class FinanceController extends ChangeNotifier {
 
   Future<bool> removeRecord(String id) => _write(() async {
     if (!await _records.remove(id)) throw StateError('Unknown record');
+  });
+
+  /// 新增分类。空白名称由模型抛出 ArgumentError；同类型下同名分类被拒绝。
+  Future<bool> addCategory({
+    required String name,
+    required FinanceType type,
+  }) => _write(() async {
+    final now = _clock();
+    requireLocalDateTime(now, 'now');
+    _categorySeq++;
+    await _categories.insert(
+      FinanceCategory(
+        id: 'cat-${now.microsecondsSinceEpoch}-$_categorySeq',
+        name: name,
+        type: type,
+      ),
+    );
+  });
+
+  /// 编辑分类名称/类型。被记录或预算引用时无法修改类型，会抛出带原因的 StateError。
+  Future<bool> editCategory(
+    String id, {
+    required String name,
+    required FinanceType type,
+  }) => _write(() async {
+    final existing = await _categories.getById(id);
+    if (existing == null) throw StateError('未知分类。');
+    await _categories.update(
+      FinanceCategory(id: existing.id, name: name, type: type),
+    );
+  });
+
+  /// 删除分类。被记录或预算引用时阻止删除并说明原因。
+  Future<bool> deleteCategory(String id) => _write(() async {
+    if (!await _categories.remove(id)) throw StateError('未知分类。');
   });
 
   Future<bool> _write(Future<void> Function() action) async {

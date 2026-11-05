@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 class AppViewport extends StatelessWidget {
   const AppViewport({super.key, required this.child});
   final Widget child;
-  static const maxWidth = 430.0;
+  static const maxWidth = 1200.0;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -29,3 +29,4 @@ class AppViewport extends StatelessWidget {
     },
   );
 }
+

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../controllers/finance_controller.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import 'finance_record_editor.dart';
+import 'category_manager.dart';
+import 'budget_editor.dart';
+import '../controllers/budget_controller.dart';
 import '../finance_memory_scope.dart';
 import '../models/finance_category.dart';
 import '../models/finance_record.dart';
@@ -15,11 +18,13 @@ class FinancePage extends StatefulWidget {
   const FinancePage({
     super.key,
     this.controller,
+    this.budgetController,
     this.isPersistent = false,
     this.onRecover,
   });
 
   final FinanceController? controller;
+  final BudgetController? budgetController;
   final bool isPersistent;
   final Future<void> Function()? onRecover;
 
@@ -47,13 +52,17 @@ class _FinancePageState extends State<FinancePage> {
       _ownsController = false;
     }
     _controller.addListener(_onChanged);
+    widget.budgetController?.addListener(_onBudgetChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _controller.load();
     });
   }
 
+  void _onBudgetChanged() { if (mounted) setState(() {}); }
+
   @override
   void dispose() {
+    widget.budgetController?.removeListener(_onBudgetChanged);
     _controller.removeListener(_onChanged);
     _amountController.dispose();
     _noteController.dispose();
@@ -82,6 +91,11 @@ class _FinancePageState extends State<FinancePage> {
       appBar: AppBar(
         title: const Text('生活账本'),
         actions: [
+          IconButton(
+            tooltip: '分类管理',
+            onPressed: () => showCategoryManager(context, controller: _controller),
+            icon: const Icon(Icons.category),
+          ),
           if (widget.onRecover != null)
             IconButton(
               tooltip: '重新读取 / 从备份恢复',
@@ -99,7 +113,7 @@ class _FinancePageState extends State<FinancePage> {
                 children: [
                   ModuleNotice(
                     widget.isPersistent
-                        ? '收支记录保存在本机。预算尚未设置。'
+                        ? '收支记录与分类预算保存在本机。'
                         : '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
                   ),
                   Row(
@@ -154,6 +168,21 @@ class _FinancePageState extends State<FinancePage> {
                     ),
                   ],
                   _SummaryCard(summary: _controller.summary),
+                  if (widget.budgetController != null) TextButton.icon(
+                    icon: const Icon(Icons.account_balance_wallet),
+                    label: const Text('分类月度预算'),
+                    onPressed: () async {
+                      final budgets = widget.budgetController!;
+                      await budgets.load(month: _controller.month);
+                      if (!context.mounted) return;
+                      if (budgets.error != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('预算读取失败，请重试')));
+                        return;
+                      }
+                      await showBudgetEditor(context, controller: budgets);
+                      await _controller.retry();
+                    },
+                  ),
                   const SizedBox(height: 16),
                   _AddRecordForm(
                     categories: _controller.categoriesFor(_selectedType),
