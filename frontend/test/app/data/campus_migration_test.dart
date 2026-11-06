@@ -41,6 +41,16 @@ void main() {
   CampusData open() =>
       CampusData(CampusStore(const FileJsonDocumentStore(), path));
 
+  /// fixture 升级后的 v2 文档，供恢复类用例直接写盘。
+  String v2Doc() {
+    final doc = jsonDecode(fixture) as Map<String, dynamic>;
+    doc['schemaVersion'] = 2;
+    doc['assignments'] = <dynamic>[];
+    doc['exams'] = <dynamic>[];
+    doc['budgets'] = <dynamic>[];
+    return jsonEncode(doc);
+  }
+
   Assignment newAssignment(String id, {String courseId = 'course-cs101'}) =>
       Assignment(
         id: id,
@@ -419,5 +429,159 @@ void main() {
       ))?.amountMinor,
       10000,
     );
+  });
+
+  // ---------- 恢复与负向回归 ----------
+  test('主文件损坏且备份有效时，普通读取报错，显式恢复写回并归档原件', () async {
+    const broken = '{"entityType":';
+    final valid = v2Doc();
+    await File(path).writeAsString(broken);
+    await File('$path.bak').writeAsString(valid);
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+
+    await expectLater(store.initialize(), throwsA(isA<FormatException>()));
+    expect(await File(path).readAsString(), broken);
+    expect(File('$path.corrupt').existsSync(), isFalse);
+
+    await store.recoverFromBackup();
+    expect(await File(path).readAsString(), valid);
+    expect(await File('$path.corrupt').readAsString(), broken);
+    expect((await store.rows('courses')).length, 1);
+  });
+
+  test('备份也损坏时显式恢复被拒绝，不覆盖主文件也不产生归档', () async {
+    const broken = '{"entityType":';
+    const brokenBackup = '{"schemaVersion":';
+    await File(path).writeAsString(broken);
+    await File('$path.bak').writeAsString(brokenBackup);
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+
+    await expectLater(store.initialize(), throwsA(isA<FormatException>()));
+    await expectLater(
+      store.recoverFromBackup(),
+      throwsA(isA<FormatException>()),
+    );
+    expect(await File(path).readAsString(), broken);
+    expect(await File('$path.bak').readAsString(), brokenBackup);
+    expect(File('$path.corrupt').existsSync(), isFalse);
+  });
+
+  test('主文件缺失但备份存在时读取报错，显式恢复后才可用', () async {
+    await File('$path.bak').writeAsString(v2Doc());
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+
+    await expectLater(store.rows('courses'), throwsA(isA<FormatException>()));
+    expect(File(path).existsSync(), isFalse);
+
+    await store.recoverFromBackup();
+    expect((await store.rows('courses')).length, 1);
+  });
+
+  test('v1 升级写回失败时不改动原文件，解除阻塞后可重试', () async {
+    await File(path).writeAsString(fixture);
+    // 用目录占用临时文件路径，让升级写回在第一步就失败。
+    await Directory('$path.tmp').create();
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+
+    await expectLater(store.initialize(), throwsA(isA<FileSystemException>()));
+    expect(await File(path).readAsString(), fixture);
+    expect(File('$path.bak').existsSync(), isFalse);
+
+    await Directory('$path.tmp').delete();
+    final reopened = CampusStore(const FileJsonDocumentStore(), path);
+    await reopened.initialize();
+    expect((await reopened.rows('courses')).length, 1);
+    final upgraded =
+        jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
+    expect(upgraded['schemaVersion'], 2);
+    expect(await File('$path.bak').readAsString(), fixture);
+  });
+
+  test('缓存后主文件被外部修改时拒绝写入，显式恢复采用外部数据', () async {
+    await File(path).writeAsString(v2Doc());
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    await store.initialize();
+
+    final external =
+        jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
+    (external['courses'] as List).add(
+      Course(
+        id: 'ext-course',
+        semesterId: 'sem-2026-autumn',
+        name: '外部课程',
+        credits: 2,
+        gradePoint: null,
+        slots: const [],
+        scoreScaleMax: 4.0,
+      ).toJson(),
+    );
+    await File(path).writeAsString(jsonEncode(external));
+
+    await expectLater(
+      store.mutate(
+        'courses',
+        'blocked',
+        Course(
+          id: 'blocked',
+          semesterId: 'sem-2026-autumn',
+          name: '冲突课程',
+          credits: 2,
+          gradePoint: null,
+          slots: const [],
+          scoreScaleMax: 4.0,
+        ).toJson(),
+        'insert',
+      ),
+      throwsStateError,
+    );
+    expect(await File(path).readAsString(), jsonEncode(external));
+
+    await store.recoverFromBackup();
+    final rows = await store.rows('courses');
+    expect(rows.any((row) => row['id'] == 'ext-course'), isTrue);
+    expect(rows.any((row) => row['id'] == 'blocked'), isFalse);
+  });
+
+  test('归档路径已存在时递增命名，不覆盖旧归档', () async {
+    const broken = '{"entityType":';
+    final valid = v2Doc();
+    await File(path).writeAsString(broken);
+    await File('$path.bak').writeAsString(valid);
+    await File('$path.corrupt').writeAsString('previous archive');
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+
+    await store.recoverFromBackup();
+    expect(await File(path).readAsString(), valid);
+    expect(await File('$path.corrupt').readAsString(), 'previous archive');
+    expect(await File('$path.corrupt.1').readAsString(), broken);
+  });
+
+  test('并发批量写入按队列串行执行，不丢任何一批', () async {
+    await File(path).writeAsString(v2Doc());
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    await store.initialize();
+
+    final results = await Future.wait([
+      store.applyBatch([CampusBatch(table: 'courses', rows: newCourses())]),
+      store.applyBatch([
+        CampusBatch(
+          table: 'courses',
+          rows: [
+            Course(
+              id: 'import-4',
+              semesterId: 'sem-2026-autumn',
+              name: '导入课程4',
+              credits: 3,
+              gradePoint: null,
+              slots: const [],
+              scoreScaleMax: 4.0,
+            ).toJson(),
+          ],
+        ),
+      ]),
+    ]);
+    expect(results[0].inserted, 3);
+    expect(results[1].inserted, 1);
+    expect((await store.rows('courses')).length, 5); // fixture 1 + 3 + 1
   });
 }
