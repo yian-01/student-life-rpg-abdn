@@ -1,9 +1,14 @@
 import '../../features/academic/models/course.dart';
 import '../../features/academic/controllers/academic_controller.dart';
+import '../../features/academic/repositories/assignment_repository.dart';
+import '../../features/academic/repositories/exam_repository.dart';
+import '../../features/finance/repositories/budget_repository.dart';
+import '../../features/finance/repositories/campus_budget_repository.dart';
 import '../../features/schedule/controllers/event_controller.dart';
 import '../../features/academic/models/semester.dart';
 import '../../features/academic/services/course_occurrence_service.dart';
 import '../../features/finance/controllers/finance_controller.dart';
+import '../../features/finance/controllers/budget_controller.dart';
 import '../../features/finance/models/finance_category.dart';
 import '../../features/finance/models/finance_record.dart';
 import '../../features/finance/services/finance_summary_service.dart';
@@ -46,6 +51,13 @@ class CampusData {
       FinanceRecord.fromJson,
       (v) => v.toJson(),
     );
+    assignments = StoredAssignmentRepository(store);
+    exams = StoredExamRepository(store);
+    budgets = CampusBudgetRepository(store);
+    budgetController = BudgetController(
+      budgets: budgets,
+      categories: categories,
+    );
     academic = AcademicController(semesters, courses);
     eventController = EventController(events);
     gpa = GpaComposition(
@@ -70,6 +82,10 @@ class CampusData {
   late final CampusRepository<Event> events;
   late final CampusRepository<FinanceCategory> categories;
   late final CampusRepository<FinanceRecord> records;
+  late final AssignmentRepository assignments;
+  late final ExamRepository exams;
+  late final BudgetRepository budgets;
+  late final BudgetController budgetController;
   late final AcademicController academic;
   late final EventController eventController;
   late final GpaComposition gpa;
@@ -80,6 +96,8 @@ class CampusData {
     taskRepository: tasks,
     eventRepository: events,
     courseOccurrencesForDate: courseOccurrences,
+    examRepository: exams,
+    assignmentRepository: assignments,
   );
 
   Future<List<ScheduleItem>> courseOccurrences(DateTime date) async {
@@ -108,6 +126,7 @@ class CampusData {
   }
 
   void dispose() {
+    budgetController.dispose();
     finance.dispose();
     academic.dispose();
     eventController.dispose();

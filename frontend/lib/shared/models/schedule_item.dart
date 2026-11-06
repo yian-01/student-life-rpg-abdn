@@ -1,6 +1,6 @@
 import 'time_range.dart';
 
-enum ScheduleSourceType { course, event, task }
+enum ScheduleSourceType { course, event, task, exam }
 
 /// 日程展示项，由业务模型生成，不作为独立持久化实体。
 class ScheduleItem {

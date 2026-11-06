@@ -27,10 +27,16 @@ class InMemoryFinanceCategoryRepository
     implements EntityRepository<FinanceCategory> {
   InMemoryFinanceCategoryRepository({
     required Set<String> Function() referencedCategoryIds,
-  }) : _referencedCategoryIds = referencedCategoryIds;
+    Set<String> Function()? budgetReferencedCategoryIds,
+  }) : _referencedCategoryIds = referencedCategoryIds,
+       _budgetReferencedCategoryIds = budgetReferencedCategoryIds;
 
   final Map<String, FinanceCategory> _items = {};
   final Set<String> Function() _referencedCategoryIds;
+  final Set<String> Function()? _budgetReferencedCategoryIds;
+
+  Set<String> _budgetRefs() =>
+      _budgetReferencedCategoryIds?.call() ?? <String>{};
 
   @override
   Future<List<FinanceCategory>> list() async {
@@ -50,6 +56,16 @@ class InMemoryFinanceCategoryRepository
     if (_items.containsKey(entity.id)) {
       throw StateError('Duplicate FinanceCategory id: ${entity.id}');
     }
+    final duplicateName = _items.values.any(
+      (existing) =>
+          existing.type == entity.type &&
+          existing.id != entity.id &&
+          existing.name.trim().toLowerCase() ==
+              entity.name.trim().toLowerCase(),
+    );
+    if (duplicateName) {
+      throw StateError('同类型下已存在同名分类。');
+    }
     _items[entity.id] = entity;
   }
 
@@ -59,9 +75,22 @@ class InMemoryFinanceCategoryRepository
     if (existing == null) {
       throw StateError('Unknown FinanceCategory id: ${entity.id}');
     }
-    if (existing.type != entity.type &&
-        _referencedCategoryIds().contains(entity.id)) {
-      throw StateError('Cannot change type of a referenced category.');
+    final duplicateName = _items.values.any(
+      (other) =>
+          other.type == entity.type &&
+          other.id != entity.id &&
+          other.name.trim().toLowerCase() == entity.name.trim().toLowerCase(),
+    );
+    if (duplicateName) {
+      throw StateError('同类型下已存在同名分类。');
+    }
+    if (existing.type != entity.type) {
+      if (_referencedCategoryIds().contains(entity.id)) {
+        throw StateError('该分类被收支记录引用，无法修改类型。');
+      }
+      if (_budgetRefs().contains(entity.id)) {
+        throw StateError('该分类被预算引用，无法修改类型。');
+      }
     }
     _items[entity.id] = entity;
   }
@@ -73,7 +102,10 @@ class InMemoryFinanceCategoryRepository
       return false;
     }
     if (_referencedCategoryIds().contains(id)) {
-      throw StateError('Cannot delete a referenced category.');
+      throw StateError('该分类被收支记录引用，无法删除。');
+    }
+    if (_budgetRefs().contains(id)) {
+      throw StateError('该分类被预算引用，无法删除。');
     }
     _items.remove(id);
     return true;

@@ -39,7 +39,9 @@ class DayScheduleController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   /// 只有注入 [TaskRepository] 时才允许新增任务与切换完成状态。
-  bool get canEditTasks => taskRepository != null;
+  bool get canEditTasks =>
+      taskRepository != null &&
+      !(_schedule?.errors.containsKey(ScheduleDataSource.tasks) ?? false);
 
   List<ConflictPair> get conflicts {
     final day = _schedule;
@@ -106,7 +108,7 @@ class DayScheduleController extends ChangeNotifier {
       if (_disposed || requestId != _requestId) {
         return;
       }
-      _schedule = result;
+      _schedule = result.retainingFailedSources(_schedule);
     } catch (_) {
       if (_disposed || requestId != _requestId) {
         return;

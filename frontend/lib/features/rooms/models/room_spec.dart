@@ -33,6 +33,7 @@ class RoomSpec {
     required this.start,
     required this.area,
     required this.doors,
+    this.floorVanishingPoint,
   });
   final String id, name, asset;
   final Size size;
@@ -40,12 +41,18 @@ class RoomSpec {
   final WalkableArea area;
   final List<RoomDoor> doors;
 
+  /// 地板砖缝透视灭点（世界坐标，可空）。非空时键盘上下移动沿
+  /// 灭点射线（贴地砖透视线）；为空保持纯竖直。大厅等无此需求
+  /// 的房间不配置即可。
+  final Offset? floorVanishingPoint;
+
   static final bedroom = RoomSpec(
     id: 'bedroom',
     name: '我的卧室',
     asset: 'assets/images/bedroom_world_v1.png',
     size: const Size(SceneGeometry.worldWidth, SceneGeometry.worldHeight),
     start: SceneGeometry.playerStart,
+    floorVanishingPoint: SceneGeometry.floorVanishingPoint,
     area: const WalkableArea(
       SceneGeometry.walkablePolygon,
       bodyBounds: SceneGeometry.playerCollisionBounds,

@@ -4,7 +4,9 @@ import '../../../app/data/campus_data.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import '../models/course.dart';
 import '../models/semester.dart';
+import '../services/course_reference_guard.dart';
 import 'academic_editors.dart';
+import 'assignment_exam_page.dart';
 
 class AcademicManagementPage extends StatefulWidget {
   const AcademicManagementPage({super.key, required this.data});
@@ -66,7 +68,11 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
               semesters: _semesters,
               course: course,
             )
-          : SemesterEditor(data: widget.data, semester: semester),
+          : SemesterEditor(
+              data: widget.data,
+              semester: semester,
+              courses: _courses,
+            ),
     );
     if (saved == true && mounted) await _load();
   }
@@ -76,11 +82,27 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
     setState(() => _busy = true);
     try {
       if (isCourse) {
+        // 有作业或考试引用时禁止删除，且不改动任何数据。
+        await ensureCourseDeletable(
+          courseId: id,
+          courseName: name,
+          assignments: widget.data.assignments,
+          exams: widget.data.exams,
+        );
         await widget.data.academic.removeCourse(id);
       } else {
         await widget.data.academic.removeSemester(id);
       }
       if (mounted) await _load();
+    } on StateError catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          // 课程：用引用守卫给出的中文原因；
+          // 学期：沿用既有提示，不暴露仓库层的英文错误文本。
+          _error = isCourse ? error.message : '删除失败：学期可能仍有课程引用，请先处理课程并检查存储。';
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -89,6 +111,15 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
         });
       }
     }
+  }
+
+  Future<void> _openRecords(Course course) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AssignmentExamPage(data: widget.data, course: course),
+      ),
+    );
+    if (mounted) await _load();
   }
 
   @override
@@ -200,12 +231,18 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
                             onSelected: (v) {
                               if (v == 'edit') {
                                 _edit(course: course, isCourse: true);
+                              } else if (v == 'records') {
+                                _openRecords(course);
                               } else {
                                 _remove(course.id, course.name, true);
                               }
                             },
                             itemBuilder: (_) => const [
                               PopupMenuItem(value: 'edit', child: Text('编辑')),
+                              PopupMenuItem(
+                                value: 'records',
+                                child: Text('作业与考试'),
+                              ),
                               PopupMenuItem(value: 'delete', child: Text('删除')),
                             ],
                           ),
