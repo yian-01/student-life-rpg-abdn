@@ -111,6 +111,20 @@ void main() {
       expect(find.text('暂无数据'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('description 显示分区口径说明', (tester) async {
+      await pumpSection(
+        tester,
+        const DashboardSectionView<void>(
+          title: '作业与考试',
+          description: '作业与考试接口尚未接入。',
+          state: SectionState<void>.notIntegrated(),
+        ),
+      );
+      expect(find.text('作业与考试接口尚未接入。'), findsOneWidget);
+      expect(find.text('未接入'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('DashboardSectionLayout 响应式布局（验收：599/600/601/>1200）', () {
@@ -148,6 +162,30 @@ void main() {
       expect(r1.left, 66); // (1300-1200)/2 + 16 内边距
       expect(r2.left, greaterThan(r1.right));
       expect(r2.top, r1.top);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('header 整宽显示且不参与双列分组', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              height: 800,
+              child: DashboardSectionLayout(
+                header: const Text('生活总览', key: Key('header')),
+                sections: _sections(),
+              ),
+            ),
+          ),
+        ),
+      );
+      final header = tester.getRect(find.byKey(const Key('header')));
+      final r1 = tester.getRect(find.byKey(const Key('s1')));
+      final r2 = tester.getRect(find.byKey(const Key('s2')));
+      expect(r1.left, header.left);
+      expect(r2.left, greaterThan(r1.right));
+      expect(r1.top, greaterThan(header.bottom));
       expect(tester.takeException(), isNull);
     });
 

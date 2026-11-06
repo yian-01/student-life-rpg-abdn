@@ -36,44 +36,224 @@ void main() {
       movement.dispose();
     });
 
-    testWidgets(
-      '${door.id} door opens its module and preserves hall position on return',
-      (tester) async {
-        final movement = PlayerMovementController(
-          start: door.point,
-          area: RoomSpec.hall.area,
-        );
-        await tester.pumpWidget(
-          MaterialApp(
-            home: MenuPage(movement: movement),
-            onGenerateRoute: AppRoutes.generateRoute,
-          ),
-        );
-        await tester.pumpAndSettle();
-        final room = tester.element(find.byType(RoomScenePage));
+    for (final useButton in [false, true]) {
+      testWidgets(
+        '${door.id} ${useButton ? 'button' : 'E'} opens its module and restores input on return',
+        (tester) async {
+          final movement = PlayerMovementController(
+            start: door.point,
+            area: RoomSpec.hall.area,
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MenuPage(movement: movement),
+              onGenerateRoute: AppRoutes.generateRoute,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final room = tester.element(find.byType(RoomScenePage));
+          if (useButton) {
+            await tester.tap(find.byKey(Key('${door.id}-interaction')));
+          } else {
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+          }
+          await tester.pumpAndSettle();
+          expect(movement.isPaused, isTrue);
+          expect(
+            ModalRoute.of(tester.element(find.byType(AppBar)))!.settings.name,
+            door.route,
+          );
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+          await tester.pageBack();
+          await tester.pumpAndSettle();
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+          expect(tester.element(find.byType(RoomScenePage)), same(room));
+          expect(movement.footPosition, door.point);
+          expect(movement.moveDirection, Offset.zero);
+          expect(movement.isPaused, isFalse);
+          await tester.pump(const Duration(seconds: 1));
+          expect(movement.footPosition, door.point);
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+          expect(movement.footPosition.dy, greaterThan(door.point.dy));
+          expect(movement.moveDirection, Offset.zero);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          movement.dispose();
+        },
+      );
+    }
+  }
+
+  testWidgets('rapid E presses open only one route', (tester) async {
+    final door = RoomSpec.hall.doors.first;
+    final movement = PlayerMovementController(
+      start: door.point,
+      area: RoomSpec.hall.area,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MenuPage(movement: movement),
+        onGenerateRoute: AppRoutes.generateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 10; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(AppBar), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(RoomScenePage), findsOneWidget);
+    expect(movement.isPaused, isFalse);
+    await tester.pumpWidget(const SizedBox());
+    movement.dispose();
+  });
+
+  testWidgets('room unlocks after the returning route finishes its animation', (
+    tester,
+  ) async {
+    final door = RoomSpec.hall.doors.first;
+    final movement = PlayerMovementController(
+      start: door.point,
+      area: RoomSpec.hall.area,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MenuPage(movement: movement),
+        onGenerateRoute: AppRoutes.generateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('${door.id}-interaction')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(movement.isPaused, isTrue);
+    await tester.pumpAndSettle();
+    expect(movement.isPaused, isFalse);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'room-input');
+    await tester.pumpWidget(const SizedBox());
+    movement.dispose();
+  });
+
+  testWidgets('hall clears held input on lifecycle pause', (tester) async {
+    final movement = PlayerMovementController(
+      start: RoomSpec.hall.start,
+      area: RoomSpec.hall.area,
+    );
+    await tester.pumpWidget(MaterialApp(home: MenuPage(movement: movement)));
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyW);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    final stopped = movement.footPosition;
+    expect(movement.moveDirection, Offset.zero);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyW);
+    await tester.pump(const Duration(seconds: 1));
+    expect(movement.footPosition, stopped);
+    await tester.pumpWidget(const SizedBox());
+    movement.dispose();
+  });
+
+  testWidgets('returning while inactive restores room focus on resume', (
+    tester,
+  ) async {
+    final door = RoomSpec.hall.doors.first;
+    final movement = PlayerMovementController(
+      start: door.point,
+      area: RoomSpec.hall.area,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MenuPage(movement: movement),
+        onGenerateRoute: AppRoutes.generateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('${door.id}-interaction')));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(movement.isPaused, isFalse);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'room-input');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+    expect(movement.footPosition.dy, greaterThan(door.point.dy));
+    await tester.pumpWidget(const SizedBox());
+    movement.dispose();
+  });
+
+  testWidgets('four modules survive twenty enter and return cycles', (
+    tester,
+  ) async {
+    for (final door in RoomSpec.hall.doors) {
+      final movement = PlayerMovementController(
+        start: door.point,
+        area: RoomSpec.hall.area,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MenuPage(movement: movement),
+          onGenerateRoute: AppRoutes.generateRoute,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final room = tester.element(find.byType(RoomScenePage));
+      for (var cycle = 0; cycle < 5; cycle++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
         await tester.pumpAndSettle();
         expect(movement.isPaused, isTrue);
-        expect(
-          ModalRoute.of(tester.element(find.byType(AppBar)))!.settings.name,
-          door.route,
-        );
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
         await tester.pageBack();
         await tester.pumpAndSettle();
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
         expect(tester.element(find.byType(RoomScenePage)), same(room));
-        expect(movement.footPosition, door.point);
-        expect(movement.moveDirection, Offset.zero);
         expect(movement.isPaused, isFalse);
-        await tester.pump(const Duration(seconds: 1));
-        expect(movement.footPosition, door.point);
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'room-input');
         expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-        movement.dispose();
-      },
+      }
+      await tester.pumpWidget(const SizedBox());
+      movement.dispose();
+    }
+  });
+
+  testWidgets('phone door signs and action button keep a usable touch area', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final door = RoomSpec.hall.doors.first;
+    final movement = PlayerMovementController(
+      start: door.point,
+      area: RoomSpec.hall.area,
     );
-  }
+    await tester.pumpWidget(MaterialApp(home: MenuPage(movement: movement)));
+    await tester.pumpAndSettle();
+    for (final entry in RoomSpec.hall.doors) {
+      final sign = tester.getSize(find.byKey(Key('door-${entry.id}')));
+      expect(sign.width, greaterThanOrEqualTo(48));
+      expect(sign.height, greaterThanOrEqualTo(48));
+    }
+    final action = tester.getSize(find.byKey(Key('${door.id}-interaction')));
+    expect(action.width, greaterThanOrEqualTo(48));
+    expect(action.height, greaterThanOrEqualTo(48));
+    await tester.pumpWidget(const SizedBox());
+    movement.dispose();
+  });
 
   test('hall rug stays walkable while added furniture blocks movement', () {
     final hall = RoomSpec.hall;

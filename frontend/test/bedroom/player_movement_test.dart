@@ -174,6 +174,66 @@ void main() {
     });
   });
 
+  group('地砖透视线移动（键盘上下沿灭点射线）', () {
+    const vp = SceneGeometry.floorVanishingPoint;
+
+    test('W：沿灭点射线向右上走，1 秒路径恰 120，朝向 up', () {
+      final c = PlayerMovementController(floorVanishingPoint: vp);
+      const start = SceneGeometry.playerStart; // (360,1160)
+      final axis = vp - start;
+      final dir = axis / axis.distance;
+      c.setPressedKeys({MoveDirection.up});
+      for (var i = 0; i < 20; i++) {
+        c.update(0.05);
+      }
+      final expected = start + dir * 120;
+      expect(c.footPosition.dx, closeTo(expected.dx, 1e-6));
+      expect(c.footPosition.dy, closeTo(expected.dy, 1e-6));
+      // 射线特征：上移为主、伴随右移（非纯竖直）
+      expect(c.footPosition.dy, lessThan(start.dy - 100));
+      expect(c.footPosition.dx, greaterThan(start.dx + 10));
+      expect(c.facing, MoveDirection.up);
+      c.dispose();
+    });
+
+    test('S：沿同一射线原路返回起点（灭点射线是直线）', () {
+      final c = PlayerMovementController(floorVanishingPoint: vp);
+      const start = SceneGeometry.playerStart;
+      c.setPressedKeys({MoveDirection.up});
+      for (var i = 0; i < 20; i++) {
+        c.update(0.05);
+      }
+      c.setPressedKeys({MoveDirection.down});
+      for (var i = 0; i < 20; i++) {
+        c.update(0.05);
+      }
+      expect((c.footPosition - start).distance, lessThan(1e-6));
+      c.dispose();
+    });
+
+    test('W+A 斜向：射线与左合成后归一化，路径总长仍 120', () {
+      final c = PlayerMovementController(floorVanishingPoint: vp);
+      const start = SceneGeometry.playerStart;
+      c.setPressedKeys({MoveDirection.up, MoveDirection.left});
+      for (var i = 0; i < 20; i++) {
+        c.update(0.05);
+      }
+      expect((c.footPosition - start).distance, closeTo(120, 1e-6));
+      c.dispose();
+    });
+
+    test('未配置灭点时保持纯竖直（默认行为不变）', () {
+      final c = PlayerMovementController();
+      c.setPressedKeys({MoveDirection.up});
+      for (var i = 0; i < 20; i++) {
+        c.update(0.05);
+      }
+      expect(c.footPosition.dx, closeTo(360, 1e-9));
+      expect(c.footPosition.dy, closeTo(1160 - 120, 1e-6));
+      c.dispose();
+    });
+  });
+
   group('统一移动入口 setMoveDirection（复审意见 3）', () {
     test('非有限分量抛 ArgumentError', () {
       final c = PlayerMovementController();
@@ -508,6 +568,56 @@ void main() {
       c.setMoveDirection(const Offset(0, 1)); // 重新输入才开始移动
       c.update(0.05);
       expect(c.footPosition.dy, greaterThan(posBefore.dy));
+    });
+  });
+
+  group('停止定格回站立帧（idle）', () {
+    test('键盘松手（方向归零）重置行走帧并通知，视图可切回 idle', () {
+      final c = PlayerMovementController();
+      var notifyCount = 0;
+      c.addListener(() => notifyCount++);
+      // 走到 walk2 帧（至少切换一次行走帧）
+      c.setMoveDirection(const Offset(1, 0));
+      for (var i = 0; i < 10; i++) {
+        c.update(0.05);
+      }
+      expect(c.isMoving, isTrue);
+      notifyCount = 0;
+      // 松手：方向归零。必须重置行走帧、isMoving 变 false、并发出通知
+      c.setMoveDirection(Offset.zero);
+      expect(c.isMoving, isFalse);
+      expect(c.walkFrame, 0);
+      expect(notifyCount, greaterThan(0)); // 不通知则精灵定格在走路帧
+    });
+
+    test('clearInput 在仅剩行走帧状态时也会重置并通知', () {
+      final c = PlayerMovementController();
+      c.setMoveDirection(const Offset(0, 1));
+      for (var i = 0; i < 10; i++) {
+        c.update(0.05);
+      }
+      c.setMoveDirection(Offset.zero); // 先归零（已重置一次）
+      var notifyCount = 0;
+      c.addListener(() => notifyCount++);
+      // 模拟暂停期间被重写方向后的清输入路径
+      c.setMoveDirection(const Offset(1, 0));
+      notifyCount = 0;
+      c.clearInput();
+      expect(c.isMoving, isFalse);
+      expect(c.walkFrame, 0);
+      expect(notifyCount, greaterThan(0));
+    });
+
+    test('停止后朝向保持最后方向（idle 取对应朝向的站定图）', () {
+      final c = PlayerMovementController();
+      c.setMoveDirection(const Offset(-1, 0));
+      c.update(0.05);
+      c.setMoveDirection(Offset.zero);
+      expect(c.facing, MoveDirection.left); // 停住后脸朝左，配 left_idle
+      c.setMoveDirection(const Offset(0, -1));
+      c.update(0.05);
+      c.clearInput();
+      expect(c.facing, MoveDirection.up);
     });
   });
 }
