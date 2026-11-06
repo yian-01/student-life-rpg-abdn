@@ -152,6 +152,24 @@ void main() {
     });
   });
 
+  group('异常输入：不伪装成功', () {
+    test('空文本解析出 0 门课程且不抛异常', () {
+      final result = parseTimetableText('');
+      expect(result.courses, isEmpty);
+    });
+
+    test('与课表无关的文本解析出 0 门课程', () {
+      final result = parseTimetableText('这是一段随便的文字\n没有任何课程信息');
+      expect(result.courses, isEmpty);
+    });
+
+    test('格式不支持的课程行记入 issues 而不是静默丢弃', () {
+      final result = parseTimetableText('星期一\n5-7\n某课程 周数：?? 学分：3.0');
+      expect(result.courses, isEmpty);
+      expect(result.issues, isNotEmpty);
+    });
+  });
+
   group('toCourses：写入领域模型', () {
     test('缺学分的课程被跳过而不是默填 1 学分', () {
       final parsed = parseTimetableText(_sample()).courses;

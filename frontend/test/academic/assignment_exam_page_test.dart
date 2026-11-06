@@ -211,6 +211,29 @@ void main() {
     });
   });
 
+  testWidgets('连续点击保存只产生一条记录（AC12）', (tester) async {
+    final data = await campusWithCourse();
+    addTearDown(data.dispose);
+    final context = await _host(tester);
+    showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          AssignmentEditor(repository: data.assignments, courseId: 'c1'),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('assignment-title')), '连点测试');
+
+    final save = find.widgetWithText(FilledButton, '保存');
+    await tester.tap(save);
+    // 不等待 settle，模拟快速第二次点击。
+    await tester.tap(save, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    final rows = await data.assignments.listForCourse('c1');
+    expect(rows, hasLength(1), reason: '防重入：连点不应产生两条');
+    expect(rows.single.title, '连点测试');
+  });
+
   group('跨日与会话时长', () {
     test('跨过午夜的考试被识别为跨日', () {
       expect(

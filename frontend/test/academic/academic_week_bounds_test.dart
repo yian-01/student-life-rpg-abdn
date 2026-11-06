@@ -68,6 +68,17 @@ void main() {
       expect(semester.weekRangeLabel, '无可用周次');
     });
 
+    test('跨年学期（12 月到次年 1 月）周次连续', () {
+      // 2026-12-07 起的 8 周跨到 2027 年。
+      final semester = _semester(
+        start: DateTime(2026, 12, 7),
+        end: DateTime(2027, 1, 31),
+        week1Monday: DateTime(2026, 12, 7),
+      );
+      expect(semester.lastValidWeek, 8);
+      expect(semester.hasSchedulableWeeks, isTrue);
+    });
+
     test('只有一天且是周一锚点时，只有第 1 周', () {
       final semester = _semester(
         start: DateTime(2026, 10, 26),
