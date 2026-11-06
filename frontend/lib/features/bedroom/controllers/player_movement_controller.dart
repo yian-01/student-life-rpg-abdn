@@ -32,16 +32,23 @@ enum MoveDirection { up, down, left, right }
 ///    [footPosition]，因输入已清空不会自动续走；
 ///  - [reset] **仅用于明确重新开始**（回 playerStart），普通返回不得调用。
 class PlayerMovementController extends ChangeNotifier {
-  PlayerMovementController({Offset? start})
-    : _footPosition = _checkedStart(start ?? SceneGeometry.playerStart);
+  PlayerMovementController({Offset? start, WalkableArea? area})
+    : _resetPosition = area == null
+          ? SceneGeometry.playerStart
+          : (start ?? SceneGeometry.playerStart),
+      _area = area ?? _bedroomArea,
+      _footPosition = _checkedStart(
+        start ?? SceneGeometry.playerStart,
+        area ?? _bedroomArea,
+      );
 
   /// 出生点校验（复审意见 1）：坐标必须有限，且落在可行走区域内
   /// （边界合法，与 WalkableArea.contains 的边界包含语义一致）。
-  static Offset _checkedStart(Offset start) {
+  static Offset _checkedStart(Offset start, WalkableArea area) {
     if (!start.dx.isFinite || !start.dy.isFinite) {
       throw ArgumentError('start must be finite: $start');
     }
-    if (!_area.canOccupy(start)) {
+    if (!area.canOccupy(start)) {
       throw ArgumentError(
         'start must be on clear floor without furniture overlap: $start',
       );
@@ -58,13 +65,15 @@ class PlayerMovementController extends ChangeNotifier {
   /// 摇杆死区（钳制后幅度小于该值视为无输入）。
   static const double joystickDeadZone = 0.15;
 
-  static final WalkableArea _area = WalkableArea(
+  static final WalkableArea _bedroomArea = WalkableArea(
     SceneGeometry.walkablePolygon,
     bodyBounds: SceneGeometry.playerCollisionBounds,
     floorBounds: SceneGeometry.playerFloorClearance,
     obstacles: SceneGeometry.furnitureObstacles,
   );
 
+  final Offset _resetPosition;
+  final WalkableArea _area;
   Offset _footPosition;
   Offset _direction = Offset.zero; // 统一方向状态（归一化或零向量）
   bool _paused = false;
@@ -192,7 +201,7 @@ class PlayerMovementController extends ChangeNotifier {
   void reset() {
     clearInput();
     _paused = false;
-    _footPosition = SceneGeometry.playerStart;
+    _footPosition = _resetPosition;
     notifyListeners();
   }
 }

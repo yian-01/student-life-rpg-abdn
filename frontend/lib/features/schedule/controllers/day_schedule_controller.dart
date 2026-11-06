@@ -4,6 +4,7 @@ import '../../../shared/models/time_range.dart';
 import '../models/task.dart';
 import '../repositories/task_repository.dart';
 import '../services/day_schedule_service.dart';
+import '../services/conflict_detector.dart';
 
 /// 新建 Task 的 ID 生成器；默认按微秒时间戳生成，测试可注入确定性实现。
 typedef TaskIdGenerator = String Function();
@@ -39,6 +40,50 @@ class DayScheduleController extends ChangeNotifier {
 
   /// 只有注入 [TaskRepository] 时才允许新增任务与切换完成状态。
   bool get canEditTasks => taskRepository != null;
+
+  List<ConflictPair> get conflicts {
+    final day = _schedule;
+    if (day == null) return const [];
+    return findConflicts(
+      day.items.where((item) => !day.isCompletedTask(item)).toList(),
+    );
+  }
+
+  Future<Task> taskById(String id) async {
+    final repository = taskRepository;
+    if (repository == null) throw StateError('TaskRepository is not injected');
+    final task = await repository.getById(id);
+    if (task == null) throw StateError('Unknown task: $id');
+    return task;
+  }
+
+  /// Preserve identity/completion while explicitly replacing editable fields.
+  /// Nullable time fields are cleared only when the editor submits null.
+  Future<void> updateTask(
+    String id, {
+    required String title,
+    required int estimatedMinutes,
+    required DateTime? dueAt,
+    required TimeRange? scheduledRange,
+  }) async {
+    final current = await taskById(id);
+    await taskRepository!.update(
+      current.copyWith(
+        title: title.trim(),
+        estimatedMinutes: estimatedMinutes,
+        dueAt: dueAt,
+        scheduledRange: scheduledRange,
+      ),
+    );
+    await loadDay();
+  }
+
+  Future<void> removeTask(String id) async {
+    final repository = taskRepository;
+    if (repository == null) throw StateError('TaskRepository is not injected');
+    if (!await repository.remove(id)) throw StateError('Unknown task: $id');
+    await loadDay();
+  }
 
   Future<void> loadDay([DateTime? date]) async {
     final target = date == null ? _selectedDate : _normalizeDate(date);

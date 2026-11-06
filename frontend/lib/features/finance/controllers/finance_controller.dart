@@ -36,16 +36,19 @@ class FinanceController extends ChangeNotifier {
 
   late DateTime _month;
   bool _isLoading = false;
+  bool _isSaving = false;
   Object? _error;
   MonthlyFinanceSummary? _summary;
   List<FinanceRecord> _monthRecords = const [];
   List<FinanceCategory> _availableCategories = const [];
   int _loadToken = 0;
   int _recordSeq = 0;
+  int _categorySeq = 0;
   bool _disposed = false;
 
   DateTime get month => _month;
   bool get isLoading => _isLoading;
+  bool get isSaving => _isSaving;
   Object? get error => _error;
   MonthlyFinanceSummary? get summary => _summary;
   List<FinanceRecord> get monthRecords => _monthRecords;
@@ -65,41 +68,113 @@ class FinanceController extends ChangeNotifier {
 
   Future<void> retry() => _loadCurrent();
 
-  Future<void> addRecord({
+  Future<bool> addRecord({
     required String categoryId,
     required String amountText,
     String? note,
-  }) async {
-    if (_disposed) return;
-    try {
-      final category = await _categories.getById(categoryId);
-      if (_disposed) return;
-      if (category == null) {
-        _fail(StateError('Unknown finance category: $categoryId'));
-        return;
-      }
-
-      final amountMinor = parseAmountMinor(amountText);
-
-      final now = _clock();
-      requireLocalDateTime(now, 'now');
-      _recordSeq += 1;
-      final record = FinanceRecord(
+  }) => _write(() async {
+    final category = await _categories.getById(categoryId);
+    if (category == null) throw StateError('Unknown finance category');
+    final now = _clock();
+    requireLocalDateTime(now, 'now');
+    _recordSeq++;
+    await _records.insert(
+      FinanceRecord(
         id: 'rec-${now.microsecondsSinceEpoch}-$_recordSeq',
         categoryId: category.id,
         type: category.type,
-        amountMinor: amountMinor,
+        amountMinor: parseAmountMinor(amountText),
         occurredAt: now,
-        note: note == null || note.trim().isEmpty ? null : note,
-      );
+        note: note == null || note.trim().isEmpty ? null : note.trim(),
+      ),
+    );
+  });
 
-      await _records.insert(record);
+  Future<bool> updateRecord(
+    String id, {
+    required String categoryId,
+    required String amountText,
+    required DateTime occurredAt,
+    String? note,
+  }) => _write(() async {
+    final existing = await _records.getById(id);
+    final category = await _categories.getById(categoryId);
+    if (existing == null || category == null) {
+      throw StateError('Unknown record/category');
+    }
+    await _records.update(
+      existing.copyWith(
+        categoryId: category.id,
+        type: category.type,
+        amountMinor: parseAmountMinor(amountText),
+        occurredAt: occurredAt,
+        note: note == null || note.trim().isEmpty ? null : note.trim(),
+      ),
+    );
+  });
+
+  Future<bool> removeRecord(String id) => _write(() async {
+    if (!await _records.remove(id)) throw StateError('Unknown record');
+  });
+
+  /// 新增分类。空白名称由模型抛出 ArgumentError；同类型下同名分类被拒绝。
+  Future<bool> addCategory({
+    required String name,
+    required FinanceType type,
+  }) => _write(() async {
+    final now = _clock();
+    requireLocalDateTime(now, 'now');
+    _categorySeq++;
+    await _categories.insert(
+      FinanceCategory(
+        id: 'cat-${now.microsecondsSinceEpoch}-$_categorySeq',
+        name: name,
+        type: type,
+      ),
+    );
+  });
+
+  /// 编辑分类名称/类型。被记录或预算引用时无法修改类型，会抛出带原因的 StateError。
+  Future<bool> editCategory(
+    String id, {
+    required String name,
+    required FinanceType type,
+  }) => _write(() async {
+    final existing = await _categories.getById(id);
+    if (existing == null) throw StateError('未知分类。');
+    await _categories.update(
+      FinanceCategory(id: existing.id, name: name, type: type),
+    );
+  });
+
+  /// 删除分类。被记录或预算引用时阻止删除并说明原因。
+  Future<bool> deleteCategory(String id) => _write(() async {
+    if (!await _categories.remove(id)) throw StateError('未知分类。');
+  });
+
+  Future<bool> _write(Future<void> Function() action) async {
+    if (_disposed || _isSaving) return false;
+
+    // 一次提交：保存期间拒绝并发写入，避免快速连点产生重复数据。
+    _isSaving = true;
+    _error = null;
+    notifyListeners();
+    var committed = false;
+    try {
+      await action();
+      committed = true;
     } catch (error) {
       _fail(error);
-      return;
+    } finally {
+      _isSaving = false;
+      if (!_disposed) notifyListeners();
     }
 
-    await _loadCurrent();
+    // 提交已成功；刷新失败只展示错误，不能把成功写入伪装成可重试插入。
+    if (committed && !_disposed) {
+      await _loadCurrent();
+    }
+    return committed;
   }
 
   void _fail(Object error) {
