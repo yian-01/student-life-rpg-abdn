@@ -3,9 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
 import 'package:student_life_rpg/features/academic/presentation/assignment_exam_page.dart';
-import 'package:student_life_rpg/features/academic/repositories/assignment_repository.dart';
-import 'package:student_life_rpg/features/academic/repositories/exam_repository.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
+import '../support/in_memory_academic_repositories.dart';
 
 /// 把编辑器当作真实对话框弹出来，验证保存/取消的记录行为。
 Future<BuildContext> _host(WidgetTester tester) async {
