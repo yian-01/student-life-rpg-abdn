@@ -111,6 +111,47 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
     }
   }
 
+  /// 只读详情：列表点一下就能看到全部字段，不需要进编辑态。
+  Future<void> _openAssignmentDetail(Assignment row) => showDialog<void>(
+    context: context,
+    builder: (_) => _RecordDetail(
+      key: Key('assignment-detail-${row.id}'),
+      title: row.title,
+      rows: [
+        ('所属课程', widget.course.name),
+        ('截止时间', formatLocalDateTime(row.dueAt)),
+        (
+          '描述',
+          row.description?.trim().isNotEmpty == true
+              ? row.description!
+              : '（未填）',
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _openExamDetail(Exam row) {
+    final cross = isCrossDay(row.range.start, row.range.end);
+    return showDialog<void>(
+      context: context,
+      builder: (_) => _RecordDetail(
+        key: Key('exam-detail-${row.id}'),
+        title: row.title,
+        rows: [
+          ('所属课程', widget.course.name),
+          ('开始', formatLocalDateTime(row.range.start)),
+          ('结束', formatLocalDateTime(row.range.end)),
+          ('时长', formatDuration(row.range.end.difference(row.range.start))),
+          ('跨日', cross ? '是（跨过午夜）' : '否'),
+          (
+            '地点',
+            row.location?.trim().isNotEmpty == true ? row.location! : '（未填）',
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
@@ -142,12 +183,14 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
                         onCreate: () => _editAssignment(),
                         onEdit: (row) => _editAssignment(assignment: row),
                         onDelete: _removeAssignment,
+                        onOpen: _openAssignmentDetail,
                       ),
                       _ExamList(
                         rows: _exams,
                         onCreate: () => _editExam(),
                         onEdit: (row) => _editExam(exam: row),
                         onDelete: _removeExam,
+                        onOpen: _openExamDetail,
                       ),
                     ],
                   ),
@@ -164,11 +207,13 @@ class _AssignmentList extends StatelessWidget {
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
+    required this.onOpen,
   });
   final List<Assignment> rows;
   final VoidCallback onCreate;
   final ValueChanged<Assignment> onEdit;
   final ValueChanged<Assignment> onDelete;
+  final ValueChanged<Assignment> onOpen;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -189,6 +234,8 @@ class _AssignmentList extends StatelessWidget {
       for (final row in rows)
         Card(
           child: ListTile(
+            key: Key('assignment-tile-${row.id}'),
+            onTap: () => onOpen(row),
             title: Text(
               row.title,
               maxLines: 2,
@@ -224,11 +271,13 @@ class _ExamList extends StatelessWidget {
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
+    required this.onOpen,
   });
   final List<Exam> rows;
   final VoidCallback onCreate;
   final ValueChanged<Exam> onEdit;
   final ValueChanged<Exam> onDelete;
+  final ValueChanged<Exam> onOpen;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -249,10 +298,27 @@ class _ExamList extends StatelessWidget {
       for (final row in rows)
         Card(
           child: ListTile(
-            title: Text(
-              row.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            key: Key('exam-tile-${row.id}'),
+            onTap: () => onOpen(row),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    row.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isCrossDay(row.range.start, row.range.end))
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Chip(
+                      label: Text('跨日', style: TextStyle(fontSize: 11)),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+              ],
             ),
             subtitle: Text(
               '${formatLocalDateTime(row.range.start)} – '
@@ -484,3 +550,66 @@ List<Assignment> sortAssignmentsForDisplay(Iterable<Assignment> rows) =>
 /// 考试列表展示顺序：按开始时间升序。
 List<Exam> sortExamsForDisplay(Iterable<Exam> rows) =>
     <Exam>[...rows]..sort((a, b) => a.range.start.compareTo(b.range.start));
+
+/// 是否跨过午夜（例如 23:30–次日 00:30）。
+///
+/// 只比较本地日期；跨日的考试在列表和详情里都要显式标出，
+/// 否则「结束 00:30」会被误读成同一天凌晨。
+bool isCrossDay(DateTime start, DateTime end) =>
+    start.year != end.year || start.month != end.month || start.day != end.day;
+
+/// 人类可读的时长，如「2 小时 30 分钟」。
+String formatDuration(Duration duration) {
+  if (duration.isNegative) return '（时间倒置）';
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  if (hours == 0) return '$minutes 分钟';
+  if (minutes == 0) return '$hours 小时';
+  return '$hours 小时 $minutes 分钟';
+}
+
+/// 只读详情弹窗：列表点一下即可看到全部字段。
+class _RecordDetail extends StatelessWidget {
+  const _RecordDetail({super.key, required this.title, required this.rows});
+
+  final String title;
+  final List<(String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
+    title: Text(title, maxLines: 3, overflow: TextOverflow.ellipsis),
+    content: SizedBox(
+      width: 360,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 72,
+                    child: Text(
+                      row.$1,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  Expanded(child: Text(row.$2)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('关闭'),
+      ),
+    ],
+  );
+}

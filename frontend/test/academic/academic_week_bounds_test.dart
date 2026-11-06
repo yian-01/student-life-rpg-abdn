@@ -149,6 +149,54 @@ void main() {
     });
   });
 
+  group('parseCourseWeeks：单周与双周', () {
+    test('1-16单 只取奇数周', () {
+      expect(parseCourseWeeks('1-16单'), [
+        for (var week = 1; week <= 15; week += 2) week,
+      ]);
+    });
+
+    test('1-16双 只取偶数周', () {
+      expect(parseCourseWeeks('1-16双'), [
+        for (var week = 2; week <= 16; week += 2) week,
+      ]);
+    });
+
+    test('括号写法与全角括号同样接受', () {
+      expect(parseCourseWeeks('1-8(单)'), [1, 3, 5, 7]);
+      expect(parseCourseWeeks('1-8（双）'), [2, 4, 6, 8]);
+    });
+
+    test('单双周仍受学期上界约束', () {
+      expect(
+        () => parseCourseWeeks('1-16单', maxWeek: 5),
+        throwsFormatException,
+      );
+      expect(parseCourseWeeks('1-5单', maxWeek: 5), [1, 3, 5]);
+    });
+
+    test('重复的单周写法被拒绝', () {
+      expect(() => parseCourseWeeks('1-8单,1-8单'), throwsFormatException);
+    });
+
+    test('区间里没有符合条件的周次时明确报错', () {
+      expect(() => parseCourseWeeks('2-2单'), throwsFormatException);
+      expect(() => parseCourseWeeks('1-1双'), throwsFormatException);
+    });
+
+    test('单双周与普通周次可混写，结果排序', () {
+      expect(parseCourseWeeks('1-6单,2,9'), [1, 2, 3, 5, 9]);
+    });
+
+    test('混写时与普通区间重叠仍按重复拒绝', () {
+      expect(
+        () => parseCourseWeeks('1-6单,2-4'),
+        throwsFormatException,
+        reason: '第 3 周同时被 1-6单 与 2-4 覆盖',
+      );
+    });
+  });
+
   group('coursesOutsideSemesterWeeks：缩短学期/换学期前的校验', () {
     Course course(String id, String semesterId, String name, List<int> weeks) =>
         Course(
