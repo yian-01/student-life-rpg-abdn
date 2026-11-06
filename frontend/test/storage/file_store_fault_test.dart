@@ -80,7 +80,13 @@ void main() {
     );
     expect(await File(path).exists(), isFalse);
     expect(await File('$path.bak').readAsString(), committed);
-    expect((await repository().list()).map((t) => t.id), ['1']);
+
+    // 主文件缺失且备份存在：普通读取必须报错，不得当作首次运行
+    final restarted = repository();
+    await expectLater(restarted.list(), throwsFormatException);
+    // 显式恢复后旧数据可读
+    await restarted.recoverFromBackup();
+    expect((await restarted.list()).map((t) => t.id), ['1']);
   });
 
   test('failed main rotation retains committed file', () async {
