@@ -4,6 +4,41 @@
 基线：`fix/v1-interaction-followup`，关联 #37、#34、#31、#30、#58。  
 负责人：#37 采集与返回焦点；#34 解析；#31 预览与领域映射；#30 批量事务保存。
 
+## 当前已实现的纯 Dart 接口
+
+文件：`frontend/lib/features/timetable_capture/timetable_page_capture.dart`。此层已可编译、可单测；它不创建浏览器，也不读取系统浏览器的 Cookie。当前没有 `AuthenticatedPageSession` 的 Android/Windows 实现，因此**尚不能对真实学校网址抓取带登录态的页面**。
+
+```dart
+Future<CapturedTimetablePage> captureTimetablePage({
+  required Uri url,
+  required AuthenticatedPageSession session,
+  required TimetablePageClassifier classify,
+  Duration timeout = const Duration(seconds: 20),
+});
+```
+
+调用形式（`session` 必须是用户在同一 App 内完成登录的网页宿主；`classify` 由真实来源适配器提供）：
+
+```dart
+try {
+  final page = await captureTimetablePage(
+    url: timetableUrl,
+    session: authenticatedSession,
+    classify: timetableClassifier,
+  );
+  final draft = parser.parse(page.text); // #34 的实际 API 待确认
+} on TimetableCaptureException catch (error) {
+  switch (error.code) {
+    case CaptureErrorCode.loginExpired: /* 重新登录 */ break;
+    case CaptureErrorCode.networkTimeout: /* 重试 */ break;
+    case CaptureErrorCode.unsupportedPage: /* 不支持页 */ break;
+    default: /* 取消、断网或读取失败 */ break;
+  }
+}
+```
+
+上例 `parser.parse` 是衔接位置的示意，**不是仓库中现有的可调用函数**。接口当前还包含 `cancelled`、`networkUnavailable`、`readFailed`、`invalidUrl` 错误码。宿主需在超时时停止底层导航并抛 `TimeoutException`；会话失效或用户取消可直接抛对应的 `TimetableCaptureException`。最终页面经 `classify` 判为 `login` 时转成 `loginExpired`，判为 `unsupported` 时转成 `unsupportedPage`。底层异常的文本不会向上返回，以免 URL、页面内容或令牌泄露。真实页面分类规则须由 #34 与 #37 用脱敏样例确认。
+
 ## 1. 流程与边界
 
 `App 内网址导入 → 用户在学校页面自行登录 → 识别当前个人课表页 → #37 采集 → #34 解析成草稿 → #31 预览/补字段/确认 → #30 一次事务保存 → 日程读取`。
