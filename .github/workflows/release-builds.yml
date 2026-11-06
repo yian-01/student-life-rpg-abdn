@@ -1,9 +1,6 @@
 name: Native acceptance builds
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - followup/storage-txn
 
 permissions:
   contents: read
