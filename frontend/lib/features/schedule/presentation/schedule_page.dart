@@ -4,6 +4,8 @@ import '../composition/schedule_composition.dart';
 import '../controllers/day_schedule_controller.dart';
 import '../repositories/task_repository.dart';
 import '../services/day_schedule_service.dart';
+import '../../../shared/models/schedule_item.dart';
+import '../../academic/models/assignment.dart';
 import 'day_schedule_page.dart';
 
 /// `/schedule` 路由宿主：持有 [DayScheduleController] 并负责释放。
@@ -23,10 +25,18 @@ class SchedulePage extends StatefulWidget {
     this.taskRepository,
     this.onRecover,
     this.onManageEvents,
+    this.onManageAcademic,
+    this.onOpenItem,
+    this.onOpenAssignment,
+    this.onRecoverCampus,
   });
 
   final Future<void> Function()? onRecover;
   final Future<void> Function(DateTime date)? onManageEvents;
+  final Future<void> Function()? onManageAcademic;
+  final Future<void> Function(ScheduleItem item)? onOpenItem;
+  final Future<void> Function(Assignment assignment)? onOpenAssignment;
+  final Future<void> Function()? onRecoverCampus;
   final DayScheduleLoader? loader;
   final TaskRepository? taskRepository;
 
@@ -78,5 +88,9 @@ class _SchedulePageState extends State<SchedulePage> {
     controller: _controller,
     onRecover: widget.onRecover,
     onManageEvents: widget.onManageEvents,
+    onManageAcademic: widget.onManageAcademic,
+    onOpenItem: widget.onOpenItem,
+    onOpenAssignment: widget.onOpenAssignment,
+    onRecoverCampus: widget.onRecoverCampus,
   );
 }

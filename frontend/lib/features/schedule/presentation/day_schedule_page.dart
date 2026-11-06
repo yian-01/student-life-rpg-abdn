@@ -2,6 +2,7 @@ import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/schedule_item.dart';
+import '../../academic/models/assignment.dart';
 import '../controllers/day_schedule_controller.dart';
 import '../models/task.dart';
 import '../services/day_schedule_service.dart';
@@ -14,25 +15,36 @@ class DaySchedulePage extends StatefulWidget {
     required this.controller,
     this.onRecover,
     this.onManageEvents,
+    this.onManageAcademic,
+    this.onOpenItem,
+    this.onOpenAssignment,
+    this.onRecoverCampus,
   });
 
   final Future<void> Function()? onRecover;
   final Future<void> Function(DateTime date)? onManageEvents;
+  final Future<void> Function()? onManageAcademic;
+  final Future<void> Function(ScheduleItem item)? onOpenItem;
+  final Future<void> Function(Assignment assignment)? onOpenAssignment;
+  final Future<void> Function()? onRecoverCampus;
   final DayScheduleController controller;
 
   @override
   State<DaySchedulePage> createState() => _DaySchedulePageState();
 }
 
-class _DaySchedulePageState extends State<DaySchedulePage> {
+class _DaySchedulePageState extends State<DaySchedulePage>
+    with WidgetsBindingObserver {
   bool _adding = false;
   bool _managingEvents = false;
   bool _recovering = false;
+  bool _opening = false;
   final Set<String> _savingTasks = {};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_onControllerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -56,8 +68,32 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_onControllerChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        !_adding &&
+        !_opening &&
+        !_managingEvents) {
+      widget.controller.retry();
+    }
+  }
+
+  Future<void> _open(Future<void> Function() action) async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await action();
+      if (mounted) await widget.controller.retry();
+    } catch (_) {
+      _showMessage('详情打开失败，请重试。');
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
   }
 
   void _onControllerChanged() {
@@ -179,11 +215,12 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     }
   }
 
-  Future<void> _recover() async {
+  Future<void> _recover([bool campus = false]) async {
     if (_recovering) return;
     setState(() => _recovering = true);
     try {
-      await widget.onRecover!();
+      await (campus ? widget.onRecoverCampus! : widget.onRecover!)();
+      if (mounted) await widget.controller.retry();
     } catch (_) {
       _showMessage('恢复失败，当前列表已保留，请检查备份后重试。');
     } finally {
@@ -239,6 +276,23 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
       appBar: AppBar(
         title: const Text('日程手账'),
         actions: [
+          IconButton(
+            key: const Key('refresh-schedule'),
+            tooltip: '刷新日程',
+            onPressed: widget.controller.isLoading
+                ? null
+                : widget.controller.retry,
+            icon: const Icon(Icons.refresh),
+          ),
+          if (widget.onManageAcademic != null)
+            IconButton(
+              key: const Key('manage-academic'),
+              tooltip: '管理课程、作业与考试',
+              icon: const Icon(Icons.school),
+              onPressed: _opening
+                  ? null
+                  : () => _open(widget.onManageAcademic!),
+            ),
           if (widget.onManageEvents != null)
             IconButton(
               key: const Key('manage-events'),
@@ -250,7 +304,7 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
           if (widget.onRecover != null)
             IconButton(
               tooltip: '重新读取 / 从备份恢复',
-              onPressed: _recovering ? null : _recover,
+              onPressed: _recovering ? null : () => _recover(),
               icon: const Icon(Icons.restore),
             ),
         ],
@@ -315,23 +369,41 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     }
 
     return ListView(
+      key: const Key('schedule-day-list'),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
       children: [
+        if (widget.controller.isLoading) const LinearProgressIndicator(),
+        ..._sourceErrors(schedule),
         if (widget.onRecover != null)
           const ModuleNotice('任务自动保存在本机。可分别设置安排时间与截止时间。'),
         _conflictNotice(schedule),
         const _SectionTitle('当天日程'),
         if (schedule.items.isEmpty)
-          const _EmptyMessage('今日暂无已排程事项')
+          _EmptyMessage(
+            schedule.errors.keys.any(
+                  (source) => source != ScheduleDataSource.assignments,
+                )
+                ? '部分日程未能读取，请先重试或恢复。'
+                : '今日暂无已排程事项',
+          )
         else
           ...schedule.items.map(
             (item) => _ScheduledItemTile(
               item: item,
               completed: schedule.isCompletedTask(item),
               crossDay: schedule.isCrossDay(item),
-              loadTask: item.sourceType == ScheduleSourceType.task
+              loadTask:
+                  item.sourceType == ScheduleSourceType.task &&
+                      widget.controller.taskRepository != null
                   ? () => widget.controller.taskById(item.sourceId)
                   : null,
+              onOpen: item.sourceType == ScheduleSourceType.task
+                  ? (widget.controller.canEditTasks
+                        ? () => _showEditor(item.sourceId)
+                        : null)
+                  : (widget.onOpenItem == null || _opening
+                        ? null
+                        : () => _open(() => widget.onOpenItem!(item))),
               onToggleComplete: _toggleCallbackFor(item),
               onAction: item.sourceType == ScheduleSourceType.task
                   ? _actionsFor(item.sourceId)
@@ -339,11 +411,36 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
             ),
           ),
         const SizedBox(height: 20),
+        const _SectionTitle('当日作业截止'),
+        if (schedule.assignmentDeadlines.isEmpty)
+          _EmptyMessage(
+            schedule.errors.containsKey(ScheduleDataSource.assignments)
+                ? '作业截止未能读取。'
+                : '今日暂无作业截止',
+          )
+        else
+          for (final assignment in schedule.assignmentDeadlines)
+            Card(
+              child: ListTile(
+                key: Key('assignment-deadline-${assignment.id}'),
+                leading: const Icon(Icons.assignment_outlined),
+                title: Text(assignment.title),
+                subtitle: Text('作业截止 · ${_formatDateTime(assignment.dueAt)}'),
+                onTap: widget.onOpenAssignment == null || _opening
+                    ? null
+                    : () => _open(() => widget.onOpenAssignment!(assignment)),
+              ),
+            ),
+        const SizedBox(height: 20),
         const _SectionTitle('未安排任务（全部日期）'),
         if (schedule.unscheduledTasks.isEmpty)
           Column(
             children: [
-              const _EmptyMessage('暂无未安排任务'),
+              _EmptyMessage(
+                schedule.errors.containsKey(ScheduleDataSource.tasks)
+                    ? '任务未能读取。'
+                    : '暂无未安排任务',
+              ),
               if (widget.controller.canEditTasks)
                 TextButton.icon(
                   onPressed: _adding ? null : _showAddTaskDialog,
@@ -383,6 +480,56 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
           ),
       ],
     );
+  }
+
+  List<Widget> _sourceErrors(DaySchedule schedule) {
+    final tasksFailed = schedule.errors.containsKey(ScheduleDataSource.tasks);
+    final campusFailed = schedule.errors.keys.any(
+      (source) => source != ScheduleDataSource.tasks,
+    );
+    Widget notice(String key, String label, VoidCallback? recover) => Card(
+      key: Key(key),
+      color: Theme.of(context).colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$label读取失败。健康来源仍可使用；如有旧记录，为上次成功读取的数据。'),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: widget.controller.isLoading
+                      ? null
+                      : widget.controller.retry,
+                  child: const Text('重试'),
+                ),
+                if (recover != null)
+                  TextButton(
+                    onPressed: _recovering ? null : recover,
+                    child: Text('恢复$label'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    return [
+      if (tasksFailed)
+        notice(
+          'schedule-task-error',
+          '任务',
+          widget.onRecover == null ? null : () => _recover(),
+        ),
+      if (campusFailed)
+        notice(
+          'schedule-campus-error',
+          '学业／事件',
+          widget.onRecoverCampus == null ? null : () => _recover(true),
+        ),
+    ];
   }
 }
 
@@ -609,9 +756,11 @@ class _ScheduledItemTile extends StatelessWidget {
     this.loadTask,
     this.onToggleComplete,
     this.onAction,
+    this.onOpen,
   });
 
   final ValueChanged<String>? onAction;
+  final VoidCallback? onOpen;
   final ScheduleItem item;
   final bool completed;
   final bool crossDay;
@@ -631,6 +780,14 @@ class _ScheduledItemTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ListTile(
+            key: Key('schedule-item-${item.id}'),
+            onTap: onOpen,
+            leading: Icon(switch (item.sourceType) {
+              ScheduleSourceType.course => Icons.school_outlined,
+              ScheduleSourceType.event => Icons.event_note,
+              ScheduleSourceType.task => Icons.task_alt,
+              ScheduleSourceType.exam => Icons.quiz_outlined,
+            }),
             title: Text(item.title),
             subtitle: Text('${_sourceLabel(item.sourceType)}\n$subtitle'),
             trailing: item.sourceType == ScheduleSourceType.task
@@ -704,15 +861,29 @@ class _ScheduledTaskDetailsState extends State<_ScheduledTaskDetails> {
             }
             final task = snapshot.data;
             if (task == null || snapshot.hasError) {
-              return const Padding(
+              return Padding(
                 padding: EdgeInsets.only(bottom: 12),
-                child: Text('任务详情读取失败，请重试。'),
+                child: Column(
+                  children: [
+                    const Text('任务详情读取失败，请重试。'),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _future = widget.loadTask();
+                      }),
+                      child: const Text('重试详情'),
+                    ),
+                  ],
+                ),
               );
             }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('估时 ${task.estimatedMinutes} 分钟'),
+                if (task.scheduledRange != null)
+                  Text(
+                    '计划 ${_formatDateTime(task.scheduledRange!.start)} → ${_formatDateTime(task.scheduledRange!.end)}',
+                  ),
                 Text(
                   task.dueAt == null
                       ? '截止：未设置'
@@ -803,6 +974,8 @@ String _sourceLabel(ScheduleSourceType sourceType) {
       return '事件';
     case ScheduleSourceType.task:
       return '任务';
+    case ScheduleSourceType.exam:
+      return '考试';
   }
 }
 

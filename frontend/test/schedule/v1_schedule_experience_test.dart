@@ -313,7 +313,7 @@ void main() {
     expect(find.text('所有日期可见'), findsOneWidget);
   });
 
-  for (final width in [360.0, 390.0, 430.0]) {
+  for (final width in [320.0, 360.0, 390.0, 430.0]) {
     testWidgets(
       '$width width large text and keyboard retain form, errors and submit access',
       (tester) async {

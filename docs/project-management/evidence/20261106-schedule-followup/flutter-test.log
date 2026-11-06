@@ -1,0 +1,628 @@
+00:00 +0: loading W:/frontend/test/academic/academic_models_test.dart
+00:00 +0: W:/frontend/test/academic/academic_models_test.dart: CourseSlot 校验 接受合法时间段，包含 0 与 1440 边界
+00:00 +1: W:/frontend/test/academic/academic_models_test.dart: CourseSlot 校验 拒绝非法 weekday 与非法分钟范围
+00:00 +2: W:/frontend/test/academic/academic_models_test.dart: CourseSlot 校验 拒绝空 weeks、非递增、重复与非正整数
+00:00 +3: W:/frontend/test/academic/academic_models_test.dart: CourseSlot 校验 weeks 构造时复制为不可变列表
+00:00 +4: W:/frontend/test/academic/academic_models_test.dart: CourseSlot 校验 JSON 往返保留字段
+00:00 +5: W:/frontend/test/academic/academic_models_test.dart: CourseSlot 校验 JSON 拒绝未知键与错误类型
+00:00 +6: W:/frontend/test/academic/academic_models_test.dart: Semester 校验 接受合法学期并包含首尾日期
+00:00 +7: W:/frontend/test/academic/academic_models_test.dart: Semester 校验 startDate 晚于 endDate 抛 ArgumentError
+00:00 +8: W:/frontend/test/academic/academic_models_test.dart: Semester 校验 week1Monday 不是周一抛 ArgumentError
+00:00 +9: W:/frontend/test/academic/academic_models_test.dart: Semester 校验 空白 id/name 与非本地午夜日期抛 ArgumentError
+00:00 +10: W:/frontend/test/academic/academic_models_test.dart: Semester 校验 JSON 往返保留日期且使用 YYYY-MM-DD
+00:00 +11: W:/frontend/test/academic/academic_models_test.dart: Semester 校验 JSON 拒绝非法日历日期、未知键与缺字段
+00:00 +12: W:/frontend/test/academic/academic_models_test.dart: Course 校验 接受合法课程与空 slots
+00:00 +13: W:/frontend/test/academic/academic_models_test.dart: Course 校验 拒绝非有限或非正 credits
+00:00 +14: W:/frontend/test/academic/academic_models_test.dart: Course 校验 拒绝越界或非有限 gradePoint
+00:00 +15: W:/frontend/test/academic/academic_models_test.dart: Course 校验 尊重调用方传入的 scoreScaleMax
+00:00 +16: W:/frontend/test/academic/academic_models_test.dart: Course 校验 slots 构造时复制为不可变列表
+00:00 +17: W:/frontend/test/academic/academic_models_test.dart: Course 校验 JSON 往返保留 null 与嵌套 slots
+00:00 +18: W:/frontend/test/academic/academic_models_test.dart: Course 校验 JSON 缺可空键按 null 处理
+00:00 +19: W:/frontend/test/academic/academic_models_test.dart: Course 校验 JSON 拒绝未知键、嵌套未知键与非法领域值
+00:00 +20: W:/frontend/test/academic/academic_regression_test.dart: real repository pair enforces references and immutable snapshots
+00:00 +21: W:/frontend/test/academic/academic_regression_test.dart: concurrent duplicate insert preserves first record
+00:00 +22: W:/frontend/test/academic/academic_regression_test.dart: reference lookup failures propagate without saving a course
+00:00 +23: W:/frontend/test/academic/academic_regression_test.dart: Course wire JSON uses caller scale without storing it as a field
+00:00 +24: W:/frontend/test/academic/academic_regression_test.dart: UTC date queries are rejected rather than reinterpreted
+00:00 +25: W:/frontend/test/academic/academic_regression_test.dart: semester end is inclusive and pre-anchor dates have no positive week
+00:00 +26: W:/frontend/test/academic/academic_regression_test.dart: calendar weeks span leap day, month and year boundaries
+00:00 +27: W:/frontend/test/academic/academic_regression_test.dart: date-only model rejects years that cannot round trip as YYYY-MM-DD
+00:00 +28: W:/frontend/test/academic/academic_repository_test.dart: InMemorySemesterRepository insert/getById/list 基本行为
+00:00 +29: W:/frontend/test/academic/academic_repository_test.dart: InMemorySemesterRepository list 返回不可变副本，外部修改不影响仓库
+00:00 +30: W:/frontend/test/academic/academic_repository_test.dart: InMemorySemesterRepository 重复 insert 抛 StateError，未知 update 抛 StateError
+00:00 +31: W:/frontend/test/academic/academic_repository_test.dart: InMemorySemesterRepository update 同 ID 覆盖且不改变 ID
+00:00 +32: W:/frontend/test/academic/academic_repository_test.dart: InMemorySemesterRepository remove 未知 ID 返回 false，已知返回 true
+00:00 +33: W:/frontend/test/academic/academic_repository_test.dart: InMemorySemesterRepository 空白 ID 抛 ArgumentError，且 ID 保留原值
+00:00 +34: W:/frontend/test/academic/academic_repository_test.dart: InMemoryCourseRepository insert 要求学期存在
+00:00 +35: W:/frontend/test/academic/academic_repository_test.dart: InMemoryCourseRepository update 不得改到不存在的学期
+00:00 +36: W:/frontend/test/academic/academic_repository_test.dart: InMemoryCourseRepository 重复 insert 与未知 update 抛 StateError
+00:00 +37: W:/frontend/test/academic/academic_repository_test.dart: InMemoryCourseRepository listForSemester 按学期筛选
+00:00 +38: W:/frontend/test/academic/academic_repository_test.dart: InMemoryCourseRepository remove 未知返回 false
+00:00 +39: W:/frontend/test/academic/academic_repository_test.dart: 引用保护 有课程引用时禁止删除学期
+00:00 +40: W:/frontend/test/academic/academic_repository_test.dart: 引用保护 课程删除后学期可以删除
+00:00 +41: W:/frontend/test/academic/academic_repository_test.dart: 引用保护 其他学期的课程不阻止本学期删除
+00:00 +42: W:/frontend/test/academic/academic_week_bounds_test.dart: Semester.lastValidWeek：以 week1Monday 为锚 五周学期（10-26 至 11-29）合法周次为 1–5
+00:00 +43: W:/frontend/test/academic/academic_week_bounds_test.dart: Semester.lastValidWeek：以 week1Monday 为锚 学期最后一天是周中时，该周仍算合法（部分周）
+00:00 +44: W:/frontend/test/academic/academic_week_bounds_test.dart: Semester.lastValidWeek：以 week1Monday 为锚 week1Monday 早于开学日时，第 1 周为部分周仍合法
+00:00 +45: W:/frontend/test/academic/academic_week_bounds_test.dart: Semester.lastValidWeek：以 week1Monday 为锚 week1Monday 晚于结束日期时没有可用周次
+00:00 +46: W:/frontend/test/academic/academic_week_bounds_test.dart: Semester.lastValidWeek：以 week1Monday 为锚 只有一天且是周一锚点时，只有第 1 周
+00:00 +47: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：带学期上界 A13 回归：五周学期下 1-999 必须被拒绝
+00:00 +48: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：带学期上界 超过上界的单个周次与范围都被拒绝
+00:00 +49: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：带学期上界 最后合法周可保存，范围内组合正常
+00:00 +50: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：带学期上界 仍保留 0、倒序、重复的拒绝
+00:00 +51: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：带学期上界 学期没有可用周次时，任何周次都拒绝
+00:00 +52: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：带学期上界 中文逗号同样按分隔符处理
+00:00 +53: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：不带学期上界时的结构校验 仍接受合法的范围与枚举
+00:00 +54: W:/frontend/test/academic/academic_week_bounds_test.dart: parseCourseWeeks：不带学期上界时的结构校验 保留 1000 这个绝对上限，荒谬输入仍拒绝
+00:00 +55: W:/frontend/test/academic/academic_week_bounds_test.dart: coursesOutsideSemesterWeeks：缩短学期/换学期前的校验 时段都在学期范围内时返回空
+00:00 +56: W:/frontend/test/academic/academic_week_bounds_test.dart: coursesOutsideSemesterWeeks：缩短学期/换学期前的校验 缩短学期后越界的课程被点名，返回顺序与传入一致
+00:00 +57: W:/frontend/test/academic/academic_week_bounds_test.dart: coursesOutsideSemesterWeeks：缩短学期/换学期前的校验 只统计本学期的课程，别的学期不受影响
+00:00 +58: W:/frontend/test/academic/academic_week_bounds_test.dart: coursesOutsideSemesterWeeks：缩短学期/换学期前的校验 校验函数不修改传入的课程数据
+00:00 +59: W:/frontend/test/academic/academic_week_bounds_test.dart: coursesOutsideSemesterWeeks：缩短学期/换学期前的校验 学期完全没有可用周次时，任何有时段的课程都算越界
+00:00 +60: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +61: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +62: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +63: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +64: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +65: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +66: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +67: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +68: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +69: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +70: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +71: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +72: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +73: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +74: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +75: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +76: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +77: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +78: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +79: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +80: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +81: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +82: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +83: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +84: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +85: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +86: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +87: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +88: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +89: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +90: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +91: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +92: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +93: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +94: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +95: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +96: W:/frontend/test/academic/assignment_exam_layout_test.dart: 作业编辑器在 Size(240.0, 320.0) + 键盘下保存按钮可见且能保存
+00:01 +97: W:/frontend/test/academic/assignment_exam_page_test.dart: 作业编辑器：保存写入仓库，取消不写入
+00:01 +98: W:/frontend/test/academic/assignment_exam_page_test.dart: 作业编辑器：保存写入仓库，取消不写入
+00:02 +99: W:/frontend/test/academic/assignment_exam_page_test.dart: 作业编辑器：保存写入仓库，取消不写入
+00:02 +100: W:/frontend/test/academic/assignment_exam_page_test.dart: 作业编辑器：保存写入仓库，取消不写入
+00:02 +101: W:/frontend/test/academic/assignment_exam_page_test.dart: 作业编辑器：保存写入仓库，取消不写入
+00:02 +102: W:/frontend/test/academic/assignment_exam_page_test.dart: 作业编辑器：保存写入仓库，取消不写入
+00:02 +103: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +104: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +105: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +106: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +107: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +108: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +109: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +110: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +111: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +112: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +113: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +114: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +115: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +116: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +117: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +118: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +119: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +120: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +121: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +122: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +123: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:02 +124: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +125: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +126: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +127: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +128: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +129: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +130: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +131: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +132: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +133: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +134: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +135: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +136: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +137: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +138: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +139: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +140: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +141: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +142: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +143: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +144: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +145: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +146: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +147: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +148: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +149: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +150: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +151: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +152: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +153: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +154: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +155: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +156: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +157: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +158: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +159: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +160: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +161: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +162: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +163: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +164: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +165: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +166: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +167: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +168: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +169: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +170: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +171: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +172: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +173: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +174: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +175: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +176: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +177: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +178: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +179: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +180: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +181: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +182: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +183: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +184: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +185: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +186: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +187: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +188: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +189: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +190: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +191: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +192: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +193: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +194: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +195: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +196: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +197: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:03 +198: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +199: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +200: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +201: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +202: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +203: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +204: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +205: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +206: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +207: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +208: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +209: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +210: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +211: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +212: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +213: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +214: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +215: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +216: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +217: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +218: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +219: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +220: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +221: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +222: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +223: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +224: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +225: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +226: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +227: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +228: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +229: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +230: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +231: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +232: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +233: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +234: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +235: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +236: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +237: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +238: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:04 +239: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +240: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +241: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +242: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +243: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +244: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +245: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +246: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +247: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +248: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +249: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +250: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +251: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +252: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +253: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +254: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +255: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +256: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +257: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +258: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +259: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +260: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +261: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +262: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +263: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +264: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +265: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +266: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +267: W:/frontend/test/app/campus_journey_test.dart: real routes create semester/course, refresh GPA and merge course/event into schedule
+00:05 +268: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +269: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +270: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +271: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +272: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +273: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +274: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +275: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +276: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +277: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +278: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:05 +279: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:06 +280: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule
+00:06 +281: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +282: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +283: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +284: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +285: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +286: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +287: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +288: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +289: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +290: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +291: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +292: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +293: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +294: W:/frontend/test/app/campus_journey_test.dart: referenced semester deletion shows feedback and keeps the record
+00:06 +295: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +296: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +297: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +298: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +299: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +300: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +301: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +302: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +303: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +304: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +305: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +306: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +307: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +308: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +309: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +310: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +311: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:06 +312: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +313: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +314: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +315: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +316: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +317: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +318: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +319: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +320: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +321: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +322: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +323: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +324: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +325: W:/frontend/test/app/mobile_ui_review_test.dart: mobile layout and rendered review: schedule-editor
+00:07 +326: W:/frontend/test/features/finance/budget_widget_test.dart: lists expense categories with unset state
+00:07 +327: W:/frontend/test/features/finance/budget_widget_test.dart: lists expense categories with unset state
+00:07 +328: W:/frontend/test/features/finance/budget_widget_test.dart: lists expense categories with unset state
+00:07 +329: W:/frontend/test/app/room_world_test.dart: dashboard E opens its module and restores input on return
+00:07 +330: W:/frontend/test/app/room_world_test.dart: dashboard E opens its module and restores input on return
+00:07 +331: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +332: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +333: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +334: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +335: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +336: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +337: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +338: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +339: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:07 +340: W:/frontend/test/app/campus_journey_test.dart: academic management and course editor fit Size(240.0, 320.0) with keyboard
+00:08 +341: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +342: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +343: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +344: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +345: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +346: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +347: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +348: W:/frontend/test/features/finance/budget_widget_test.dart: setting a budget through the dialog updates the list
+00:08 +349: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +350: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +351: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +352: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +353: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +354: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +355: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +356: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +357: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +358: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +359: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +360: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:08 +361: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +362: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +363: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +364: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +365: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +366: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +367: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +368: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +369: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +370: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +371: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +372: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +373: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +374: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +375: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +376: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +377: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +378: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +379: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +380: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +381: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +382: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +383: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +384: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +385: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +386: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +387: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +388: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +389: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +390: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +391: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +392: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +393: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +394: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +395: W:/frontend/test/features/finance/finance_page_test.dart: adding a valid expense refreshes the list and summary
+00:09 +396: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +397: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +398: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +399: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +399: W:/frontend/test/app/mobile_ui_review_test.dart: hall has four guarded doors and no app-style navigation
+
+Warning: A call to tap() with finder "Found 1 widget with key [<'door-schedule'>]: [
+  GestureDetector-[<'door-schedule'>](startBehavior: start, dependencies: [MediaQuery, ScrollConfiguration]),
+]" derived an Offset (Offset(263.4, -195.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+Indeed, Offset(263.4, -195.0) is outside the bounds of the root of the render tree, Size(800.0, 600.0).
+The finder corresponds to this RenderBox: RenderSemanticsGestureHandler#3c7d1 relayoutBoundary=up2
+The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#06798(_ReusableRenderView#fd4a1), HitTestEntry<HitTestTarget>#3a47f(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///W:/frontend/test/app/mobile_ui_review_test.dart:284:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+
+Warning: A call to tap() with finder "Found 1 widget with key [<'door-gpa'>]: [
+  GestureDetector-[<'door-gpa'>](startBehavior: start, dependencies: [MediaQuery, ScrollConfiguration]),
+]" derived an Offset (Offset(537.3, -195.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+Indeed, Offset(537.3, -195.0) is outside the bounds of the root of the render tree, Size(800.0, 600.0).
+The finder corresponds to this RenderBox: RenderSemanticsGestureHandler#b3b47 relayoutBoundary=up2
+The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#6c6c4(_ReusableRenderView#fd4a1), HitTestEntry<HitTestTarget>#3d4d8(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///W:/frontend/test/app/mobile_ui_review_test.dart:284:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1952:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+00:09 +400: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +401: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +402: W:/frontend/test/features/schedule/presentation/task_recovery_widget_test.dart: 主文件损坏时显示错误 UI，不静默复活旧数据
+00:09 +403: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +404: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +405: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +406: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +407: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +408: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +409: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +410: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +411: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:09 +412: W:/frontend/test/features/finance/finance_page_test.dart: illegal amount shows feedback and does not add a record
+00:10 +413: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +414: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +415: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +416: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +417: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +418: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +419: W:/frontend/test/features/finance/finance_page_test.dart: narrow window does not overflow
+00:10 +420: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +421: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +422: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +423: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +424: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +425: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +426: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +427: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +428: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +429: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +430: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +431: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +432: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +433: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:10 +434: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +435: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +436: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +437: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +438: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +439: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +440: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +441: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +442: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +443: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +444: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +445: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +446: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +447: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +448: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +449: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +450: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +451: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +452: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +453: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +454: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +455: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +456: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +457: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +458: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +459: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +460: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +461: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +462: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +463: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +464: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +465: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +466: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +467: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:11 +468: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:12 +469: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:12 +470: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:12 +471: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:12 +472: W:/frontend/test/gpa/gpa_page_test.dart: real Course edit refreshes GPA and callback, null differs from zero
+00:12 +473: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +474: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +475: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +476: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +477: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +478: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +479: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +480: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +481: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +482: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +483: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +484: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +485: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +486: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +487: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +488: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +489: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +490: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +491: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +492: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +493: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +494: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:12 +495: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +496: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +497: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +498: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +499: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +500: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +501: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +502: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +503: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +504: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +505: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +506: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +507: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +508: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +509: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +510: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +511: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +512: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +513: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +514: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +515: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +516: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +517: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:13 +518: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +519: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +520: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +521: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +522: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +523: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +524: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +525: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +526: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +527: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +528: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day
+00:14 +529: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +530: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +531: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +532: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +533: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +534: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +535: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +536: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +537: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +538: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +539: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:14 +540: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:15 +541: W:/frontend/test/schedule/schedule_page_assembly_test.dart: injected TaskRepository drives both reads and writes
+00:15 +542: W:/frontend/test/schedule/task_lifecycle_integration_test.dart: new task enters the selected day and displays existing conflict results
+00:15 +543: W:/frontend/test/schedule/task_lifecycle_integration_test.dart: new task enters the selected day and displays existing conflict results
+00:15 +544: W:/frontend/test/schedule/task_lifecycle_integration_test.dart: new task enters the selected day and displays existing conflict results
+00:15 +545: W:/frontend/test/schedule/v1_schedule_experience_test.dart: date title opens picker; cancel and system back preserve date; today resets it
+00:15 +546: W:/frontend/test/schedule/v1_schedule_experience_test.dart: date title opens picker; cancel and system back preserve date; today resets it
+00:15 +547: W:/frontend/test/schedule/v1_schedule_experience_test.dart: date title opens picker; cancel and system back preserve date; today resets it
+00:15 +548: W:/frontend/test/schedule/v1_schedule_experience_test.dart: date title opens picker; cancel and system back preserve date; today resets it
+00:16 +549: W:/frontend/test/schedule/v1_schedule_experience_test.dart: date title opens picker; cancel and system back preserve date; today resets it
+00:16 +550: W:/frontend/test/widget_test.dart: Starts in bedroom and opens Menu
+00:16 +551: W:/frontend/test/schedule/task_lifecycle_integration_test.dart: edit can clear a plan without losing the independent deadline
+00:16 +552: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01 sources select their own details and course has no direct edit/delete
+00:16 +553: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01 sources select their own details and course has no direct edit/delete
+00:16 +554: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01 sources select their own details and course has no direct edit/delete
+00:17 +555: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01 sources select their own details and course has no direct edit/delete
+00:17 +556: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC01 sources select their own details and course has no direct edit/delete
+00:17 +557: W:/frontend/test/widget_test.dart: Schedule opens and pops through the existing Menu and bedroom
+00:17 +558: W:/frontend/test/widget_test.dart: Schedule opens and pops through the existing Menu and bedroom
+00:17 +559: W:/frontend/test/schedule/v1_schedule_experience_test.dart: scheduled task expands estimate and independent deadline from same snapshot
+00:17 +560: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC10 corrupt Campus does not hide Task on formal route and cancelling recovery changes nothing
+00:17 +561: W:/frontend/test/schedule/task_lifecycle_integration_test.dart: invalid reversed range stays in editor without writing
+00:17 +562: W:/frontend/test/schedule/task_lifecycle_integration_test.dart: invalid reversed range stays in editor without writing
+00:17 +563: W:/frontend/test/widget_test.dart: GPA opens and pops through the existing Menu and bedroom
+00:17 +564: W:/frontend/test/widget_test.dart: GPA opens and pops through the existing Menu and bedroom
+00:17 +565: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC12 failed real exam save retains input, double click writes once, background return refreshes
+00:18 +566: W:/frontend/test/schedule/v1_schedule_experience_test.dart: 320.0 width large text and keyboard retain form, errors and submit access
+00:18 +567: W:/frontend/test/widget_test.dart: Finance opens and pops through the existing Menu and bedroom
+00:18 +568: W:/frontend/test/widget_test.dart: Finance opens and pops through the existing Menu and bedroom
+00:18 +569: W:/frontend/test/schedule/v1_schedule_experience_test.dart: 360.0 width large text and keyboard retain form, errors and submit access
+00:18 +570: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC13 390.0 mixed list and real exam/assignment dialogs support long text, scale 2, keyboard, validation
+00:18 +571: W:/frontend/test/widget_test.dart: Dashboard opens and pops through the existing Menu and bedroom
+00:18 +572: W:/frontend/test/schedule/v1_schedule_experience_test.dart: 390.0 width large text and keyboard retain form, errors and submit access
+00:19 +573: W:/frontend/test/schedule/academic_schedule_page_test.dart: SC13 430.0 mixed list and real exam/assignment dialogs support long text, scale 2, keyboard, validation
+00:19 +574: W:/frontend/test/widget_test.dart: Unknown pushed route shows an error and recovers to bedroom
+00:19 +575: W:/frontend/test/widget_test.dart: Unknown pushed route shows an error and recovers to bedroom
+00:19 +576: W:/frontend/test/widget_test.dart: Unknown pushed route shows an error and recovers to bedroom
+00:19 +577: W:/frontend/test/widget_test.dart: Unknown pushed route shows an error and recovers to bedroom
+00:19 +578: W:/frontend/test/schedule/v1_schedule_experience_test.dart: event editor double-open and deletion cancellation keep one route and data
+00:19 +579: W:/frontend/test/schedule/v1_schedule_experience_test.dart: event editor double-open and deletion cancellation keep one route and data
+00:19 +580: W:/frontend/test/widget_test.dart: All baseline pages fit a narrow short window
+00:20 +581: All tests passed!

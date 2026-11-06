@@ -96,6 +96,8 @@ class CampusData {
     taskRepository: tasks,
     eventRepository: events,
     courseOccurrencesForDate: courseOccurrences,
+    examRepository: exams,
+    assignmentRepository: assignments,
   );
 
   Future<List<ScheduleItem>> courseOccurrences(DateTime date) async {

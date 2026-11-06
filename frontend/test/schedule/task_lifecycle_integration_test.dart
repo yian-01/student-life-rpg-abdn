@@ -219,7 +219,17 @@ void main() {
       MaterialApp(home: DaySchedulePage(controller: controller)),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('completed-tasks')));
+    // The independent assignment-deadline section precedes this lazy list row.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('completed-tasks')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.tap(find.byKey(const Key('completed-tasks')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byType(Checkbox));

@@ -1,5 +1,7 @@
 import '../../../shared/models/schedule_item.dart';
 import '../../../shared/repositories/entity_repository.dart';
+import '../../academic/models/assignment.dart';
+import '../../academic/models/exam.dart';
 import '../models/event.dart';
 import '../models/task.dart';
 import 'task_schedule_adapter.dart';
@@ -13,18 +15,25 @@ abstract interface class DayScheduleLoader {
   Future<DaySchedule> loadDay(DateTime date);
 }
 
-/// I 单日日程服务：合并课程、事件和已排程任务，按本地半开区间过滤并排序。
+/// Loading failures are carried with the partial result, never disguised as emptiness.
+enum ScheduleDataSource { courses, events, tasks, exams, assignments }
+
+/// 合并课程、事件、已排程任务和考试；作业截止独立呈现。
 class DayScheduleService implements DayScheduleLoader {
   DayScheduleService({
     required this.taskRepository,
     required this.eventRepository,
     required this.courseOccurrencesForDate,
+    this.examRepository,
+    this.assignmentRepository,
     this.adapter = const TaskScheduleAdapter(),
   });
 
   final EntityRepository<Task> taskRepository;
   final EntityRepository<Event> eventRepository;
   final CourseOccurrencesForDate courseOccurrencesForDate;
+  final EntityRepository<Exam>? examRepository;
+  final EntityRepository<Assignment>? assignmentRepository;
   final TaskScheduleAdapter adapter;
 
   @override
@@ -36,15 +45,44 @@ class DayScheduleService implements DayScheduleLoader {
     final dayStart = DateTime(date.year, date.month, date.day);
     final dayEnd = DateTime(date.year, date.month, date.day + 1);
 
-    final courseItems = await courseOccurrencesForDate(dayStart);
-    final events = await eventRepository.list();
-    final tasks = await taskRepository.list();
+    final errors = <ScheduleDataSource, Object>{};
+    Future<List<T>> read<T>(
+      ScheduleDataSource source,
+      Future<List<T>> Function() query,
+    ) async {
+      try {
+        return await query();
+      } catch (error) {
+        errors[source] = error;
+        return <T>[];
+      }
+    }
+
+    // Attach error handlers immediately, including when repositories share a queue.
+    final courseRead = read(
+      ScheduleDataSource.courses,
+      () => courseOccurrencesForDate(dayStart),
+    );
+    final eventRead = read(ScheduleDataSource.events, eventRepository.list);
+    final taskRead = read(ScheduleDataSource.tasks, taskRepository.list);
+    final examRead = examRepository == null
+        ? Future.value(<Exam>[])
+        : read(ScheduleDataSource.exams, examRepository!.list);
+    final assignmentRead = assignmentRepository == null
+        ? Future.value(<Assignment>[])
+        : read(ScheduleDataSource.assignments, assignmentRepository!.list);
+    final courseItems = await courseRead;
+    final events = await eventRead;
+    final tasks = await taskRead;
+    final exams = await examRead;
+    final assignments = await assignmentRead;
 
     final items =
         <ScheduleItem>[
             ...courseItems,
             ...events.map(adapter.eventToScheduleItem),
             ...tasks.map(adapter.taskToScheduleItem).whereType<ScheduleItem>(),
+            ...exams.map(adapter.examToScheduleItem),
           ].where((item) {
             return item.range.start.isBefore(dayEnd) &&
                 item.range.end.isAfter(dayStart);
@@ -62,17 +100,32 @@ class DayScheduleService implements DayScheduleLoader {
         .map((task) => task.id)
         .toSet();
 
+    final deadlines =
+        assignments
+            .where(
+              (assignment) =>
+                  !assignment.dueAt.isBefore(dayStart) &&
+                  assignment.dueAt.isBefore(dayEnd),
+            )
+            .toList()
+          ..sort((a, b) {
+            final time = a.dueAt.compareTo(b.dueAt);
+            return time != 0 ? time : a.id.compareTo(b.id);
+          });
+
     return DaySchedule(
       date: dayStart,
       items: items,
       unscheduledTasks: unscheduledTasks,
       completedTaskIds: completedTaskIds,
       completedTasks: tasks.where((task) => task.isCompleted).toList(),
+      assignmentDeadlines: deadlines,
+      errors: errors,
     );
   }
 }
 
-/// 单日日程结果：主数据只来自 `items`、`unscheduledTasks` 和 `completedTaskIds`。
+/// 不可变日程快照；assignmentDeadlines 是截止点，不进入时段冲突。
 class DaySchedule {
   DaySchedule({
     required DateTime date,
@@ -80,17 +133,58 @@ class DaySchedule {
     required List<Task> unscheduledTasks,
     required Set<String> completedTaskIds,
     List<Task> completedTasks = const [],
+    List<Assignment> assignmentDeadlines = const [],
+    Map<ScheduleDataSource, Object> errors = const {},
   }) : date = DateTime(date.year, date.month, date.day),
        items = List<ScheduleItem>.unmodifiable(items),
        unscheduledTasks = List<Task>.unmodifiable(unscheduledTasks),
        completedTaskIds = Set<String>.unmodifiable(completedTaskIds),
-       completedTasks = List<Task>.unmodifiable(completedTasks);
+       completedTasks = List<Task>.unmodifiable(completedTasks),
+       assignmentDeadlines = List<Assignment>.unmodifiable(assignmentDeadlines),
+       errors = Map<ScheduleDataSource, Object>.unmodifiable(errors);
 
   final DateTime date;
   final List<ScheduleItem> items;
   final List<Task> unscheduledTasks;
   final Set<String> completedTaskIds;
   final List<Task> completedTasks;
+  final List<Assignment> assignmentDeadlines;
+  final Map<ScheduleDataSource, Object> errors;
+
+  /// Preserve the same day's last known data on failed reads/recovery. The error
+  /// remains visible; successful sources always replace their previous values.
+  DaySchedule retainingFailedSources(DaySchedule? previous) {
+    if (previous == null || previous.date != date || errors.isEmpty) {
+      return this;
+    }
+    bool failed(ScheduleItem item) =>
+        errors.containsKey(switch (item.sourceType) {
+          ScheduleSourceType.course => ScheduleDataSource.courses,
+          ScheduleSourceType.event => ScheduleDataSource.events,
+          ScheduleSourceType.task => ScheduleDataSource.tasks,
+          ScheduleSourceType.exam => ScheduleDataSource.exams,
+        });
+    final merged = [
+      ...items.where((item) => !failed(item)),
+      ...previous.items.where(failed),
+    ]..sort(_compareScheduleItems);
+    final tasksFailed = errors.containsKey(ScheduleDataSource.tasks);
+    return DaySchedule(
+      date: date,
+      items: merged,
+      unscheduledTasks: tasksFailed
+          ? previous.unscheduledTasks
+          : unscheduledTasks,
+      completedTaskIds: tasksFailed
+          ? previous.completedTaskIds
+          : completedTaskIds,
+      completedTasks: tasksFailed ? previous.completedTasks : completedTasks,
+      assignmentDeadlines: errors.containsKey(ScheduleDataSource.assignments)
+          ? previous.assignmentDeadlines
+          : assignmentDeadlines,
+      errors: errors,
+    );
+  }
 
   DateTime get dayStart => date;
 
@@ -137,6 +231,8 @@ int _sourceTypeOrder(ScheduleSourceType sourceType) {
       return 1;
     case ScheduleSourceType.task:
       return 2;
+    case ScheduleSourceType.exam:
+      return 3;
   }
 }
 

@@ -1,6 +1,8 @@
 import '../../../shared/models/schedule_item.dart';
 import '../../../shared/models/time_range.dart';
 import '../../../shared/repositories/entity_repository.dart';
+import '../../academic/models/assignment.dart';
+import '../../academic/models/exam.dart';
 import '../models/event.dart';
 import '../models/task.dart';
 import '../repositories/in_memory_event_repository.dart';
@@ -8,7 +10,7 @@ import '../repositories/in_memory_task_repository.dart';
 import '../repositories/task_repository.dart';
 import '../services/day_schedule_service.dart';
 
-/// I 模块组合入口：把 Task/Event 仓库和课程发生项回调组装为 [DayScheduleService]。
+/// 日程组合入口：注入原始业务仓库及课程发生项，不复制业务数据。
 ///
 /// 组合根（A）应使用公开构造注入真实仓库（例如 #7 的持久化 TaskRepository）；
 /// [ScheduleComposition.inMemoryDemo] 仅供原型演示，数据重启不保留。
@@ -17,10 +19,14 @@ class ScheduleComposition implements DayScheduleLoader {
     required this.taskRepository,
     required this.eventRepository,
     required this.courseOccurrencesForDate,
+    EntityRepository<Exam>? examRepository,
+    EntityRepository<Assignment>? assignmentRepository,
   }) : _service = DayScheduleService(
          taskRepository: taskRepository,
          eventRepository: eventRepository,
          courseOccurrencesForDate: courseOccurrencesForDate,
+         examRepository: examRepository,
+         assignmentRepository: assignmentRepository,
        ),
        _isDemo = false;
 
