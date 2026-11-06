@@ -13,6 +13,15 @@ import '../../features/schedule/models/event.dart';
 import '../../shared/repositories/entity_repository.dart';
 import '../../shared/storage/json_document_store.dart';
 
+/// 一批待写入的行：[table] 取值见 [CampusStore.tables]，每行必须含稳定 `id`。
+/// 交给 [CampusStore.applyBatch] 时整批要么全部生效，要么全部不写。
+class CampusBatch {
+  const CampusBatch({required this.table, required this.rows});
+
+  final String table;
+  final List<Map<String, dynamic>> rows;
+}
+
 /// One serialized transaction boundary for related academic/event/finance data.
 /// A failed write never publishes its candidate state. Task schema stays separate.
 class CampusStore {
@@ -288,6 +297,64 @@ class CampusStore {
     return true;
   });
   bool _hasWritten = false;
+
+  /// 原子批量写入：同一事务内按行 `id` upsert 多张表的记录。
+  ///
+  /// - 任一行缺失/空白 `id`、批内重复 `id` → [ArgumentError] / [StateError]
+  /// - 任一行内容或引用非法 → [StateError]，整批不写盘、内存不变
+  /// - 磁盘已被外部改动或丢失 → [StateError]，不覆盖
+  /// - 返回本次新增与更新的条数
+  Future<({int inserted, int updated})> applyBatch(List<CampusBatch> batches) =>
+      _queue(() async {
+        final state = await _load();
+        final next = jsonDecode(jsonEncode(state)) as Map<String, dynamic>;
+        var inserted = 0;
+        var updated = 0;
+        for (final batch in batches) {
+          final records = next[batch.table];
+          if (records is! List) {
+            throw ArgumentError.value(batch.table, 'table', 'Unknown table');
+          }
+          final batchIds = <String>{};
+          for (final row in batch.rows) {
+            final id = row['id'];
+            if (id is! String || id.trim().isEmpty) {
+              throw ArgumentError.value(id, 'id', 'must not be blank');
+            }
+            if (!batchIds.add(id)) {
+              throw StateError('Duplicate ID in batch: $id');
+            }
+            final index = records.indexWhere((v) => v['id'] == id);
+            if (index >= 0) {
+              records[index] = row;
+              updated++;
+            } else {
+              records.add(row);
+              inserted++;
+            }
+          }
+        }
+        final content = jsonEncode(next);
+        try {
+          _decode(content);
+        } on FormatException catch (e) {
+          throw StateError('Invalid reference or entity: ${e.message}');
+        }
+        final disk = await store.readDocument(path);
+        if (disk != null) {
+          final decoded = _decode(disk).doc;
+          if (jsonEncode(decoded) != jsonEncode(state)) {
+            throw StateError('Storage changed; reload first');
+          }
+        } else if (_hasWritten ||
+            await store.readDocument('$path.bak') != null) {
+          throw StateError('Storage missing; explicit recovery required');
+        }
+        await store.writeDocument(path, content);
+        _state = next;
+        _hasWritten = true;
+        return (inserted: inserted, updated: updated);
+      });
 
   /// User-confirmed disk reload/recovery. Preserve damaged original and valid .bak.
   Future<void> recoverFromBackup() => _queue(() async {
