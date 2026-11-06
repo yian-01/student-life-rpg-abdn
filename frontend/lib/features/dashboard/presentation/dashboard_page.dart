@@ -115,18 +115,18 @@ class _DashboardPageState extends State<DashboardPage> {
     ),
     body: SafeArea(
       child: DashboardSectionLayout(
-        sections: [
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('生活总览', style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 8),
-                const Text('任务、学业与账本保存在本机。'),
-              ],
-            ),
+        header: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('生活总览', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 8),
+              const Text('任务、学业与账本保存在本机。'),
+            ],
           ),
+        ),
+        sections: [
           DashboardSectionView<TaskMetrics>(
             title: '任务进度',
             state: _tasks,
@@ -145,9 +145,19 @@ class _DashboardPageState extends State<DashboardPage> {
                   LinearProgressIndicator(value: data.completionRate),
                 const SizedBox(height: 8),
                 Text('今日待办 ${data.todayPendingCount} 项'),
+                const SizedBox(height: 4),
+                Text(
+                  '仅统计未完成、且当天有安排或当天截止的任务；同时满足两项时按任务去重。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 _link(AppRoutes.schedule),
               ],
             ),
+          ),
+          const DashboardSectionView<void>(
+            title: '作业与考试',
+            description: '作业截止和当天考试由学业模块提供；该接口尚未接入，因此这里不显示数据，也不计入任务指标。',
+            state: SectionState<void>.notIntegrated(),
           ),
           DashboardSectionView<GpaResult>(
             title: '学业',
@@ -186,8 +196,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text('收入  ${_money(data.incomeMinor)}'),
                 Text('支出  ${_money(data.expenseMinor)}'),
                 Text('结余  ${_money(data.balanceMinor)}'),
-                if (data.remainingBudgetMinor != null)
-                  Text('预算剩余  ${_money(data.remainingBudgetMinor!)}'),
+                // 未设置预算与预算为 0 分开显示，避免把 null 显示成 0。
+                Text(
+                  data.remainingBudgetMinor == null
+                      ? '预算剩余  未设置'
+                      : '预算剩余  ${_money(data.remainingBudgetMinor!)}',
+                ),
+                if (data.incomeMinor == 0 && data.expenseMinor == 0)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text('本月暂无收支记录（收支为 0）'),
+                  ),
                 _link(AppRoutes.finance),
               ],
             ),

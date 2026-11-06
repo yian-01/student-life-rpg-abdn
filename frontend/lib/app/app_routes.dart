@@ -53,6 +53,7 @@ abstract final class AppRoutes {
         title: '生活账本',
         builder: (context, data) => FinancePage(
           controller: data.finance,
+          budgetController: data.budgetController,
           isPersistent: true,
           onRecover: () async {
             if (await recoverCampusData(context, data)) {

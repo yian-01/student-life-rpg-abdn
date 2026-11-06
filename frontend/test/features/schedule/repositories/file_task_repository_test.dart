@@ -219,7 +219,7 @@ void main() {
   });
 
   // ---------- 备份恢复测试 ----------
-  test('重启后从经过完整校验的备份恢复', () async {
+  test('主文件损坏时普通读取只报错，显式恢复后才写盘', () async {
     // 先写入有效数据，再制造 .bak
     final repo = newRepo();
     await repo.insert(newTask('persist', title: '备份任务'));
@@ -230,8 +230,15 @@ void main() {
     await File(filePath).writeAsString('损坏的内容');
     await File('$filePath.bak').writeAsString(mainContent);
 
-    // 重新创建 Repository，应从 .bak 恢复
+    // 普通读取不得静默恢复：直接抛 FormatException，且磁盘完全不变
     final restartedRepo = newRepo();
+    await expectLater(restartedRepo.list(), throwsFormatException);
+    expect(await File(filePath).readAsString(), '损坏的内容');
+    expect(await File('$filePath.bak').readAsString(), mainContent);
+    expect(await File('$filePath.corrupt').exists(), isFalse);
+
+    // 显式恢复后才从备份写回
+    await restartedRepo.recoverFromBackup();
     final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, 'persist');
@@ -244,24 +251,54 @@ void main() {
     expect(bakContent, mainContent);
   });
 
-  test('非空但非法的备份被拒绝', () async {
+  test('备份含已删除任务时冷启动不回滚，显式恢复才恢复旧数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('a'));
+    await repo.insert(newTask('b'));
+    await repo.insert(newTask('c'));
+    // 删除 b 后主文件为 [a, c]，而 .bak 仍保留 [a, b, c]
+    await repo.remove('b');
+    final bakContent = await File('$filePath.bak').readAsString();
+    expect(bakContent, contains('"id":"b"'));
+
+    // 主文件损坏，模拟冷启动
+    await File(filePath).writeAsString('损坏的内容');
+    final restartedRepo = newRepo();
+    await expectLater(restartedRepo.list(), throwsFormatException);
+    // 普通读取不得复活已删除任务，也不得改写磁盘
+    expect(await File(filePath).readAsString(), '损坏的内容');
+    expect(await File('$filePath.bak').readAsString(), bakContent);
+    expect(await File('$filePath.corrupt').exists(), isFalse);
+
+    // 用户确认显式恢复后，回滚到备份内容（含已删除的 b）
+    await restartedRepo.recoverFromBackup();
+    expect((await restartedRepo.list()).map((t) => t.id), ['a', 'b', 'c']);
+    expect(await File('$filePath.corrupt').readAsString(), '损坏的内容');
+  });
+
+  test('非空但非法的备份被拒绝，显式恢复也不覆盖原件', () async {
     await File(filePath).writeAsString('损坏的主文件');
     await File('$filePath.bak').writeAsString('{非空但非法的备份}');
 
     final repo = newRepo();
     await expectLater(repo.list(), throwsA(isA<FormatException>()));
 
-    // 损坏的原文件仍保留
+    // 显式恢复应先完整校验备份，非法时不得归档或覆盖任何文件
+    await expectLater(repo.recoverFromBackup(), throwsFormatException);
     expect(await File(filePath).readAsString(), '损坏的主文件');
+    expect(await File('$filePath.bak').readAsString(), '{非空但非法的备份}');
+    expect(await File('$filePath.corrupt').exists(), isFalse);
   });
 
-  test('主文件损坏且无备份时抛 FormatException', () async {
+  test('主文件损坏且无备份时抛 FormatException 且不写盘', () async {
     await File(filePath).writeAsString('损坏的主文件');
     final repo = newRepo();
     await expectLater(repo.list(), throwsA(isA<FormatException>()));
+    expect(await File(filePath).readAsString(), '损坏的主文件');
+    expect(await File('$filePath.corrupt').exists(), isFalse);
   });
 
-  test('主文件丢失但备份存在时从备份恢复', () async {
+  test('主文件丢失且备份存在时不得当作首次运行，显式恢复后恢复旧数据', () async {
     final repo = newRepo();
     await repo.insert(newTask('persist'));
     // 第二次写入才会产生 .bak（保留上一版内容）
@@ -269,11 +306,20 @@ void main() {
 
     // 删除主文件，保留 .bak（.bak 中是 [persist]）
     await File(filePath).delete();
+    final bakContent = await File('$filePath.bak').readAsString();
 
+    // 普通读取只报错，不写主文件，也不复活旧数据
     final restartedRepo = newRepo();
+    await expectLater(restartedRepo.list(), throwsFormatException);
+    expect(await File(filePath).exists(), isFalse);
+    expect(await File('$filePath.bak').readAsString(), bakContent);
+
+    // 显式恢复后才从备份写回，且 .bak 保持原样
+    await restartedRepo.recoverFromBackup();
     final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, 'persist');
+    expect(await File('$filePath.bak').readAsString(), bakContent);
   });
 
   // ---------- 保存失败与队列测试 ----------
@@ -367,8 +413,12 @@ void main() {
       throwsA(isA<FileSystemException>()),
     );
 
-    // 重新创建 Repository 验证磁盘数据可恢复
+    // 此时主文件缺失、备份存在：普通读取应报错而不是静默恢复
     final restartedRepo = FileTaskRepository(fakeStore, filePath);
+    await expectLater(restartedRepo.list(), throwsFormatException);
+
+    // 显式恢复后旧数据可读
+    await restartedRepo.recoverFromBackup();
     final all = await restartedRepo.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
@@ -477,7 +527,7 @@ void main() {
     expect(await File('$filePath.corrupt').readAsString(), 'damaged');
   });
 
-  test('主文件损坏且恢复失败后仍可重试，不丢失有效数据', () async {
+  test('主文件损坏时普通读取不写盘，恢复失败后仍可重试且不丢失有效数据', () async {
     final repo = newRepo();
     await repo.insert(newTask('1'));
 
@@ -486,32 +536,124 @@ void main() {
     await File(filePath).writeAsString('损坏');
     await File('$filePath.bak').writeAsString(mainContent);
 
-    // 阻塞 tmp 路径，使恢复写入失败
-    await Directory('$filePath.tmp').create();
-
-    // 第一次恢复应失败
+    // 普通读取只报错：不归档、不改写任何文件
     final repo1 = newRepo();
-    await expectLater(repo1.list(), throwsA(isA<FileSystemException>()));
+    await expectLater(repo1.list(), throwsFormatException);
+    expect(await File(filePath).readAsString(), '损坏');
+    expect(await File('$filePath.bak').readAsString(), mainContent);
+    expect(await File('$filePath.corrupt').exists(), isFalse);
 
-    // 不丢失最后有效数据：Store 的失败恢复会把 .bak 内容写回主文件，
-    // 因此主文件或 .bak 中必有一份有效内容。
+    // 阻塞 tmp 路径，使显式恢复写入失败
+    await Directory('$filePath.tmp').create();
+    await expectLater(
+      repo1.recoverFromBackup(),
+      throwsA(isA<FileSystemException>()),
+    );
+
+    // 不丢失最后有效数据：主文件或 .bak 中必有一份有效内容；
+    // 损坏原件已归档为 .corrupt，未被静默丢弃
     final mainExists = await File(filePath).exists();
     final bakExists = await File('$filePath.bak').exists();
     expect(mainExists || bakExists, isTrue);
-    if (mainExists) {
-      expect(await File(filePath).readAsString(), mainContent);
-    } else {
-      expect(await File('$filePath.bak').readAsString(), mainContent);
-    }
+    expect(await File('$filePath.corrupt').readAsString(), '损坏');
 
-    // 解除阻塞后重试应成功读取旧记录
+    // 解除阻塞后重试应成功恢复旧记录
     await Directory('$filePath.tmp').delete();
-    final repo2 = newRepo();
-    final all = await repo2.list();
+    await repo1.recoverFromBackup();
+    final all = await repo1.list();
     expect(all.length, 1);
     expect(all.first.id, '1');
-
-    // 损坏原件已归档为 .corrupt，未被静默丢弃
     expect(await File('$filePath.corrupt').readAsString(), '损坏');
+  });
+
+  // ---------- 缓存后外部变更 ----------
+  test('缓存后主文件被外部删除时拒绝保存，不复活旧数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    await repo.insert(newTask('2'));
+    final bakContent = await File('$filePath.bak').readAsString();
+
+    // 外部删除主文件，仅保留 .bak
+    await File(filePath).delete();
+
+    // 已缓存 [1, 2]，但保存不能把旧内存写回成新的主文件
+    await expectLater(repo.insert(newTask('3')), throwsFormatException);
+    expect(await File(filePath).exists(), isFalse);
+    expect(await File('$filePath.bak').readAsString(), bakContent);
+
+    // 显式恢复后才有可写状态，未保留在备份中的记录不会被复活
+    await repo.recoverFromBackup();
+    expect((await repo.list()).map((t) => t.id), ['1']);
+    await repo.insert(newTask('3'));
+    expect((await newRepo().list()).map((t) => t.id), ['1', '3']);
+  });
+
+  test('缓存后主文件被外部有效修改时拒绝覆盖，显式恢复后采用外部数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+
+    // 外部写入一份有效的 Task 文档，内容与内存状态不同
+    final external =
+        '{"schemaVersion":1,"entityType":"Task","records":['
+        '{"id":"ext","title":"外部任务","estimatedMinutes":10,'
+        '"isCompleted":false,"dueAt":null,"scheduledRange":null}]}';
+    await File(filePath).writeAsString(external);
+
+    // 不能以旧内存状态覆盖外部数据
+    await expectLater(repo.insert(newTask('2')), throwsStateError);
+    expect(await File(filePath).readAsString(), external);
+
+    // 显式恢复读取的是有效主文件，因此直接采用外部数据
+    await repo.recoverFromBackup();
+    expect((await repo.list()).map((t) => t.id), ['ext']);
+
+    await repo.insert(newTask('2'));
+    expect(
+      (await newRepo().list()).map((t) => t.id),
+      containsAll(['ext', '2']),
+    );
+  });
+
+  test('首次运行无主文件无备份时仍可直接保存', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    expect(await File(filePath).exists(), isTrue);
+    expect((await newRepo().list()).map((t) => t.id), ['1']);
+  });
+
+  test('首次运行读到空状态后外部创建主文件时拒绝覆盖', () async {
+    final repo = newRepo();
+    // 首次运行：无主文件无备份，先加载出空状态
+    expect(await repo.list(), isEmpty);
+
+    // 外部在此之后创建了一份有效文档
+    final external =
+        '{"schemaVersion":1,"entityType":"Task","records":['
+        '{"id":"ext","title":"外部任务","estimatedMinutes":10,'
+        '"isCompleted":false,"dueAt":null,"scheduledRange":null}]}';
+    await File(filePath).writeAsString(external);
+
+    // 空内存不得覆盖外部数据
+    await expectLater(repo.insert(newTask('1')), throwsStateError);
+    expect(await File(filePath).readAsString(), external);
+  });
+
+  test('主文件完好的写入失败后，主文件若被外部删除仍拒绝复活', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+
+    // 阻塞临时文件路径：主文件保持完好
+    await Directory('$filePath.tmp').create();
+    await expectLater(
+      repo.insert(newTask('2')),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(await File(filePath).exists(), isTrue);
+    await Directory('$filePath.tmp').delete();
+
+    // 外部删除主文件后，不能用旧内存写回
+    await File(filePath).delete();
+    await expectLater(repo.insert(newTask('2')), throwsFormatException);
+    expect(await File(filePath).exists(), isFalse);
   });
 }

@@ -166,7 +166,7 @@ void main() {
       expect(task.dueAt, isNull);
       expect(controller.schedule!.items, hasLength(2));
       expect(find.byKey(const Key('day-schedule-conflicts')), findsOneWidget);
-      expect(find.text('时间冲突 · 1 处'), findsOneWidget);
+      expect(find.text('时间冲突 · 1 对冲突'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     },
   );

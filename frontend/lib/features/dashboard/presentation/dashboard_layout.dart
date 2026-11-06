@@ -6,8 +6,14 @@ import 'package:flutter/material.dart';
 /// - >=600：双列。
 /// - 内容最大宽度 1200，居中，必要时滚动。
 class DashboardSectionLayout extends StatelessWidget {
-  const DashboardSectionLayout({super.key, required this.sections});
+  const DashboardSectionLayout({
+    super.key,
+    required this.sections,
+    this.header,
+  });
 
+  /// 顶部整宽区域（标题、说明），不参与双列分组。
+  final Widget? header;
   final List<Widget> sections;
 
   @override
@@ -26,7 +32,13 @@ class DashboardSectionLayout extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
+                  children: [
+                    if (header != null) ...[
+                      header!,
+                      const SizedBox(height: 16),
+                    ],
+                    ...children,
+                  ],
                 ),
               );
             },

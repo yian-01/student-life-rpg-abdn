@@ -6,11 +6,20 @@ import '../../../shared/presentation/record_editor_dialog.dart';
 import '../models/course.dart';
 import '../models/course_slot.dart';
 import '../models/semester.dart';
+import '../services/semester_week_guard.dart';
 
 class SemesterEditor extends StatefulWidget {
-  const SemesterEditor({super.key, required this.data, this.semester});
+  const SemesterEditor({
+    super.key,
+    required this.data,
+    this.semester,
+    this.courses = const [],
+  });
   final CampusData data;
   final Semester? semester;
+
+  /// 该学期下的课程，用于在缩短学期时检查已有时段是否越界。
+  final List<Course> courses;
   @override
   State<SemesterEditor> createState() => _SemesterEditorState();
 }
@@ -35,7 +44,7 @@ class _SemesterEditorState extends State<SemesterEditor> {
   }
 
   Future<void> _save() async {
-    if (_name.text.trim().isEmpty) throw const FormatException('请输入学期名称');
+    if (_name.text.trim().isEmpty) throw const FormatException('学期名称不能为空');
     if (_start.isAfter(_end)) throw const FormatException('学期结束日期不能早于开始日期');
     if (_monday.weekday != DateTime.monday) {
       throw const FormatException('第 1 周起点必须选择周一');
@@ -47,6 +56,20 @@ class _SemesterEditorState extends State<SemesterEditor> {
       endDate: _end,
       week1Monday: _monday,
     );
+
+    // 缩短学期或改锚点会让已有时段的周次越界。此时直接阻止保存，
+    // 并点名受影响的课程，不做静默截断或删除。
+    final affected = coursesOutsideSemesterWeeks(value, widget.courses);
+    if (affected.isNotEmpty) {
+      final scope = value.hasSchedulableWeeks
+          ? '新学期最多只有 1–${value.lastValidWeek} 周'
+          : '按当前日期该学期没有可用周次';
+      throw FormatException(
+        '$scope，但有 ${affected.length} 门课程的上课时段超出该范围：'
+        '${affected.join('、')}。请先调整这些课程的周次后重试，未做任何修改。',
+      );
+    }
+
     await widget.data.academic.saveSemester(
       value,
       creating: widget.semester == null,
@@ -93,7 +116,11 @@ class _SemesterEditorState extends State<SemesterEditor> {
 }
 
 /// Accepted grammar: 1-16 or 1,3,5; reject duplicates, reversed/oversized ranges.
-List<int> parseCourseWeeks(String text) {
+///
+/// [maxWeek] 为所选学期的最后合法周次（[Semester.lastValidWeek]）。
+/// 给出时，任何超过它的周次都会被拒绝——五周学期的学期不可能接受 1-999。
+/// 为 null 时只做结构校验，仍保留 1000 这个绝对上限，防止明显荒谬的输入。
+List<int> parseCourseWeeks(String text, {int? maxWeek}) {
   final weeks = <int>{};
   for (final part in text.replaceAll('，', ',').split(',')) {
     final match = RegExp(r'^\s*(\d+)(?:\s*-\s*(\d+))?\s*$').firstMatch(part);
@@ -102,6 +129,15 @@ List<int> parseCourseWeeks(String text) {
     final end = int.parse(match[2] ?? match[1]!);
     if (start < 1 || end < start || end > 1000) {
       throw const FormatException('周次须为 1–1000，范围不能倒序');
+    }
+    final limit = maxWeek;
+    if (limit != null) {
+      if (limit < 1) {
+        throw const FormatException('所选学期没有可排课的周次，请先检查学期日期');
+      }
+      if (end > limit) {
+        throw FormatException('本学期只有 1–$limit 周，周次不能超过 $limit');
+      }
     }
     for (var i = start; i <= end; i++) {
       if (!weeks.add(i)) throw const FormatException('周次不能重复');
@@ -121,14 +157,18 @@ int parseCourseMinute(String text, {bool allowMidnight = false}) {
 }
 
 class _SlotDraft {
-  _SlotDraft([CourseSlot? slot])
+  _SlotDraft([CourseSlot? slot, String? defaultWeeksText])
     : weekday = slot?.weekday ?? 1,
       start = TextEditingController(text: _time(slot?.startMinute ?? 540)),
       end = TextEditingController(text: _time(slot?.endMinute ?? 600)),
-      weeks = TextEditingController(text: slot?.weeks.join(',') ?? '1-16');
+      weeks = TextEditingController(
+        text: slot != null
+            ? slot.weeks.join(',')
+            : (defaultWeeksText ?? '1-16'),
+      );
   int weekday;
   final TextEditingController start, end, weeks;
-  CourseSlot build() {
+  CourseSlot build({int? maxWeek}) {
     final a = parseCourseMinute(start.text);
     final b = parseCourseMinute(end.text, allowMidnight: true);
     if (a >= b) throw const FormatException('课程结束时间必须晚于开始时间');
@@ -136,7 +176,7 @@ class _SlotDraft {
       weekday: weekday,
       startMinute: a,
       endMinute: b,
-      weeks: parseCourseWeeks(weeks.text),
+      weeks: parseCourseWeeks(weeks.text, maxWeek: maxWeek),
     );
   }
 
@@ -177,7 +217,8 @@ class _CourseEditorState extends State<CourseEditor> {
   late final _id =
       widget.course?.id ?? 'course-${DateTime.now().microsecondsSinceEpoch}';
   late final List<_SlotDraft> _slots =
-      widget.course?.slots.map(_SlotDraft.new).toList() ?? [_SlotDraft()];
+      widget.course?.slots.map(_SlotDraft.new).toList() ??
+      [_SlotDraft(null, _defaultWeeksText)];
   @override
   void dispose() {
     _name.dispose();
@@ -189,12 +230,27 @@ class _CourseEditorState extends State<CourseEditor> {
     super.dispose();
   }
 
+  /// 当前选中的学期；用于把周次上界限制在该学期的实际周数内。
+  Semester? get _selectedSemester {
+    for (final semester in widget.semesters) {
+      if (semester.id == _semesterId) return semester;
+    }
+    return null;
+  }
+
+  /// 新建课程时预填的周次文本：跟随所选学期的合法范围，
+  /// 避免默认值本身就超出学期而被拒绝。
+  String get _defaultWeeksText {
+    final maxWeek = _selectedSemester?.lastValidWeek ?? 16;
+    return maxWeek >= 1 ? '1-$maxWeek' : '1';
+  }
+
   Future<void> _save() async {
     final credits = double.tryParse(_credits.text.trim());
     final point = _point.text.trim().isEmpty
         ? null
         : double.tryParse(_point.text.trim());
-    if (_name.text.trim().isEmpty) throw const FormatException('请输入课程名称');
+    if (_name.text.trim().isEmpty) throw const FormatException('课程名称不能为空');
     if (credits == null || !credits.isFinite || credits <= 0) {
       throw const FormatException('学分必须是有限正数');
     }
@@ -205,13 +261,24 @@ class _CourseEditorState extends State<CourseEditor> {
             point > CampusStore.scoreScaleMax)) {
       throw const FormatException('绩点填写 0–4，未评分请留空');
     }
+    // 周次上界跟随所选学期；学期没有可用周次时不允许保存任何时段。
+    // 逐个时段构建，报错时指明是第几个时段，便于定位。
+    final maxWeek = _selectedSemester?.lastValidWeek;
+    final slots = <CourseSlot>[];
+    for (var i = 0; i < _slots.length; i++) {
+      try {
+        slots.add(_slots[i].build(maxWeek: maxWeek));
+      } on FormatException catch (error) {
+        throw FormatException('时段 ${i + 1}：${error.message}');
+      }
+    }
     final course = Course(
       id: _id,
       semesterId: _semesterId,
       name: _name.text.trim(),
       credits: credits,
       gradePoint: point,
-      slots: _slots.map((v) => v.build()).toList(),
+      slots: slots,
       scoreScaleMax: CampusStore.scoreScaleMax,
     );
     await widget.data.academic.saveCourse(
@@ -317,9 +384,13 @@ class _CourseEditorState extends State<CourseEditor> {
                   TextField(
                     key: Key('course-weeks-$i'),
                     controller: _slots[i].weeks,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: '周次',
-                      hintText: '1-16 或 1,3,5',
+                      hintText: '1,3 或 1-3',
+                      helperText: _selectedSemester == null
+                          ? '示例：1,3 表示第 1、3 周；1-3 表示连续第 1 到 3 周'
+                          : '示例：1,3 或 1-3；本学期可用 '
+                                '${_selectedSemester!.weekRangeLabel}',
                     ),
                   ),
                 ],
@@ -327,7 +398,8 @@ class _CourseEditorState extends State<CourseEditor> {
             ),
           ),
         TextButton.icon(
-          onPressed: () => setState(() => _slots.add(_SlotDraft())),
+          onPressed: () =>
+              setState(() => _slots.add(_SlotDraft(null, _defaultWeeksText))),
           icon: const Icon(Icons.add),
           label: const Text('添加上课时段'),
         ),
