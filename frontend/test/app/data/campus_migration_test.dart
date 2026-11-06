@@ -6,8 +6,14 @@ import 'package:student_life_rpg/app/data/campus_data.dart';
 import 'package:student_life_rpg/app/data/campus_store.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
 import 'package:student_life_rpg/features/academic/models/course.dart';
+import 'package:student_life_rpg/features/academic/models/course_slot.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
+import 'package:student_life_rpg/features/academic/models/semester.dart';
 import 'package:student_life_rpg/features/finance/models/budget.dart';
+import 'package:student_life_rpg/features/finance/models/finance_category.dart';
+import 'package:student_life_rpg/features/finance/models/finance_record.dart';
+import 'package:student_life_rpg/features/finance/models/finance_type.dart';
+import 'package:student_life_rpg/features/schedule/models/event.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
 import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
@@ -305,5 +311,113 @@ void main() {
       throwsStateError,
     );
     expect(await File(path).readAsString(), before);
+  });
+
+  test('全部实体写入后重新创建实例，逐表完整保留', () async {
+    await File(path).writeAsString(fixture);
+    final data = open();
+    await data.store.initialize();
+
+    await data.semesters.insert(
+      Semester(
+        id: 'sem-2027-spring',
+        name: '2027 春季学期',
+        startDate: DateTime(2027, 2, 22),
+        endDate: DateTime(2027, 6, 30),
+        week1Monday: DateTime(2027, 2, 22),
+      ),
+    );
+    await data.courses.insert(
+      Course(
+        id: 'course-new',
+        semesterId: 'sem-2027-spring',
+        name: '数据结构',
+        credits: 2.5,
+        gradePoint: null,
+        slots: [
+          CourseSlot(
+            weekday: 3,
+            startMinute: 480,
+            endMinute: 570,
+            weeks: const [1, 2, 3, 4],
+          ),
+        ],
+        scoreScaleMax: 4.0,
+      ),
+    );
+    await data.assignments.insert(
+      Assignment(
+        id: 'a-new',
+        courseId: 'course-new',
+        title: '实验一',
+        dueAt: DateTime(2027, 3, 1, 23, 59),
+      ),
+    );
+    await data.exams.insert(
+      Exam(
+        id: 'e-new',
+        courseId: 'course-new',
+        title: '期中考试',
+        range: TimeRange(
+          start: DateTime(2027, 4, 10, 9, 0),
+          end: DateTime(2027, 4, 10, 11, 0),
+        ),
+      ),
+    );
+    await data.events.insert(
+      Event(
+        id: 'ev-new',
+        title: '社团活动',
+        range: TimeRange(
+          start: DateTime(2027, 3, 5, 14, 0),
+          end: DateTime(2027, 3, 5, 16, 0),
+        ),
+        description: '例会',
+      ),
+    );
+    await data.categories.insert(
+      FinanceCategory(id: 'study', name: '学习', type: FinanceType.expense),
+    );
+    await data.records.insert(
+      FinanceRecord(
+        id: 'rec-new',
+        categoryId: 'study',
+        type: FinanceType.expense,
+        amountMinor: 3500,
+        occurredAt: DateTime(2027, 3, 2, 18, 30),
+        note: '教材',
+      ),
+    );
+    await data.budgets.put(
+      Budget(categoryId: 'study', month: DateTime(2027, 3), amountMinor: 10000),
+    );
+
+    // 完全丢弃旧实例，只从磁盘重新读取。
+    final reopened = open();
+    final storedSemester = await reopened.semesters.getById('sem-2027-spring');
+    expect(storedSemester?.name, '2027 春季学期');
+    expect(storedSemester?.week1Monday, DateTime(2027, 2, 22));
+
+    final storedCourse = await reopened.courses.getById('course-new');
+    expect(storedCourse?.name, '数据结构');
+    expect(storedCourse?.credits, 2.5);
+    expect(storedCourse?.semesterId, 'sem-2027-spring');
+    expect(storedCourse?.slots.single.weeks, const [1, 2, 3, 4]);
+
+    expect((await reopened.assignments.getById('a-new'))?.title, '实验一');
+    expect((await reopened.exams.getById('e-new'))?.title, '期中考试');
+    expect((await reopened.events.getById('ev-new'))?.description, '例会');
+    expect(
+      (await reopened.categories.getById('study'))?.type,
+      FinanceType.expense,
+    );
+    expect((await reopened.records.getById('rec-new'))?.note, '教材');
+    expect(
+      (await reopened.budgets.getForCategoryMonth(
+        'study',
+        DateTime(2027, 3),
+      ))?.amountMinor,
+      10000,
+    );
   });
 }
