@@ -218,13 +218,33 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
               onToggle: (value) => setState(() => item.selected = value),
             ),
           const SizedBox(height: 12),
+          if (_plan!.pendingWith(_creditsOverrides()).isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                key: const Key('nothing-to-import'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '没有需要写入的课程：解析出的 ${_plan!.items.length} 门'
+                      '课程都已存在且时段一致，重复导入不会产生副本。',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           FilledButton(
             key: const Key('confirm-import'),
             onPressed: _busy || _plan!.pendingWith(_creditsOverrides()).isEmpty
                 ? null
                 : _confirm,
             child: Text(
-              '确认导入 ${_plan!.pendingWith(_creditsOverrides()).length} 门',
+              _plan!.pendingWith(_creditsOverrides()).isEmpty
+                  ? '无需导入（0 门有变更）'
+                  : '确认导入 ${_plan!.pendingWith(_creditsOverrides()).length} 门',
             ),
           ),
         ],

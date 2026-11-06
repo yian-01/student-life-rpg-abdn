@@ -102,4 +102,64 @@ void main() {
 
     expect(find.text('请先粘贴课表文本。'), findsOneWidget);
   });
+
+  testWidgets('重复导入同一份课表时明确提示无需导入', (tester) async {
+    final data = await campusWithCourse();
+    addTearDown(data.dispose);
+    final semesters = await data.semesters.list();
+
+    Future<void> openAndParse() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TimetableImportPage(data: data, semesters: semesters),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('timetable-input')),
+        _timetableText,
+      );
+      await tester.tap(find.byKey(const Key('parse-button')));
+      await tester.pumpAndSettle();
+    }
+
+    // 第一次：正常导入。
+    await openAndParse();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('confirm-import')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('confirm-import')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已导入'), findsOneWidget);
+
+    // 第二次：同一份内容，应提示无需导入而不是给出可点按钮。
+    await openAndParse();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('confirm-import')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('无需导入'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.byKey(const Key('confirm-import')),
+    );
+    expect(button.onPressed, isNull, reason: '没有变更时按钮必须禁用');
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('nothing-to-import')),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('nothing-to-import')), findsOneWidget);
+    expect(find.textContaining('没有需要写入的课程'), findsOneWidget);
+
+    // 数据不能因为重复导入而变化。
+    final courses = await data.courses.list();
+    expect(courses.where((course) => course.name == '数据结构与算法'), hasLength(1));
+  });
 }
