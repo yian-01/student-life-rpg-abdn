@@ -565,4 +565,59 @@ void main() {
     expect(all.first.id, '1');
     expect(await File('$filePath.corrupt').readAsString(), '损坏');
   });
+
+  // ---------- 缓存后外部变更 ----------
+  test('缓存后主文件被外部删除时拒绝保存，不复活旧数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    await repo.insert(newTask('2'));
+    final bakContent = await File('$filePath.bak').readAsString();
+
+    // 外部删除主文件，仅保留 .bak
+    await File(filePath).delete();
+
+    // 已缓存 [1, 2]，但保存不能把旧内存写回成新的主文件
+    await expectLater(repo.insert(newTask('3')), throwsFormatException);
+    expect(await File(filePath).exists(), isFalse);
+    expect(await File('$filePath.bak').readAsString(), bakContent);
+
+    // 显式恢复后才有可写状态，未保留在备份中的记录不会被复活
+    await repo.recoverFromBackup();
+    expect((await repo.list()).map((t) => t.id), ['1']);
+    await repo.insert(newTask('3'));
+    expect((await newRepo().list()).map((t) => t.id), ['1', '3']);
+  });
+
+  test('缓存后主文件被外部有效修改时拒绝覆盖，显式恢复后采用外部数据', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+
+    // 外部写入一份有效的 Task 文档，内容与内存状态不同
+    final external =
+        '{"schemaVersion":1,"entityType":"Task","records":['
+        '{"id":"ext","title":"外部任务","estimatedMinutes":10,'
+        '"isCompleted":false,"dueAt":null,"scheduledRange":null}]}';
+    await File(filePath).writeAsString(external);
+
+    // 不能以旧内存状态覆盖外部数据
+    await expectLater(repo.insert(newTask('2')), throwsStateError);
+    expect(await File(filePath).readAsString(), external);
+
+    // 显式恢复读取的是有效主文件，因此直接采用外部数据
+    await repo.recoverFromBackup();
+    expect((await repo.list()).map((t) => t.id), ['ext']);
+
+    await repo.insert(newTask('2'));
+    expect(
+      (await newRepo().list()).map((t) => t.id),
+      containsAll(['ext', '2']),
+    );
+  });
+
+  test('首次运行无主文件无备份时仍可直接保存', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+    expect(await File(filePath).exists(), isTrue);
+    expect((await newRepo().list()).map((t) => t.id), ['1']);
+  });
 }

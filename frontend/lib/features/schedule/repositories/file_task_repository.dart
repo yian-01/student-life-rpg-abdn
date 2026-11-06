@@ -38,6 +38,20 @@ class FileTaskRepository implements TaskRepository {
   List<Task>? _tasks;
   Future<void> _last = Future.value();
 
+  /// 最近一次从磁盘读到（或成功写入）的原始内容，用于检测外部变更。
+  /// 主文件被其他写入方改动后，用它拒绝以旧内存状态覆盖新数据。
+  String? _lastDiskRaw;
+
+  /// 内存状态是否来自一份真实存在的磁盘文档。
+  /// 首次运行时为 false，允许直接创建主文件；一旦加载过真实文档，
+  /// 之后主文件消失就视为外部故障，必须先显式恢复再保存。
+  bool _loadedFromDisk = false;
+
+  /// 上一次保存是否失败。失败时主文件可能暂时缺失（替换阶段中断），
+  /// 这属于本实例自己的故障，允许按内存状态重试；而外部删除主文件
+  /// 必须显式恢复，不能把旧内存写回去。
+  bool _lastWriteFailed = false;
+
   Future<T> _queued<T>(Future<T> Function() action) {
     final result = _last.then((_) => action());
     _last = result.then((_) {}, onError: (_) {});
@@ -119,23 +133,47 @@ class FileTaskRepository implements TaskRepository {
 
     // 主文件损坏时直接报错，不做任何静默恢复或磁盘写入。
     _tasks = _decodeTasks(raw);
+    _lastDiskRaw = raw;
+    _loadedFromDisk = true;
     return _tasks!;
   }
 
   Future<void> _save(List<Task> next) async {
-    // A normal mutation must not implicitly recover or overwrite corrupt data.
-    // Leave the damaged document and the last valid backup untouched. The caller
-    // can explicitly recover, then retry the rejected mutation.
+    // A normal mutation must not implicitly recover, resurrect or overwrite data
+    // that changed outside this instance. The caller can explicitly recover or
+    // rebuild the repository, then retry the rejected mutation.
     final diskRaw = await _store.readDocument(_path);
-    if (diskRaw != null) _decodeTasks(diskRaw);
+    if (diskRaw == null) {
+      // 内存来自真实文档，但主文件已消失（外部删除或替换失败）：
+      // 拒绝用旧内存写回，否则会把已被移除的数据复活成新的主文件。
+      if (_loadedFromDisk && !_lastWriteFailed) {
+        throw const FormatException('主文件已在外部丢失，需显式恢复后才能保存');
+      }
+      // 真实首次运行：允许创建主文件。
+    } else {
+      // 主文件损坏时不覆盖（保留原件与有效 .bak）。
+      _decodeTasks(diskRaw);
+      // 主文件在缓存之后被其他写入方改动：拒绝用旧内存状态覆盖新数据。
+      if (_lastDiskRaw != null && diskRaw != _lastDiskRaw) {
+        throw StateError('主文件已被外部修改，拒绝以旧内存状态覆盖: $_path');
+      }
+    }
     final content = jsonEncode({
       'schemaVersion': _schemaVersion,
       'entityType': _entityType,
       'records': [for (final task in next) task.toJson()],
     });
     // 先成功写盘，再更新内存；写盘失败时内存保持旧值
-    await _store.writeDocument(_path, content);
+    try {
+      await _store.writeDocument(_path, content);
+    } catch (_) {
+      _lastWriteFailed = true;
+      rethrow;
+    }
+    _lastWriteFailed = false;
     _tasks = next;
+    _lastDiskRaw = content;
+    _loadedFromDisk = true;
   }
 
   /// 显式恢复：仅在用户确认后调用。
@@ -151,6 +189,9 @@ class FileTaskRepository implements TaskRepository {
         if (raw != null) {
           try {
             _tasks = _decodeTasks(raw);
+            _lastDiskRaw = raw;
+            _loadedFromDisk = true;
+            _lastWriteFailed = false;
             return;
           } on FormatException {
             // 主文件损坏：继续尝试显式备份恢复。
@@ -158,6 +199,7 @@ class FileTaskRepository implements TaskRepository {
         }
         // 主文件缺失或损坏：走显式恢复流程。
         _tasks = await _restoreFromBackupDocument();
+        _lastWriteFailed = false;
       } catch (_) {
         _tasks = previous;
         rethrow;
@@ -175,6 +217,8 @@ class FileTaskRepository implements TaskRepository {
     final backupTasks = _decodeTasks(backupRaw);
     await _archiveCorruptMain();
     await _store.writeDocument(_path, backupRaw);
+    _lastDiskRaw = backupRaw;
+    _loadedFromDisk = true;
     return backupTasks;
   }
 
