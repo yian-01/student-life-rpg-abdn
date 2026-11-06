@@ -37,7 +37,7 @@ D1 契约（已提供）：由 `Budget` 类与 `budgetKey` 表达，见
 | 格式化 | `dart format --output=none --set-exit-if-changed lib test` | 通过（151 文件，0 改动） |
 | 静态分析 | `flutter analyze` | `No issues found!` |
 | 新增测试 | `flutter test .../budget_*` | 29 项全部通过 |
-| 全套测试 | `flutter test` | 483 项全部通过（含新增 29 项 Budget + 13 项分类管理） |
+| 全套测试 | `flutter test` | 490 项全部通过（含新增 29 项 Budget + 13 项分类管理 + 7 项文件持久化） |
 | Windows 原生运行 | `flutter run -d windows` | 未执行 |
 | Android 原生运行 | `flutter run -d android` | 未执行 |
 
@@ -63,18 +63,19 @@ D1 契约（已提供）：由 `Budget` 类与 `budgetKey` 表达，见
 
 | 编号 | 描述 | 严重度 | 状态 | 备注 |
 | --- | --- | --- | --- | --- |
-| F-1 | 分类月度预算未接入 `FinancePage` 与根路由 | 中 | 待集成 | 依赖组长接线 |
-| F-2 | 预算未接共享持久化，重启不保留 | 中 | 待集成 | 依赖李雨真存储 |
-| F-3 | 分类管理入口未闭环 | 中 | 待办 | 独立子任务 |
+| F-1 | 分类月度预算接入 `FinancePage` 与根路由 | 中 | 待集成 | 依赖组长接线 |
+| F-2 | 文件存储已接通；应用数据目录注入仍待组合根接入 | 中 | 部分完成 | 依赖陈思翰接线 |
+| F-3 | 分类管理入口已提供；根路由/主题接线待组长 | 低 | 部分完成 | 独立子任务 |
 | F-4 | 新建收支表单缺独立日期字段 | 低 | 既有 | 非本轮范围 |
 | F-5 | Android/Windows 原生验收未执行 | 中 | 未测 | 待接入后补 |
 
 ### 5.2 结论
 
-- 本轮完成 Budget 领域模型、内存仓库、控制器与表单组件及测试，
+- 本轮完成 Budget 领域模型、仓库、控制器、表单，分类管理，以及文件持久化与
+  跨月/跨类摘要、提交/刷新分离、金额校验、快速连点去重等测试；
   `dart format`/`flutter analyze`/`flutter test` 全部通过。
-- 尚未接入正式应用与持久化，不宣称“分类月度预算”功能整体闭环；
-  上述缺陷项须由对应负责人集成后再做原生验收。
+- 文件存储（`FinanceFileScope` + `FileJsonDocumentStore`）已可退出重开不丢；
+  应用数据目录注入与原生验收由组合根负责人接入后补齐。
 
 ## 6. 分类管理增量（同分支追加）
 
@@ -86,4 +87,17 @@ D1 契约（已提供）：由 `Budget` 类与 `budgetKey` 表达，见
 - 类型与记录匹配沿用既有 `_assertCategoryMatches`。
 - 重命名后刷新可用分类列表与摘要；UI 入口为 `FinancePage` AppBar “分类管理”。
 - 测试：`finance_category_management_test.dart` 13 项全部通过。
+
+## 7. 真实存储与一致性增量（同分支追加）
+
+- `FileFinanceCategoryRepository` / `FileFinanceRecordRepository` /
+  `FileFinanceBudgetRepository`：基于共享 `JsonDocumentStore` 的单实体文档
+  `{schemaVersion:1, entityType, records}`，写入成功后才提交内存状态。
+- `FinanceFileScope.open(directory:)`：装配文件仓库、控制器与汇总服务；
+  预算月汇总 = 当月各分类预算之和（无预算返回 null）。
+- 保存/刷新分离：一次提交成功后，刷新失败仅展示错误，不重复 insert。
+- 跨月份/跨类别编辑记录后，按月摘要与分类聚合随之刷新正确。
+- 金额校验沿用 `parseAmountMinor`：空/字母/0/负数/超两位小数/超上限均拒绝。
+- 快速连点由 `_isSaving` 与仓库重复 ID 检查共同防止重复/悬空数据。
+- 测试：`finance_file_persistence_test.dart` 7 项全部通过。
 

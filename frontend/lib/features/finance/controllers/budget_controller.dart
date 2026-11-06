@@ -103,18 +103,22 @@ class BudgetController extends ChangeNotifier {
     _isSaving = true;
     _error = null;
     notifyListeners();
+    var committed = false;
     try {
       await action();
-      await _loadCurrent();
-      // 写入已提交；刷新失败只展示错误，不把成功写入伪装成可重试失败。
-      return true;
+      committed = true;
     } catch (error) {
       _fail(error);
-      return false;
     } finally {
       _isSaving = false;
       if (!_disposed) notifyListeners();
     }
+
+    // 提交已成功；刷新失败只展示错误，不把成功写入伪装成可重试。
+    if (committed && !_disposed) {
+      await _loadCurrent();
+    }
+    return committed;
   }
 
   void _fail(Object error) {
