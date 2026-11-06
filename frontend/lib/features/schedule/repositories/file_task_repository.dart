@@ -153,8 +153,8 @@ class FileTaskRepository implements TaskRepository {
     } else {
       // 主文件损坏时不覆盖（保留原件与有效 .bak）。
       _decodeTasks(diskRaw);
-      // 主文件在缓存之后被其他写入方改动：拒绝用旧内存状态覆盖新数据。
-      if (_lastDiskRaw != null && diskRaw != _lastDiskRaw) {
+      // 主文件在缓存之后被其他写入方创建或改动：拒绝用旧内存状态覆盖。
+      if (diskRaw != _lastDiskRaw) {
         throw StateError('主文件已被外部修改，拒绝以旧内存状态覆盖: $_path');
       }
     }
@@ -167,7 +167,15 @@ class FileTaskRepository implements TaskRepository {
     try {
       await _store.writeDocument(_path, content);
     } catch (_) {
-      _lastWriteFailed = true;
+      // 只有主文件确实缺失（替换阶段中断）才允许按内存状态重试；
+      // 临时文件或备份阶段失败时主文件完好，之后的主文件消失属于外部删除。
+      var mainMissing = false;
+      try {
+        mainMissing = await _store.readDocument(_path) == null;
+      } on FileSystemException {
+        mainMissing = true;
+      }
+      _lastWriteFailed = mainMissing;
       rethrow;
     }
     _lastWriteFailed = false;

@@ -620,4 +620,40 @@ void main() {
     expect(await File(filePath).exists(), isTrue);
     expect((await newRepo().list()).map((t) => t.id), ['1']);
   });
+
+  test('首次运行读到空状态后外部创建主文件时拒绝覆盖', () async {
+    final repo = newRepo();
+    // 首次运行：无主文件无备份，先加载出空状态
+    expect(await repo.list(), isEmpty);
+
+    // 外部在此之后创建了一份有效文档
+    final external =
+        '{"schemaVersion":1,"entityType":"Task","records":['
+        '{"id":"ext","title":"外部任务","estimatedMinutes":10,'
+        '"isCompleted":false,"dueAt":null,"scheduledRange":null}]}';
+    await File(filePath).writeAsString(external);
+
+    // 空内存不得覆盖外部数据
+    await expectLater(repo.insert(newTask('1')), throwsStateError);
+    expect(await File(filePath).readAsString(), external);
+  });
+
+  test('主文件完好的写入失败后，主文件若被外部删除仍拒绝复活', () async {
+    final repo = newRepo();
+    await repo.insert(newTask('1'));
+
+    // 阻塞临时文件路径：主文件保持完好
+    await Directory('$filePath.tmp').create();
+    await expectLater(
+      repo.insert(newTask('2')),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(await File(filePath).exists(), isTrue);
+    await Directory('$filePath.tmp').delete();
+
+    // 外部删除主文件后，不能用旧内存写回
+    await File(filePath).delete();
+    await expectLater(repo.insert(newTask('2')), throwsFormatException);
+    expect(await File(filePath).exists(), isFalse);
+  });
 }
