@@ -169,7 +169,29 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
         children: [
           if (_busy) const LinearProgressIndicator(),
           if (_error != null)
-            Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                key: const Key('academic-error'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: TabBarView(
               children: [
