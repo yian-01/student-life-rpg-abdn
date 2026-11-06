@@ -21,6 +21,7 @@ class ScnuTimetableReader {
     String html, {
     required Map<int, ({int start, int end})> periods,
     required int maxWeek,
+    bool allowOtherCoursesForPreview = false,
   }) {
     if (maxWeek < 1) throw ArgumentError.value(maxWeek, 'maxWeek');
     final table = RegExp(
@@ -148,7 +149,8 @@ class ScnuTimetableReader {
         'Empty timetable requires explicit user confirmation.',
       );
     }
-    if (table.group(1)!.contains('其它课程')) {
+    if (!allowOtherCoursesForPreview &&
+        (html.contains('其它课程') || html.contains('其他课程'))) {
       throw const FormatException(
         'Unscheduled other courses need preview handling; refusing partial success.',
       );
