@@ -111,25 +111,34 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
         scoreScaleMax: CampusStore.scoreScaleMax,
         creditsOverrides: _creditsOverrides(),
       );
-      var created = 0;
-      var updated = 0;
-      for (final course in courses) {
-        final existed = plan.items.any(
-          (item) => item.existing?.id == course.id && item.existing != null,
-        );
-        if (existed) {
-          await widget.data.courses.update(course);
-          updated++;
-        } else {
-          await widget.data.courses.insert(course);
-          created++;
-        }
+      if (courses.isEmpty) {
+        setState(() {
+          _done = '没有需要写入的课程。';
+          _plan = null;
+        });
+        return;
       }
+      // 一次性原子写入：整批要么全部生效，要么全部不写（#30 applyBatch）。
+      // 中途任一行非法会抛 StateError，磁盘与内存都不变。
+      final result = await widget.data.store.applyBatch([
+        CampusBatch(
+          table: 'courses',
+          rows: [for (final course in courses) course.toJson()],
+        ),
+      ]);
       if (!mounted) return;
       setState(() {
-        _done = '已导入：新增 $created 门、更新 $updated 门。';
+        _done = '已导入：新增 ${result.inserted} 门、更新 ${result.updated} 门。';
         _plan = null;
       });
+    } on StateError catch (error) {
+      if (mounted) {
+        setState(
+          () => _error =
+              '导入失败，未写入任何课程：${error.message}。'
+              '预览已保留，可修正后重试。',
+        );
+      }
     } catch (error) {
       if (mounted) setState(() => _error = '导入失败：$error');
     } finally {

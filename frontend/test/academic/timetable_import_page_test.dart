@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:student_life_rpg/app/data/campus_data.dart';
+import 'package:student_life_rpg/app/data/campus_store.dart';
+import 'package:student_life_rpg/features/academic/models/semester.dart';
 import 'package:student_life_rpg/features/academic/presentation/timetable_import_page.dart';
 
 import '../support/campus_fixture.dart';
@@ -101,6 +104,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('请先粘贴课表文本。'), findsOneWidget);
+  });
+
+  testWidgets('整批写入失败时不留下半份数据，可修正后重试', (tester) async {
+    final documents = MemoryCampusDocuments();
+    final data = CampusData(CampusStore(documents, 'campus.json'));
+    addTearDown(data.dispose);
+    await data.semesters.insert(
+      Semester(
+        id: 's1',
+        name: '测试学期',
+        startDate: DateTime(2026, 10, 26),
+        endDate: DateTime(2026, 11, 29),
+        week1Monday: DateTime(2026, 10, 26),
+      ),
+    );
+    final semesters = await data.semesters.list();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimetableImportPage(data: data, semesters: semesters),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('timetable-input')),
+      _timetableText,
+    );
+    await tester.tap(find.byKey(const Key('parse-button')));
+    await tester.pumpAndSettle();
+
+    // 注入写入失败：整批应回滚，不留半份数据。
+    documents.failWrites = true;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('confirm-import')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('confirm-import')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('未写入任何课程'), findsOneWidget);
+    expect(await data.courses.list(), isEmpty, reason: '失败不得半导入');
+
+    // 恢复后可直接重试，预览仍在。
+    documents.failWrites = false;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('confirm-import')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('confirm-import')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('已导入'), findsOneWidget);
+    expect(await data.courses.list(), isNotEmpty);
   });
 
   testWidgets('重复导入同一份课表时明确提示无需导入', (tester) async {
