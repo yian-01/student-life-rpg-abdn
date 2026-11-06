@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/data/campus_data.dart';
 import 'package:student_life_rpg/app/data/campus_store.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
+import 'package:student_life_rpg/features/academic/models/course.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
 import 'package:student_life_rpg/features/finance/models/budget.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
@@ -186,5 +187,123 @@ void main() {
           as Map<String, dynamic>)['unknownFutureTable'],
       isNotNull,
     );
+  });
+
+  test('预算行 id 必须等于唯一键，否则拒绝加载', () async {
+    final v2 = jsonDecode(fixture) as Map<String, dynamic>;
+    v2['schemaVersion'] = 2;
+    v2['assignments'] = [];
+    v2['exams'] = [];
+    v2['budgets'] = [
+      {
+        'id': 'food@2026-11-wrong',
+        'categoryId': 'food',
+        'month': '2026-11-01',
+        'amountMinor': 1000,
+      },
+    ];
+    await File(path).writeAsString(jsonEncode(v2));
+
+    await expectLater(
+      open().store.initialize(),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('预算行缺少 id 时抛 FormatException 而不是类型错误', () async {
+    final v2 = jsonDecode(fixture) as Map<String, dynamic>;
+    v2['schemaVersion'] = 2;
+    v2['assignments'] = [];
+    v2['exams'] = [];
+    v2['budgets'] = [
+      {'categoryId': 'food', 'month': '2026-11-01', 'amountMinor': 1000},
+    ];
+    await File(path).writeAsString(jsonEncode(v2));
+
+    await expectLater(
+      open().store.initialize(),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  // ---------- 原子批量写入 ----------
+  List<Map<String, dynamic>> newCourses({int count = 3, String? semester}) => [
+    for (var i = 1; i <= count; i++)
+      Course(
+        id: 'import-$i',
+        semesterId: semester ?? 'sem-2026-autumn',
+        name: '导入课程$i',
+        credits: 2,
+        gradePoint: null,
+        slots: const [],
+        scoreScaleMax: 4.0,
+      ).toJson(),
+  ];
+
+  test('批量写入课程整批成功并持久化', () async {
+    await File(path).writeAsString(fixture);
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    await store.initialize();
+
+    final result = await store.applyBatch([
+      CampusBatch(table: 'courses', rows: newCourses()),
+    ]);
+    expect(result.inserted, 3);
+    expect(result.updated, 0);
+
+    final reopened = CampusData(
+      CampusStore(const FileJsonDocumentStore(), path),
+    );
+    expect((await reopened.courses.list()).length, 4); // fixture 1 + 新增 3
+  });
+
+  test('批量中任一行非法时整批零提交', () async {
+    await File(path).writeAsString(fixture);
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    final data = CampusData(store);
+    await store.initialize();
+    final before = await File(path).readAsString();
+
+    // 第 2 门课程引用不存在的学期 → 整批失败
+    await expectLater(
+      store.applyBatch([
+        CampusBatch(
+          table: 'courses',
+          rows: newCourses(semester: 'missing-semester'),
+        ),
+      ]),
+      throwsStateError,
+    );
+    expect(await File(path).readAsString(), before);
+    expect((await data.courses.list()).length, 1);
+  });
+
+  test('重复导入同 id 为更新而不是新增', () async {
+    await File(path).writeAsString(fixture);
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    await store.initialize();
+    await store.applyBatch([CampusBatch(table: 'courses', rows: newCourses())]);
+
+    final result = await store.applyBatch([
+      CampusBatch(table: 'courses', rows: newCourses()),
+    ]);
+    expect(result.inserted, 0);
+    expect(result.updated, 3);
+    expect((await store.rows('courses')).length, 4);
+  });
+
+  test('批内重复 id 整批拒绝', () async {
+    await File(path).writeAsString(fixture);
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    await store.initialize();
+    final before = await File(path).readAsString();
+
+    final rows = newCourses(count: 2);
+    rows[1]['id'] = rows[0]['id'];
+    await expectLater(
+      store.applyBatch([CampusBatch(table: 'courses', rows: rows)]),
+      throwsStateError,
+    );
+    expect(await File(path).readAsString(), before);
   });
 }
