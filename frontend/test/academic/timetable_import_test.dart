@@ -12,6 +12,23 @@ String _sample() =>
 ParsedCourse _find(List<ParsedCourse> courses, String name) =>
     courses.firstWhere((course) => course.name == name);
 
+/// 构造一小段课表文本，便于针对单条课程行写用例。
+String _text(List<String> courseLines) =>
+    <String>['星期一', '5-7', ...courseLines].join('\n');
+
+String _courseLine({
+  required String name,
+  required String weeks,
+  required String credits,
+  String classCode = '(2026-2027-1)-DLH58271-CS0202',
+}) =>
+    '$name 周数：$weeks 校区:南海 上课地点：教C402 教师 ：周国靖 '
+    '教学班：$classCode 教学班组成：25软件工程2班 考核方式：考试 选课备注：  '
+    '课程学时组成：理论:48 周学时：3 总学时：48 学分：$credits';
+
+TimetableParseResult _parse(List<String> lines) =>
+    parseTimetableText(_text(lines));
+
 void main() {
   group('PeriodTimeTable', () {
     test('第 5–7 节换算为 14:00–16:20', () {
@@ -167,6 +184,114 @@ void main() {
       final result = parseTimetableText('星期一\n5-7\n某课程 周数：?? 学分：3.0');
       expect(result.courses, isEmpty);
       expect(result.issues, isNotEmpty);
+    });
+  });
+
+  group('教学班归属（#34 对齐：不能无条件删末尾 A）', () {
+    test('存在对应理论班时，实验班并入同一门课', () {
+      final result = _parse([
+        _courseLine(
+          name: '数据结构与算法*',
+          weeks: '1-16周',
+          credits: '3.5',
+          classCode: '(2026-2027-1)-DLH58271-CS0202',
+        ),
+        _courseLine(
+          name: '数据结构与算法&',
+          weeks: '1-16周',
+          credits: '3.5',
+          classCode: '(2026-2027-1)-DLH58271-CS0202A',
+        ),
+      ]);
+      expect(result.courses, hasLength(1));
+      expect(result.courses.single.slots, hasLength(1));
+    });
+
+    test('只有实验班、没有对应理论班时保持独立', () {
+      final result = _parse([
+        _courseLine(
+          name: '数据结构与算法&',
+          weeks: '1-16周',
+          credits: '3.5',
+          classCode: '(2026-2027-1)-DLH58271-CS0202A',
+        ),
+      ]);
+      expect(result.courses, hasLength(1));
+      expect(result.courses.single.classCode, endsWith('A'));
+    });
+
+    test('两份不同教学班不会被误合并', () {
+      final result = _parse([
+        _courseLine(
+          name: '程序设计*',
+          weeks: '1-8周',
+          credits: '2.0',
+          classCode: '(2026-2027-1)-AAA-CS01',
+        ),
+        _courseLine(
+          name: '程序设计*',
+          weeks: '9-16周',
+          credits: '2.0',
+          classCode: '(2026-2027-1)-BBB-CS02A',
+        ),
+      ]);
+      expect(
+        result.courses,
+        hasLength(2),
+        reason: 'CS02A 没有对应的 CS02，不应并入 CS01',
+      );
+    });
+  });
+
+  group('稳定 ID（#30 对齐：不能用 hashCode / 课程名）', () {
+    test('同一教学班两次生成相同 ID', () {
+      final one = ParsedCourse(
+        name: '数据结构与算法',
+        classCode: '(2026-2027-1)-DLH58271-CS0202',
+        slots: const [],
+        credits: 3.5,
+      );
+      final two = ParsedCourse(
+        name: '数据结构与算法（改名）',
+        classCode: '(2026-2027-1)-DLH58271-CS0202',
+        slots: const [],
+        credits: 3.5,
+      );
+      expect(
+        stableImportedCourseId(one),
+        stableImportedCourseId(two),
+        reason: 'ID 只由教学班决定，改名不应换 ID',
+      );
+    });
+
+    test('同名不同教学班生成不同 ID', () {
+      final a = ParsedCourse(
+        name: '数据结构与算法',
+        classCode: '(2026-2027-1)-AAA-CS01',
+        slots: const [],
+        credits: 3.5,
+      );
+      final b = ParsedCourse(
+        name: '数据结构与算法',
+        classCode: '(2026-2027-1)-BBB-CS01',
+        slots: const [],
+        credits: 3.5,
+      );
+      expect(stableImportedCourseId(a), isNot(stableImportedCourseId(b)));
+    });
+
+    test('ID 是固定格式，不含 hashCode 数字', () {
+      final course = ParsedCourse(
+        name: '数据结构与算法',
+        classCode: '(2026-2027-1)-DLH58271-CS0202',
+        slots: const [],
+        credits: 3.5,
+      );
+      final id = stableImportedCourseId(course);
+      expect(id, startsWith('imported-'));
+      expect(id, contains('DLH58271-CS0202'));
+      expect(RegExp(r'-[0-9a-f]{8}').hasMatch(id), isTrue);
+      expect(id, isNot(contains(course.classCode.hashCode.abs().toString())));
     });
   });
 

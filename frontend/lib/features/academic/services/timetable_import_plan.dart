@@ -198,9 +198,7 @@ List<Course> coursesFromPlan(
   String idPrefix = 'imported',
 }) {
   final result = <Course>[];
-  var index = 0;
   for (final item in plan.pendingWith(creditsOverrides)) {
-    index++;
     final base = item.existing;
     // 已有课程保留原学分（可能是用户手动改过的），只有新课程才用导入值；
     // 预览里的显式修正优先。
@@ -220,9 +218,8 @@ List<Course> coursesFromPlan(
     ];
     result.add(
       Course(
-        id:
-            base?.id ??
-            '$idPrefix-$index-${item.parsed.classCode.hashCode.abs()}',
+        // 新课程用确定性 ID（不含 hashCode），已有课程沿用原 ID。
+        id: base?.id ?? stableImportedCourseId(item.parsed, prefix: idPrefix),
         semesterId: plan.semesterId,
         name: item.parsed.name,
         credits: credits,

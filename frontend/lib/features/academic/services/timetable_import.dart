@@ -314,7 +314,10 @@ _CourseLine? _parseCourseLine(String line) {
   }
   if (title.isEmpty) return null;
 
-  final classCode = _baseClassCode(fields['教学班：'] ?? '');
+  // 保留原始教学班号，归一化放到分组阶段做：
+  // 只有同一份课表里确实存在对应的理论班时，才把实验班并入，
+  // 避免无条件删末尾 A 把两门不同的课强行合并。
+  final classCode = (fields['教学班：'] ?? '').trim();
   final weeksText = fields['周数：'] ?? '';
   final credits = double.tryParse((fields['学分：'] ?? '').trim());
   final location = fields['上课地点：']?.trim();
@@ -332,17 +335,21 @@ _CourseLine? _parseCourseLine(String line) {
   );
 }
 
-/// 实验班的教学班号比理论班多一个结尾 `A`（如 `...-CS0202A`），
-/// 归一到基号后，理论课与实验课会合并为同一门课程，避免学分重复计算。
-String _baseClassCode(String raw) {
-  final code = raw.trim();
-  if (code.length < 2) return code;
-  if (!code.endsWith('A')) return code;
-  final beforeA = code[code.length - 2];
-  if (beforeA.codeUnitAt(0) >= 0x30 && beforeA.codeUnitAt(0) <= 0x39) {
-    return code.substring(0, code.length - 1);
+/// 计算教学班号的归一化映射：实验班 → 理论班。
+///
+/// 只有在**同一份课表里确实存在**对应理论班（去掉末尾 `A` 后能命中的编号）时，
+/// 才把实验班并到理论班，避免无条件删 `A` 把两门不相干的课强行合并。
+/// 没有对应理论班的实验班保持独立成课。
+Map<String, String> resolveClassCodes(Iterable<String> codes) {
+  final all = codes.toSet();
+  final mapping = <String, String>{};
+  for (final code in all) {
+    if (code.length < 2 || !code.endsWith('A')) continue;
+    final base = code.substring(0, code.length - 1);
+    if (!all.contains(base)) continue;
+    mapping[code] = base;
   }
-  return code;
+  return mapping;
 }
 
 /// 解析周数文本：`1-16周`、`1-4周,6-12周`、`4周,8周,12周`。
@@ -374,12 +381,17 @@ List<int> _parseWeeks(String text) {
   return sorted;
 }
 
-/// 按教学班基号分组；同一门课同一时段的多个记录（如调课换地点）
+/// 按教学班分组；同一门课同一时段的多个记录（如调课换地点）
 /// 合并周次，因为冻结模型 [CourseSlot] 不保存地点。
+///
+/// 理论班与实验班是否合并由 [resolveClassCodes] 决定：
+/// 只有确实存在对应理论班时才并入，避免误合并。
 List<ParsedCourse> _groupCourses(List<_RawRow> rows) {
+  final mapping = resolveClassCodes(rows.map((row) => row.classCode));
   final byKey = <String, List<_RawRow>>{};
   for (final row in rows) {
-    byKey.putIfAbsent(row.classCode, () => <_RawRow>[]).add(row);
+    final key = mapping[row.classCode] ?? row.classCode;
+    byKey.putIfAbsent(key, () => <_RawRow>[]).add(row);
   }
 
   final courses = <ParsedCourse>[];
@@ -461,7 +473,7 @@ List<Course> toCourses({
     ];
     courses.add(
       Course(
-        id: '$idPrefix-${i + 1}-${item.classCode.hashCode.abs()}',
+        id: stableImportedCourseId(item, prefix: idPrefix),
         semesterId: semesterId,
         name: item.name,
         credits: credits,
@@ -472,4 +484,32 @@ List<Course> toCourses({
     );
   }
   return courses;
+}
+
+/// 导入课程的稳定 ID。
+///
+/// 要求（#30 / #34 对齐）：
+/// - **不使用 `hashCode`**：它不保证跨进程/跨版本稳定，
+///   持久化 ID 必须可复现，否则重复导入会被当成新课程；
+/// - **不使用课程名**：同名课程（不同教学班）会撞 ID；
+/// - 只使用教学班号 + 课程名做 FNV-1a 摘要，输出可读前缀 + 8 位十六进制。
+String stableImportedCourseId(
+  ParsedCourse course, {
+  String prefix = 'imported',
+}) {
+  final key = course.classCode.trim().isEmpty
+      ? course.name.trim()
+      : course.classCode.trim();
+  var hash = 0x811c9dc5;
+  for (final unit in key.codeUnits) {
+    hash ^= unit & 0xFF;
+    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    hash ^= (unit >> 8) & 0xFF;
+    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  }
+  final slug = key
+      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  final digest = hash.toRadixString(16).padLeft(8, '0');
+  return slug.isEmpty ? '$prefix-$digest' : '$prefix-$slug-$digest';
 }
