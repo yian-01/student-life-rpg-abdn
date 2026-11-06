@@ -36,9 +36,13 @@ class GpaController extends ChangeNotifier {
   Object? get error => _error;
   bool get isLoading => _isLoading;
   String? get semesterId => _semesterId;
+  String get scopeTitle => _semesterId == null
+      ? '全部学期GPA'
+      : '${_semesterNames[_semesterId] ?? _semesterId} GPA';
   List<Course> get courses => _courses;
   List<String> get semesterIds => List.unmodifiable(
-    _allCourses.map((c) => c.semesterId).toSet().toList()..sort(),
+    {..._semesterNames.keys, ..._allCourses.map((c) => c.semesterId)}.toList()
+      ..sort(),
   );
 
   Future<void> load({String? semesterId}) async {

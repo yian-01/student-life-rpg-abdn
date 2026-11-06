@@ -133,6 +133,11 @@ class _GpaPageState extends State<GpaPage> {
                               ),
                       ),
                       const SizedBox(height: 16),
+                      Text(
+                        controller.scopeTitle,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const Text('按已评分课程学分加权；未评分不计入，0绩点计入。'),
                       if (controller.isLoading) const LinearProgressIndicator(),
                       if (controller.error != null) ...[
                         const Text(
@@ -237,6 +242,8 @@ class _GradeDialogState extends State<_GradeDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     title: const Text('编辑课程绩点'),
     content: SingleChildScrollView(
       child: Form(
