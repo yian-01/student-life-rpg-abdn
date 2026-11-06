@@ -43,6 +43,7 @@ class FinanceController extends ChangeNotifier {
   List<FinanceCategory> _availableCategories = const [];
   int _loadToken = 0;
   int _recordSeq = 0;
+  int _categorySeq = 0;
   bool _disposed = false;
 
   DateTime get month => _month;
@@ -116,24 +117,64 @@ class FinanceController extends ChangeNotifier {
     if (!await _records.remove(id)) throw StateError('Unknown record');
   });
 
+  /// 新增分类。空白名称由模型抛出 ArgumentError；同类型下同名分类被拒绝。
+  Future<bool> addCategory({
+    required String name,
+    required FinanceType type,
+  }) => _write(() async {
+    final now = _clock();
+    requireLocalDateTime(now, 'now');
+    _categorySeq++;
+    await _categories.insert(
+      FinanceCategory(
+        id: 'cat-${now.microsecondsSinceEpoch}-$_categorySeq',
+        name: name,
+        type: type,
+      ),
+    );
+  });
+
+  /// 编辑分类名称/类型。被记录或预算引用时无法修改类型，会抛出带原因的 StateError。
+  Future<bool> editCategory(
+    String id, {
+    required String name,
+    required FinanceType type,
+  }) => _write(() async {
+    final existing = await _categories.getById(id);
+    if (existing == null) throw StateError('未知分类。');
+    await _categories.update(
+      FinanceCategory(id: existing.id, name: name, type: type),
+    );
+  });
+
+  /// 删除分类。被记录或预算引用时阻止删除并说明原因。
+  Future<bool> deleteCategory(String id) => _write(() async {
+    if (!await _categories.remove(id)) throw StateError('未知分类。');
+  });
+
   Future<bool> _write(Future<void> Function() action) async {
     if (_disposed || _isSaving) return false;
+
+    // 一次提交：保存期间拒绝并发写入，避免快速连点产生重复数据。
     _isSaving = true;
     _error = null;
     notifyListeners();
+    var committed = false;
     try {
       await action();
-      await _loadCurrent();
-      // A refresh error is displayed, but cannot turn a committed write into a
-      // retryable insert: the form must clear after a successful disk commit.
-      return true;
+      committed = true;
     } catch (error) {
       _fail(error);
-      return false;
     } finally {
       _isSaving = false;
       if (!_disposed) notifyListeners();
     }
+
+    // 提交已成功；刷新失败只展示错误，不能把成功写入伪装成可重试插入。
+    if (committed && !_disposed) {
+      await _loadCurrent();
+    }
+    return committed;
   }
 
   void _fail(Object error) {
