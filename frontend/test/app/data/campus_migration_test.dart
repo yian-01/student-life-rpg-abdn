@@ -556,6 +556,26 @@ void main() {
     expect(await File('$path.corrupt.1').readAsString(), broken);
   });
 
+  test('主文件损坏且完全无备份时，显式恢复抛异常且原件保留', () async {
+    const broken = '{"entityType":';
+    await File(path).writeAsString(broken);
+    // 确保没有 .bak
+    final bak = File('$path.bak');
+    if (await bak.exists()) await bak.delete();
+
+    final store = CampusStore(const FileJsonDocumentStore(), path);
+    // 普通读取报错
+    await expectLater(store.rows('courses'), throwsA(isA<FormatException>()));
+    // 显式恢复也报错，且原件不动
+    await expectLater(
+      store.recoverFromBackup(),
+      throwsA(isA<FormatException>()),
+    );
+    expect(await File(path).readAsString(), broken);
+    expect(await File('$path.corrupt').exists(), isFalse);
+    expect(await File('$path.bak').exists(), isFalse);
+  });
+
   test('并发批量写入按队列串行执行，不丢任何一批', () async {
     await File(path).writeAsString(v2Doc());
     final store = CampusStore(const FileJsonDocumentStore(), path);
