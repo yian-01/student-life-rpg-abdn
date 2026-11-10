@@ -41,7 +41,6 @@ class _MovementJoystickState extends State<MovementJoystick> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Semantics(
       label: '移动摇杆',
       enabled: widget.enabled,
@@ -65,8 +64,10 @@ class _MovementJoystickState extends State<MovementJoystick> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: colors.surfaceContainerHighest,
-              border: Border.all(color: colors.outlineVariant),
+              color: const Color(0xFF241F19).withValues(alpha: .40),
+              border: Border.all(
+                color: const Color(0xFFDEC18B).withValues(alpha: .55),
+              ),
             ),
             child: Center(
               child: Transform.translate(
@@ -74,7 +75,9 @@ class _MovementJoystickState extends State<MovementJoystick> {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: widget.enabled ? colors.primary : colors.outline,
+                    color: widget.enabled
+                        ? const Color(0xFFE8CB91).withValues(alpha: .65)
+                        : const Color(0xFF73624D),
                   ),
                   child: const SizedBox.square(dimension: 32),
                 ),

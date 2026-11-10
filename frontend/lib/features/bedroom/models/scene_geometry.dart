@@ -43,6 +43,19 @@ class SceneGeometry {
   /// （v1.1 数学核查通过，见 docs/development/scene-geometry.md 第 8 节）。
   static const Offset playerStart = Offset(360, 1160);
 
+  /// 地板砖缝透视灭点（世界坐标，位于图像上方负 y 区域）。
+  ///
+  /// 测量方法（2026-11-04）：在砖块内部行（y≈1022/1108/1205/1306，
+  /// 避开横向砖缝与床/柜/桌/门遮挡）做多高度暗线扫描，对每条纵深
+  /// 砖缝线性拟合 x = a + b·y，再按 x = xv + k·(y − yv) 最小二乘
+  /// 解出公共灭点，约为 (691, -1235)。走廊中央（x≈360）处砖缝走向
+  /// 约为每上移 1px 右移 0.138px。
+  ///
+  /// 用途：键盘"上/下"移动沿该灭点射线方向（见
+  /// PlayerMovementController 的 floorVanishingPoint），使上下移动
+  /// 轨迹与地砖透视线一致，而不是纯竖直。
+  static const Offset floorVanishingPoint = Offset(691, -1235);
+
   /// Convex floor envelope, extended up the aisle beside the bed to y=780.
   /// Furniture inside this envelope is excluded separately by canOccupy.
   /// The top edge stops below the cabinet; this is not permission to walk
@@ -114,7 +127,16 @@ class SceneGeometry {
 /// 显示偏移只扣一次；几何计算与交互距离始终使用 world 坐标。
 /// 组件尺寸改变时重新计算 scale 与 offset（世界顶点不变）。
 class SceneTransform {
-  const SceneTransform._(this.scale, this.offset);
+  const SceneTransform._(
+    this.scale,
+    this.offset, [
+    this.worldSize = const Size(
+      SceneGeometry.worldWidth,
+      SceneGeometry.worldHeight,
+    ),
+  ]);
+
+  final Size worldSize;
 
   /// 以等比缩放居中方式适配组件视口。
   /// [viewportWidth]/[viewportHeight] 为组件实际可用布局宽高（逻辑像素）。
@@ -152,6 +174,46 @@ class SceneTransform {
     return SceneTransform._(scale, Offset(dx, dy));
   }
 
+  /// Fill the viewport without distortion. The camera follows the player and
+  /// clamps to the world edges, so cropped doors can be approached normally.
+  factory SceneTransform.cover(
+    double width,
+    double height, {
+    required Size worldSize,
+    required Offset focus,
+  }) {
+    if (![
+          width,
+          height,
+          worldSize.width,
+          worldSize.height,
+        ].every((v) => v.isFinite && v > 0) ||
+        !focus.dx.isFinite ||
+        !focus.dy.isFinite) {
+      throw ArgumentError(
+        'finite positive viewport/world and finite focus required',
+      );
+    }
+    final sx = width / worldSize.width;
+    final sy = height / worldSize.height;
+    final scale = sx > sy ? sx : sy;
+    if (!scale.isFinite ||
+        scale <= 0 ||
+        !(worldSize.width * scale).isFinite ||
+        !(worldSize.height * scale).isFinite) {
+      throw ArgumentError('invalid camera scale');
+    }
+    final dx = (width * .5 - focus.dx * scale).clamp(
+      (width - worldSize.width * scale).clamp(double.negativeInfinity, 0.0),
+      0.0,
+    );
+    final dy = (height * .65 - focus.dy * scale).clamp(
+      (height - worldSize.height * scale).clamp(double.negativeInfinity, 0.0),
+      0.0,
+    );
+    return SceneTransform._(scale, Offset(dx, dy), worldSize);
+  }
+
   /// 等比缩放系数（world 原图像素 -> local 逻辑像素）。
   final double scale;
 
@@ -170,8 +232,8 @@ class SceneTransform {
   Rect get sceneRect => Rect.fromLTWH(
     offset.dx,
     offset.dy,
-    SceneGeometry.worldWidth * scale,
-    SceneGeometry.worldHeight * scale,
+    worldSize.width * scale,
+    worldSize.height * scale,
   );
 
   /// local 点是否落在 [sceneRect] 内。

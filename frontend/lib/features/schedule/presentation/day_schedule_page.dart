@@ -1,14 +1,23 @@
+import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/schedule_item.dart';
 import '../controllers/day_schedule_controller.dart';
 import '../models/task.dart';
 import '../services/day_schedule_service.dart';
+import 'task_editor_dialog.dart';
 
 /// 单日日程页面：由外部注入 [DayScheduleController]，页面不创建仓库。
 class DaySchedulePage extends StatefulWidget {
-  const DaySchedulePage({super.key, required this.controller});
+  const DaySchedulePage({
+    super.key,
+    required this.controller,
+    this.onRecover,
+    this.onManageEvents,
+  });
 
+  final Future<void> Function()? onRecover;
+  final Future<void> Function(DateTime date)? onManageEvents;
   final DayScheduleController controller;
 
   @override
@@ -16,6 +25,11 @@ class DaySchedulePage extends StatefulWidget {
 }
 
 class _DaySchedulePageState extends State<DaySchedulePage> {
+  bool _adding = false;
+  bool _managingEvents = false;
+  bool _recovering = false;
+  final Set<String> _savingTasks = {};
+
   @override
   void initState() {
     super.initState();
@@ -54,37 +68,159 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
 
   ValueChanged<bool>? _toggleCallbackFor(ScheduleItem item) {
     if (!widget.controller.canEditTasks ||
-        item.sourceType != ScheduleSourceType.task) {
+        item.sourceType != ScheduleSourceType.task ||
+        _savingTasks.contains(item.sourceId)) {
       return null;
     }
     return (value) => _setCompleted(item.sourceId, value);
   }
 
   Future<void> _setCompleted(String taskId, bool isCompleted) async {
+    if (_savingTasks.contains(taskId)) return;
+    setState(() => _savingTasks.add(taskId));
     try {
       await widget.controller.setTaskCompleted(taskId, isCompleted);
     } catch (_) {
       _showMessage('更新完成状态失败，请重试。');
+    } finally {
+      if (mounted) setState(() => _savingTasks.remove(taskId));
     }
   }
 
-  Future<void> _showAddTaskDialog() async {
-    final input = await showDialog<_NewTaskInput>(
-      context: context,
-      builder: (context) => const _AddTaskDialog(),
-    );
-    if (input == null) {
-      return;
-    }
+  Future<void> _showAddTaskDialog() => _showEditor();
+
+  Future<void> _showEditor([String? id]) async {
+    if (_adding || (id != null && _savingTasks.contains(id))) return;
+    setState(() => _adding = true);
     try {
-      await widget.controller.addTask(
-        title: input.title,
-        estimatedMinutes: input.estimatedMinutes,
+      final task = id == null ? null : await widget.controller.taskById(id);
+      if (!mounted) return;
+      await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => TaskEditorDialog(
+          task: task,
+          selectedDate: widget.controller.selectedDate,
+          onSave: (value) => id == null
+              ? widget.controller.addTask(
+                  title: value.title,
+                  estimatedMinutes: value.estimatedMinutes,
+                  dueAt: value.dueAt,
+                  scheduledRange: value.scheduledRange,
+                )
+              : widget.controller.updateTask(
+                  id,
+                  title: value.title,
+                  estimatedMinutes: value.estimatedMinutes,
+                  dueAt: value.dueAt,
+                  scheduledRange: value.scheduledRange,
+                ),
+        ),
       );
-      _showMessage('已添加任务：${input.title}');
     } catch (_) {
-      _showMessage('任务保存失败，请重试。');
+      _showMessage('任务读取失败，请重试。');
+    } finally {
+      if (mounted) setState(() => _adding = false);
     }
+  }
+
+  Future<void> _removeTask(String id) async {
+    if (_savingTasks.contains(id)) return;
+    setState(() => _savingTasks.add(id));
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('删除任务？'),
+          content: const Text('删除后无法撤销。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('删除'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await widget.controller.removeTask(id);
+    } catch (_) {
+      _showMessage('删除失败，任务已保留，请重试。');
+    } finally {
+      if (mounted) setState(() => _savingTasks.remove(id));
+    }
+  }
+
+  ValueChanged<String>? _actionsFor(String id) =>
+      !widget.controller.canEditTasks || _adding || _savingTasks.contains(id)
+      ? null
+      : (action) {
+          if (action == 'edit') {
+            _showEditor(id);
+          }
+          if (action == 'delete') {
+            _removeTask(id);
+          }
+        };
+
+  Future<void> _manageEvents() async {
+    if (_managingEvents) return;
+    setState(() => _managingEvents = true);
+    try {
+      await widget.onManageEvents!(widget.controller.selectedDate);
+      if (mounted) await widget.controller.loadDay();
+    } catch (_) {
+      _showMessage('事件管理打开失败，请重试。');
+    } finally {
+      if (mounted) setState(() => _managingEvents = false);
+    }
+  }
+
+  Future<void> _recover() async {
+    if (_recovering) return;
+    setState(() => _recovering = true);
+    try {
+      await widget.onRecover!();
+    } catch (_) {
+      _showMessage('恢复失败，当前列表已保留，请检查备份后重试。');
+    } finally {
+      if (mounted) setState(() => _recovering = false);
+    }
+  }
+
+  Widget _conflictNotice(DaySchedule day) {
+    final pairs = widget.controller.conflicts;
+    if (pairs.isEmpty) return const SizedBox.shrink();
+    final items = {for (final item in day.items) item.id: item};
+    return Card(
+      key: const Key('day-schedule-conflicts'),
+      color: Theme.of(context).colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '时间冲突 · ${pairs.length} 对冲突',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const Text('可以保留安排，也可编辑任务调整时间。'),
+            for (final pair in pairs)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '${_sourceLabel(items[pair.firstId]!.sourceType)}：${items[pair.firstId]!.title} / '
+                  '${_sourceLabel(items[pair.secondId]!.sourceType)}：${items[pair.secondId]!.title}\n'
+                  '${_formatDateTime(pair.overlapRange.start)} — ${_formatDateTime(pair.overlapRange.end)}',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showMessage(String message) {
@@ -100,21 +236,41 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
   Widget build(BuildContext context) {
     final schedule = widget.controller.schedule;
     return Scaffold(
-      appBar: AppBar(title: const Text('Schedule')),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (widget.controller.demoData) const _DemoDataBanner(),
-            _DateNavigator(controller: widget.controller),
-            const Divider(height: 1),
-            Expanded(child: _buildBody(schedule)),
-          ],
+      appBar: AppBar(
+        title: const Text('日程手账'),
+        actions: [
+          if (widget.onManageEvents != null)
+            IconButton(
+              key: const Key('manage-events'),
+              tooltip: '管理事件',
+              icon: const Icon(Icons.event_note),
+              onPressed: _managingEvents ? null : _manageEvents,
+            ),
+
+          if (widget.onRecover != null)
+            IconButton(
+              tooltip: '重新读取 / 从备份恢复',
+              onPressed: _recovering ? null : _recover,
+              icon: const Icon(Icons.restore),
+            ),
+        ],
+      ),
+      body: ModuleBody(
+        child: SafeArea(
+          child: Column(
+            children: [
+              if (widget.controller.demoData) const _DemoDataBanner(),
+              _DateNavigator(controller: widget.controller),
+              const Divider(height: 1),
+              Expanded(child: _buildBody(schedule)),
+            ],
+          ),
         ),
       ),
       floatingActionButton: widget.controller.canEditTasks
           ? FloatingActionButton.extended(
               key: const Key('day-schedule-add-task'),
-              onPressed: _showAddTaskDialog,
+              onPressed: _adding ? null : _showAddTaskDialog,
               icon: const Icon(Icons.add),
               label: const Text('添加任务'),
             )
@@ -130,7 +286,7 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     }
 
     if (widget.controller.errorMessage != null && schedule == null) {
-      return Center(
+      return SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -159,8 +315,11 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
       children: [
+        if (widget.onRecover != null)
+          const ModuleNotice('任务自动保存在本机。可分别设置安排时间与截止时间。'),
+        _conflictNotice(schedule),
         const _SectionTitle('当天日程'),
         if (schedule.items.isEmpty)
           const _EmptyMessage('今日暂无已排程事项')
@@ -170,21 +329,57 @@ class _DaySchedulePageState extends State<DaySchedulePage> {
               item: item,
               completed: schedule.isCompletedTask(item),
               crossDay: schedule.isCrossDay(item),
+              loadTask: item.sourceType == ScheduleSourceType.task
+                  ? () => widget.controller.taskById(item.sourceId)
+                  : null,
               onToggleComplete: _toggleCallbackFor(item),
+              onAction: item.sourceType == ScheduleSourceType.task
+                  ? _actionsFor(item.sourceId)
+                  : null,
             ),
           ),
         const SizedBox(height: 20),
-        const _SectionTitle('未安排任务'),
+        const _SectionTitle('未安排任务（全部日期）'),
         if (schedule.unscheduledTasks.isEmpty)
-          const _EmptyMessage('暂无未安排任务')
+          Column(
+            children: [
+              const _EmptyMessage('暂无未安排任务'),
+              if (widget.controller.canEditTasks)
+                TextButton.icon(
+                  onPressed: _adding ? null : _showAddTaskDialog,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('创建第一项任务'),
+                ),
+            ],
+          )
         else
           ...schedule.unscheduledTasks.map(
             (task) => _UnscheduledTaskTile(
               task: task,
-              onToggleComplete: widget.controller.canEditTasks
+              onAction: _actionsFor(task.id),
+              onToggleComplete:
+                  widget.controller.canEditTasks &&
+                      !_savingTasks.contains(task.id)
                   ? (value) => _setCompleted(task.id, value)
                   : null,
             ),
+          ),
+        if (schedule.completedTasks.isNotEmpty)
+          ExpansionTile(
+            key: const Key('completed-tasks'),
+            title: Text('已完成任务（全部）· ${schedule.completedTasks.length}'),
+            children: [
+              for (final task in schedule.completedTasks)
+                _UnscheduledTaskTile(
+                  task: task,
+                  onAction: _actionsFor(task.id),
+                  onToggleComplete:
+                      widget.controller.canEditTasks &&
+                          !_savingTasks.contains(task.id)
+                      ? (v) => _setCompleted(task.id, v)
+                      : null,
+                ),
+            ],
           ),
       ],
     );
@@ -213,33 +408,148 @@ class _DemoDataBanner extends StatelessWidget {
   }
 }
 
-class _DateNavigator extends StatelessWidget {
+class _DateNavigator extends StatefulWidget {
   const _DateNavigator({required this.controller});
 
   final DayScheduleController controller;
 
   @override
+  State<_DateNavigator> createState() => _DateNavigatorState();
+}
+
+class _DateNavigatorState extends State<_DateNavigator> {
+  bool _choosing = false;
+
+  Future<void> _chooseDate() async {
+    if (_choosing) return;
+    setState(() => _choosing = true);
+    try {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: widget.controller.selectedDate,
+        firstDate: DateTime(1),
+        lastDate: DateTime(9999, 12, 31),
+      );
+      if (date != null && mounted) await widget.controller.loadDay(date);
+    } finally {
+      if (mounted) setState(() => _choosing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final selected = controller.selectedDate;
+    final monday = DateTime(
+      selected.year,
+      selected.month,
+      selected.day - selected.weekday + 1,
+    );
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Column(
         children: [
-          IconButton(
-            tooltip: '前一天',
-            onPressed: controller.isLoading ? null : controller.goToPreviousDay,
-            icon: const Icon(Icons.chevron_left),
+          Row(
+            children: [
+              IconButton(
+                tooltip: '前一天',
+                onPressed: controller.goToPreviousDay,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: TextButton(
+                  key: const Key('schedule-select-date'),
+                  onPressed: _choosing ? null : _chooseDate,
+                  child: Text(
+                    _formatDate(selected),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: '后一天',
+                onPressed: controller.goToNextDay,
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
           ),
-          Expanded(
-            child: Text(
-              _formatDate(controller.selectedDate),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          IconButton(
-            tooltip: '后一天',
-            onPressed: controller.isLoading ? null : controller.goToNextDay,
-            icon: const Icon(Icons.chevron_right),
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < 7; i++)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Material(
+                            color: selected.weekday == i + 1
+                                ? scheme.primary
+                                : scheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => controller.loadDay(
+                                DateTime(
+                                  monday.year,
+                                  monday.month,
+                                  monday.day + i,
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 10,
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      const [
+                                        '一',
+                                        '二',
+                                        '三',
+                                        '四',
+                                        '五',
+                                        '六',
+                                        '日',
+                                      ][i],
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: selected.weekday == i + 1
+                                            ? scheme.onPrimary
+                                            : scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '${DateTime(monday.year, monday.month, monday.day + i).day}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: selected.weekday == i + 1
+                                            ? scheme.onPrimary
+                                            : scheme.onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              TextButton(
+                key: const Key('schedule-today'),
+                onPressed: () => controller.loadDay(DateTime.now()),
+                child: const Text('今天'),
+              ),
+            ],
           ),
         ],
       ),
@@ -268,9 +578,25 @@ class _EmptyMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Center(child: Text(label, textAlign: TextAlign.center)),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+        child: Row(
+          children: [
+            Icon(
+              Icons.event_available_outlined,
+              size: 28,
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.55),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -280,44 +606,134 @@ class _ScheduledItemTile extends StatelessWidget {
     required this.item,
     required this.completed,
     required this.crossDay,
+    this.loadTask,
     this.onToggleComplete,
+    this.onAction,
   });
 
+  final ValueChanged<String>? onAction;
   final ScheduleItem item;
   final bool completed;
   final bool crossDay;
+  final Future<Task> Function()? loadTask;
   final ValueChanged<bool>? onToggleComplete;
 
   @override
   Widget build(BuildContext context) {
-    final timeRange =
-        '${_formatTime(item.range.start)} - ${_formatTime(item.range.end)}';
-    final subtitle = crossDay ? '$timeRange · 跨日' : timeRange;
+    final timeRange = _formatRange(item);
+    final subtitle =
+        '${item.sourceType == ScheduleSourceType.task ? '计划 ' : ''}'
+        '$timeRange${crossDay ? ' · 跨日' : ''}';
     final toggle = onToggleComplete;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(child: Text(_sourceLabel(item.sourceType))),
-        title: Text(item.title),
-        subtitle: Text(subtitle),
-        trailing: toggle != null
-            ? Checkbox(
-                value: completed,
-                onChanged: (value) => toggle(value ?? false),
-              )
-            : (completed
-                  ? const Chip(
-                      avatar: Icon(Icons.check, size: 16),
-                      label: Text('已完成'),
-                    )
-                  : null),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            title: Text(item.title),
+            subtitle: Text('${_sourceLabel(item.sourceType)}\n$subtitle'),
+            trailing: item.sourceType == ScheduleSourceType.task
+                ? _TaskActions(
+                    id: item.sourceId,
+                    completed: completed,
+                    onToggle: toggle,
+                    onAction: onAction,
+                  )
+                : null,
+          ),
+          if (loadTask != null)
+            _ScheduledTaskDetails(
+              key: Key('scheduled-task-details-${item.sourceId}'),
+              loadTask: loadTask!,
+            ),
+        ],
       ),
     );
   }
 }
 
+class _ScheduledTaskDetails extends StatefulWidget {
+  const _ScheduledTaskDetails({super.key, required this.loadTask});
+
+  final Future<Task> Function() loadTask;
+
+  @override
+  State<_ScheduledTaskDetails> createState() => _ScheduledTaskDetailsState();
+}
+
+class _ScheduledTaskDetailsState extends State<_ScheduledTaskDetails> {
+  Future<Task>? _future;
+
+  void _load() {
+    if (_future != null) return;
+    final future = widget.loadTask();
+    setState(() {
+      _future = future;
+    });
+  }
+
+  @override
+  void didUpdateWidget(_ScheduledTaskDetails oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.loadTask != widget.loadTask) {
+      _future = widget.loadTask();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ExpansionTile(
+    title: const Text('任务详情'),
+    onExpansionChanged: (expanded) {
+      if (expanded) _load();
+    },
+    childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (_future == null)
+        const SizedBox.shrink()
+      else
+        FutureBuilder<Task>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: LinearProgressIndicator(),
+              );
+            }
+            final task = snapshot.data;
+            if (task == null || snapshot.hasError) {
+              return const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text('任务详情读取失败，请重试。'),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('估时 ${task.estimatedMinutes} 分钟'),
+                Text(
+                  task.dueAt == null
+                      ? '截止：未设置'
+                      : '截止 ${_formatDateTime(task.dueAt!)}',
+                ),
+              ],
+            );
+          },
+        ),
+    ],
+  );
+}
+
 class _UnscheduledTaskTile extends StatelessWidget {
-  const _UnscheduledTaskTile({required this.task, this.onToggleComplete});
+  const _UnscheduledTaskTile({
+    required this.task,
+    this.onToggleComplete,
+    this.onAction,
+  });
+
+  final ValueChanged<String>? onAction;
 
   final Task task;
   final ValueChanged<bool>? onToggleComplete;
@@ -334,114 +750,59 @@ class _UnscheduledTaskTile extends StatelessWidget {
         leading: const CircleAvatar(child: Icon(Icons.pending_actions)),
         title: Text(task.title),
         subtitle: Text('${task.estimatedMinutes} 分钟 · $due'),
-        trailing: toggle == null
-            ? null
-            : Checkbox(
-                value: false,
-                onChanged: (value) => toggle(value ?? false),
-              ),
-      ),
-    );
-  }
-}
-
-class _NewTaskInput {
-  const _NewTaskInput({required this.title, required this.estimatedMinutes});
-
-  final String title;
-  final int estimatedMinutes;
-}
-
-/// 最小新增任务表单：标题 + 预计分钟。
-class _AddTaskDialog extends StatefulWidget {
-  const _AddTaskDialog();
-
-  @override
-  State<_AddTaskDialog> createState() => _AddTaskDialogState();
-}
-
-class _AddTaskDialogState extends State<_AddTaskDialog> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _minutesController = TextEditingController(
-    text: '30',
-  );
-  String? _errorText;
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _minutesController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final title = _titleController.text.trim();
-    final minutes = int.tryParse(_minutesController.text.trim());
-    if (title.isEmpty) {
-      setState(() => _errorText = '请输入任务标题');
-      return;
-    }
-    if (minutes == null || minutes <= 0) {
-      setState(() => _errorText = '预计分钟必须是正整数');
-      return;
-    }
-    Navigator.of(
-      context,
-    ).pop(_NewTaskInput(title: title, estimatedMinutes: minutes));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final errorText = _errorText;
-    return AlertDialog(
-      // 小视口或软键盘弹出时，内容可滚动，标题/输入框/错误提示/按钮仍可访问。
-      scrollable: true,
-      title: const Text('添加任务'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            key: const Key('add-task-title'),
-            controller: _titleController,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: '标题'),
-          ),
-          TextField(
-            key: const Key('add-task-minutes'),
-            controller: _minutesController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: '预计分钟'),
-          ),
-          if (errorText != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                errorText,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+        trailing: _TaskActions(
+          id: task.id,
+          completed: task.isCompleted,
+          onToggle: toggle,
+          onAction: onAction,
         ),
-        FilledButton(onPressed: _submit, child: const Text('添加')),
-      ],
+      ),
     );
   }
+}
+
+class _TaskActions extends StatelessWidget {
+  const _TaskActions({
+    required this.id,
+    required this.completed,
+    this.onToggle,
+    this.onAction,
+  });
+  final String id;
+  final bool completed;
+  final ValueChanged<bool>? onToggle;
+  final ValueChanged<String>? onAction;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (onToggle != null)
+        Checkbox(value: completed, onChanged: (v) => onToggle!(v ?? false))
+      else if (completed)
+        const Icon(Icons.check, semanticLabel: '已完成'),
+      if (onAction != null)
+        PopupMenuButton<String>(
+          key: Key('task-actions-$id'),
+          tooltip: '任务操作',
+          onSelected: onAction,
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'edit', child: Text('编辑 / 安排时间')),
+            PopupMenuItem(value: 'delete', child: Text('删除任务')),
+          ],
+        ),
+    ],
+  );
 }
 
 String _sourceLabel(ScheduleSourceType sourceType) {
   switch (sourceType) {
     case ScheduleSourceType.course:
-      return '课';
+      return '课程';
     case ScheduleSourceType.event:
-      return '事';
+      return '事件';
     case ScheduleSourceType.task:
-      return '任';
+      return '任务';
   }
 }
 
@@ -455,6 +816,22 @@ String _formatDateTime(DateTime dateTime) {
 
 String _formatTime(DateTime dateTime) {
   return '${_two(dateTime.hour)}:${_two(dateTime.minute)}';
+}
+
+String _formatRange(ScheduleItem item) {
+  final start = item.range.start;
+  final end = item.range.end;
+  if (start.year == end.year &&
+      start.month == end.month &&
+      start.day == end.day) {
+    return '${_formatTime(start)} - ${_formatTime(end)}';
+  }
+  if (start.year != end.year) {
+    return '${_formatDateTime(start)} → ${_formatDateTime(end)}';
+  }
+  String short(DateTime value) =>
+      '${_two(value.month)}-${_two(value.day)} ${_formatTime(value)}';
+  return '${short(start)} → ${short(end)}';
 }
 
 String _two(int value) => value.toString().padLeft(2, '0');

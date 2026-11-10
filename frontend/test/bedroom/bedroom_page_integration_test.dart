@@ -38,40 +38,51 @@ void main() {
     const Size(800, 600),
     const Size(1280, 800),
   ]) {
-    testWidgets('assets and shared foot anchor fit viewport $size', (
-      tester,
-    ) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = size;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final movement = PlayerMovementController();
-      await mount(tester, movement);
-      final viewport = tester.getRect(find.byKey(const Key('scene-viewport')));
-      final transform = SceneTransform.fit(viewport.width, viewport.height);
-      final background = tester.getRect(
-        find.byKey(const Key('bedroom-background')),
-      );
-      final player = tester.getRect(find.byKey(const Key('bedroom-player')));
-      expect(background.width, closeTo(transform.sceneRect.width, 1e-6));
-      expect(background.height, closeTo(transform.sceneRect.height, 1e-6));
-      expect(
-        background.left - viewport.left,
-        closeTo(transform.offset.dx, 1e-6),
-      );
-      final footLocal =
-          player.topLeft -
-          viewport.topLeft +
-          SceneGeometry.playerFootAnchor * transform.scale;
-      expect(
-        (footLocal - transform.worldToLocal(movement.footPosition)).distance,
-        lessThan(1e-6),
-      );
-      expect(find.textContaining('加载失败'), findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      movement.dispose();
-    });
+    testWidgets(
+      'cover camera fills viewport and preserves shared foot anchor $size',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = size;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final movement = PlayerMovementController();
+        await mount(tester, movement);
+        final viewport = tester.getRect(
+          find.byKey(const Key('scene-viewport')),
+        );
+        final transform = SceneTransform.cover(
+          viewport.width,
+          viewport.height,
+          worldSize: const Size(
+            SceneGeometry.worldWidth,
+            SceneGeometry.worldHeight,
+          ),
+          focus: movement.footPosition,
+        );
+        final background = tester.getRect(
+          find.byKey(const Key('bedroom-background')),
+        );
+        final player = tester.getRect(find.byKey(const Key('bedroom-player')));
+        expect(background.width, closeTo(transform.sceneRect.width, 1e-6));
+        expect(background.height, closeTo(transform.sceneRect.height, 1e-6));
+        expect(
+          background.left - viewport.left,
+          closeTo(transform.offset.dx, 1e-6),
+        );
+        final footLocal =
+            player.topLeft -
+            viewport.topLeft +
+            SceneGeometry.playerFootAnchor * transform.scale;
+        expect(
+          (footLocal - transform.worldToLocal(movement.footPosition)).distance,
+          lessThan(1e-6),
+        );
+        expect(find.textContaining('加载失败'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        movement.dispose();
+      },
+    );
   }
 
   testWidgets(
@@ -83,7 +94,7 @@ void main() {
       final foot = movement.footPosition;
       expect(foot.dx, lessThan(SceneGeometry.playerStart.dx));
       expect(movement.moveDirection, Offset.zero);
-      expect(find.text('进入菜单'), findsOneWidget);
+      expect(find.text('进入校园大厅'), findsOneWidget);
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(1280, 800);
       addTearDown(tester.view.resetPhysicalSize);
@@ -103,12 +114,12 @@ void main() {
     await mount(tester, movement);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
     await tester.pumpAndSettle();
-    expect(find.text('Menu'), findsNothing);
+    expect(find.byKey(const Key('hall-background')), findsNothing);
     await holdLeft(tester);
     final foot = movement.footPosition;
-    await tester.tap(find.text('进入菜单'));
+    await tester.tap(find.text('进入校园大厅'));
     await tester.pumpAndSettle();
-    expect(find.text('Menu'), findsOneWidget);
+    expect(find.byKey(const Key('hall-background')), findsOneWidget);
     expect(movement.isPaused, isTrue);
     expect(movement.moveDirection, Offset.zero);
     await tester.pageBack();
@@ -121,23 +132,31 @@ void main() {
     movement.dispose();
   });
 
-  testWidgets('letterbox tap is ignored; nearby scene target opens Menu', (
+  testWidgets('far scene tap is ignored; nearby floor target opens hall', (
     tester,
   ) async {
     final movement = PlayerMovementController(start: const Offset(230, 1170));
     await mount(tester, movement);
     final viewport = tester.getRect(find.byKey(const Key('scene-viewport')));
-    final transform = SceneTransform.fit(viewport.width, viewport.height);
-    expect(transform.sceneRect.left, greaterThan(0));
+    final transform = SceneTransform.cover(
+      viewport.width,
+      viewport.height,
+      worldSize: const Size(
+        SceneGeometry.worldWidth,
+        SceneGeometry.worldHeight,
+      ),
+      focus: movement.footPosition,
+    );
+    expect(transform.sceneRect.width, greaterThanOrEqualTo(viewport.width));
     await tester.tapAt(Offset(viewport.left + 1, viewport.center.dy));
     await tester.pumpAndSettle();
-    expect(find.text('Menu'), findsNothing);
+    expect(find.byKey(const Key('hall-background')), findsNothing);
     await tester.tapAt(
       viewport.topLeft +
           transform.worldToLocal(SceneGeometry.menuInteractionPoint),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Menu'), findsOneWidget);
+    expect(find.byKey(const Key('hall-background')), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
@@ -167,32 +186,27 @@ void main() {
     movement.dispose();
   });
 
-  testWidgets(
-    'Windows hides the mobile joystick and centers controls under scene',
-    (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      try {
-        final movement = PlayerMovementController(
-          start: const Offset(230, 1170),
-        );
-        await mount(tester, movement);
-        expect(find.byKey(const Key('movement-joystick')), findsNothing);
-        final background = tester.getRect(
-          find.byKey(const Key('bedroom-background')),
-        );
-        final action = tester.getRect(
-          find.byKey(const Key('menu-interaction')),
-        );
-        expect(action.left, greaterThanOrEqualTo(background.left));
-        expect(action.right, lessThanOrEqualTo(background.right));
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-        movement.dispose();
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    },
-  );
+  testWidgets('Windows uses a floating interaction action without a footer', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      final movement = PlayerMovementController(start: const Offset(230, 1170));
+      await mount(tester, movement);
+      expect(find.byKey(const Key('movement-joystick')), findsNothing);
+      final background = tester.getRect(
+        find.byKey(const Key('bedroom-background')),
+      );
+      final action = tester.getRect(find.byKey(const Key('menu-interaction')));
+      expect(action.left, greaterThanOrEqualTo(background.left));
+      expect(action.right, lessThanOrEqualTo(background.right));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      movement.dispose();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 
   testWidgets('focus loss clears held keyboard input', (tester) async {
     final movement = PlayerMovementController();

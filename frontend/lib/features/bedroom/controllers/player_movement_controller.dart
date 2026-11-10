@@ -32,16 +32,26 @@ enum MoveDirection { up, down, left, right }
 ///    [footPosition]，因输入已清空不会自动续走；
 ///  - [reset] **仅用于明确重新开始**（回 playerStart），普通返回不得调用。
 class PlayerMovementController extends ChangeNotifier {
-  PlayerMovementController({Offset? start})
-    : _footPosition = _checkedStart(start ?? SceneGeometry.playerStart);
+  PlayerMovementController({
+    Offset? start,
+    WalkableArea? area,
+    this.floorVanishingPoint,
+  }) : _resetPosition = area == null
+           ? SceneGeometry.playerStart
+           : (start ?? SceneGeometry.playerStart),
+       _area = area ?? _bedroomArea,
+       _footPosition = _checkedStart(
+         start ?? SceneGeometry.playerStart,
+         area ?? _bedroomArea,
+       );
 
   /// 出生点校验（复审意见 1）：坐标必须有限，且落在可行走区域内
   /// （边界合法，与 WalkableArea.contains 的边界包含语义一致）。
-  static Offset _checkedStart(Offset start) {
+  static Offset _checkedStart(Offset start, WalkableArea area) {
     if (!start.dx.isFinite || !start.dy.isFinite) {
       throw ArgumentError('start must be finite: $start');
     }
-    if (!_area.canOccupy(start)) {
+    if (!area.canOccupy(start)) {
       throw ArgumentError(
         'start must be on clear floor without furniture overlap: $start',
       );
@@ -58,16 +68,30 @@ class PlayerMovementController extends ChangeNotifier {
   /// 摇杆死区（钳制后幅度小于该值视为无输入）。
   static const double joystickDeadZone = 0.15;
 
-  static final WalkableArea _area = WalkableArea(
+  /// 行走动画两步帧的切换间隔（秒）。
+  static const double walkStepInterval = 0.18;
+
+  static final WalkableArea _bedroomArea = WalkableArea(
     SceneGeometry.walkablePolygon,
     bodyBounds: SceneGeometry.playerCollisionBounds,
     floorBounds: SceneGeometry.playerFloorClearance,
     obstacles: SceneGeometry.furnitureObstacles,
   );
 
+  final Offset _resetPosition;
+  final WalkableArea _area;
+
+  /// 地板砖缝透视灭点（世界坐标）。非空时，键盘"上"= 从当前脚底
+  /// 指向灭点的射线方向、"下"= 其反方向，使上下移动沿地砖透视线
+  /// 而非纯竖直；为空保持纯竖直（默认，兼容无透视的场景与测试）。
+  /// 仅作用于键盘适配入口；摇杆为模拟量输入，方向由玩家直接控制。
+  final Offset? floorVanishingPoint;
   Offset _footPosition;
   Offset _direction = Offset.zero; // 统一方向状态（归一化或零向量）
   bool _paused = false;
+  MoveDirection _facing = MoveDirection.down; // 朝向（站立时保持最后方向）
+  int _walkFrame = 0; // 行走帧 0->walk1, 1->walk2
+  double _walkTimer = 0.0; // 行走帧计时器
 
   /// 当前脚底世界坐标（E 的交互距离判定读取此值）。
   Offset get footPosition => _footPosition;
@@ -80,6 +104,14 @@ class PlayerMovementController extends ChangeNotifier {
   /// 是否存在有效方向输入（且未暂停）。
   bool get isMoving => !_paused && _direction != Offset.zero;
 
+  /// 当前朝向（最后一次有效移动方向；站立时保持，不重置为 down）。
+  /// 供 PlayerSprite 选择 down/up/left/right 素材。
+  MoveDirection get facing => _facing;
+
+  /// 当前行走帧：0 -> walk1，1 -> walk2。仅在 [isMoving] 时有意义；
+  /// 站立时恒为 0（配合 isMoving=false 渲染 idle 帧）。
+  int get walkFrame => _walkFrame;
+
   /// 统一移动入口：设置移动方向。
   /// - 分量必须有限，否则抛 [ArgumentError]；
   /// - 零方向 = 停止；
@@ -89,7 +121,30 @@ class PlayerMovementController extends ChangeNotifier {
     if (!direction.dx.isFinite || !direction.dy.isFinite) {
       throw ArgumentError('move direction must be finite: $direction');
     }
-    _direction = _normalizeStable(direction);
+    final dir = _normalizeStable(direction);
+    final wasMoving = _direction != Offset.zero;
+    _direction = dir;
+    if (dir != Offset.zero) {
+      _facing = _dominantDirection(dir);
+      return;
+    }
+    // 停止输入：立即回到站立帧（idle），不保持走路姿势定格，并通知
+    // 视图刷新——松手后 update 不再移动也就不再通知，若这里不通知，
+    // 精灵会一直定格在最后一帧走路图。
+    // 注意：开始/转向不在这里通知（移动中由 update 每帧通知），避免
+    // 对 InteractionController 等监听者产生多余广播。
+    _walkFrame = 0;
+    _walkTimer = 0.0;
+    if (wasMoving) notifyListeners();
+  }
+
+  /// 由归一化方向推导主朝向：取绝对值较大的分量；斜向时按主轴归类，
+  /// 保证 8 方向输入都能落到 down/up/left/right 四种朝向之一。
+  static MoveDirection _dominantDirection(Offset v) {
+    if (v.dx.abs() > v.dy.abs()) {
+      return v.dx > 0 ? MoveDirection.right : MoveDirection.left;
+    }
+    return v.dy > 0 ? MoveDirection.down : MoveDirection.up;
   }
 
   /// 稳定归一化（复审意见 2）：先按最大分量绝对值缩放，再求长度归一。
@@ -106,12 +161,33 @@ class PlayerMovementController extends ChangeNotifier {
 
   /// 键盘适配入口（Windows）：传入当前按下的方向集合，整体替换。
   /// 相反方向在合成向量时抵消；零向量经统一入口转为停止。
+  /// 配置了 [floorVanishingPoint] 时，上/下沿灭点射线（地砖透视线），
+  /// 以当前脚底为起点、按键时刻定格方向；左右保持纯水平。
   void setPressedKeys(Set<MoveDirection> keys) {
     var dx = 0.0, dy = 0.0;
     if (keys.contains(MoveDirection.left)) dx -= 1;
     if (keys.contains(MoveDirection.right)) dx += 1;
-    if (keys.contains(MoveDirection.up)) dy -= 1;
-    if (keys.contains(MoveDirection.down)) dy += 1;
+    final up = keys.contains(MoveDirection.up);
+    final down = keys.contains(MoveDirection.down);
+    final vp = floorVanishingPoint;
+    if (vp != null && (up || down)) {
+      // 沿地板砖缝透视线：上 = 朝灭点，下 = 远离灭点（单位向量，
+      // 与左右分量合成后由统一入口再次归一化，速度恒定不变）。
+      var axis = vp - _footPosition;
+      final len = axis.distance;
+      axis = len > 1e-6 ? axis / len : const Offset(0, -1);
+      if (up) {
+        dx += axis.dx;
+        dy += axis.dy;
+      }
+      if (down) {
+        dx -= axis.dx;
+        dy -= axis.dy;
+      }
+    } else {
+      if (up) dy -= 1;
+      if (down) dy += 1;
+    }
     setMoveDirection(Offset(dx, dy));
   }
 
@@ -156,6 +232,12 @@ class PlayerMovementController extends ChangeNotifier {
     );
     if (next != _footPosition) {
       _footPosition = next;
+      // 行走动画：累积时间，每 walkStepInterval 秒在 walk1/walk2 间切换。
+      _walkTimer += clamped;
+      if (_walkTimer >= walkStepInterval) {
+        _walkTimer -= walkStepInterval;
+        _walkFrame = 1 - _walkFrame;
+      }
       notifyListeners();
     }
   }
@@ -183,7 +265,15 @@ class PlayerMovementController extends ChangeNotifier {
   /// 清除全部方向状态（失焦/离开页面时调用；位置与暂停状态不变）。
   /// 键盘、摇杆、直接方向三入口汇聚于 [_direction]，清它即全清。
   void clearInput() {
+    final hadInput = _direction != Offset.zero;
     _direction = Offset.zero;
+    // 停止时回到站立帧：重置行走帧与计时器，供视图切回 idle。
+    final hadWalkState = _walkFrame != 0 || _walkTimer != 0;
+    _walkFrame = 0;
+    _walkTimer = 0.0;
+    // 只要此前可能有移动/走路画面，就通知视图刷新为 idle；
+    // 否则松手瞬间精灵会定格在走路帧。
+    if (hadInput || hadWalkState) notifyListeners();
   }
 
   /// **仅用于明确重新开始**：清空输入、解除暂停、脚底回到
@@ -192,7 +282,8 @@ class PlayerMovementController extends ChangeNotifier {
   void reset() {
     clearInput();
     _paused = false;
-    _footPosition = SceneGeometry.playerStart;
+    _facing = MoveDirection.down; // 重新开始时回到默认正面朝向
+    _footPosition = _resetPosition;
     notifyListeners();
   }
 }

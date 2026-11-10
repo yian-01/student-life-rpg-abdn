@@ -1,3 +1,6 @@
+// Keep the public named readiness argument separate from its private state.
+// ignore_for_file: prefer_initializing_formals
+
 import '../../../shared/repositories/entity_repository.dart';
 import '../../academic/models/course.dart';
 import '../../academic/models/course_slot.dart';
@@ -14,8 +17,9 @@ class GpaComposition {
     required this.courseRepository,
     required this.scoreScaleMax,
     this.isDemo = false,
+    this.semesterRepository,
     Future<void>? ready,
-  }) : _ready = ready ?? Future.value() {
+  }) : _ready = ready {
     if (!scoreScaleMax.isFinite || scoreScaleMax <= 0) {
       throw ArgumentError.value(scoreScaleMax, 'scoreScaleMax');
     }
@@ -24,6 +28,7 @@ class GpaComposition {
   final EntityRepository<Course> courseRepository;
   final double scoreScaleMax;
   final bool isDemo;
+  final EntityRepository<Semester>? semesterRepository;
   Future<void>? _ready;
 
   Future<GpaController> createController() async {
@@ -34,6 +39,7 @@ class GpaComposition {
     return GpaController(
       courseRepository: courseRepository,
       scoreScaleMax: scoreScaleMax,
+      semesterRepository: semesterRepository,
     );
   }
 

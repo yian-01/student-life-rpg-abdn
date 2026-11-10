@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "entityType": "CampusData",
+  "scoreScaleMax": 4.0,
+  "semesters": [
+    {
+      "id": "sem-2026-autumn",
+      "name": "2026 秋季学期",
+      "startDate": "2026-09-01",
+      "endDate": "2027-01-15",
+      "week1Monday": "2026-08-31"
+    }
+  ],
+  "courses": [
+    {
+      "id": "course-cs101",
+      "semesterId": "sem-2026-autumn",
+      "name": "计算机基础",
+      "credits": 3,
+      "gradePoint": null,
+      "slots": []
+    }
+  ],
+  "events": [],
+  "categories": [
+    {"id": "food", "name": "餐饮", "type": "expense"},
+    {"id": "transport", "name": "交通", "type": "expense"},
+    {"id": "other-expense", "name": "其他支出", "type": "expense"},
+    {"id": "allowance", "name": "生活费", "type": "income"},
+    {"id": "other-income", "name": "其他收入", "type": "income"}
+  ],
+  "records": [
+    {
+      "id": "rec-1",
+      "categoryId": "food",
+      "type": "expense",
+      "amountMinor": 1250,
+      "occurredAt": "2026-10-01T12:30:00.000",
+      "note": null
+    }
+  ]
+}

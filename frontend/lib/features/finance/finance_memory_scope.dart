@@ -1,7 +1,10 @@
 import '../../shared/repositories/entity_repository.dart';
+import 'controllers/budget_controller.dart';
 import 'controllers/finance_controller.dart';
 import 'models/finance_category.dart';
 import 'models/finance_type.dart';
+import 'models/money.dart';
+import 'repositories/budget_repository.dart';
 import 'repositories/in_memory_finance_repositories.dart';
 import 'services/finance_summary_service.dart';
 
@@ -15,12 +18,17 @@ class FinanceMemoryScope {
     bool seedDemoCategories = true,
   }) {
     final recordsHolder = <InMemoryFinanceRecordRepository?>[null];
+    final budgetHolder = <InMemoryBudgetRepository?>[null];
     categories = InMemoryFinanceCategoryRepository(
       referencedCategoryIds: () =>
           recordsHolder[0]?.referencedCategoryIds() ?? <String>{},
+      budgetReferencedCategoryIds: () =>
+          budgetHolder[0]?.referencedCategoryIds() ?? <String>{},
     );
     records = InMemoryFinanceRecordRepository(categories: categories);
     recordsHolder[0] = records;
+    budgets = InMemoryBudgetRepository(categories: categories);
+    budgetHolder[0] = budgets;
     loadBudgetMinor = loadBudget ?? _demoBudget;
     service = FinanceSummaryService(
       records: records,
@@ -31,6 +39,12 @@ class FinanceMemoryScope {
       records: records,
       categories: categories,
       service: service,
+      clock: clock,
+      initialMonth: initialMonth,
+    );
+    budgetController = BudgetController(
+      budgets: budgets,
+      categories: categories,
       clock: clock,
       initialMonth: initialMonth,
     );
@@ -64,27 +78,41 @@ class FinanceMemoryScope {
 
   static void resetShared() {
     _shared?.controller.dispose();
+    _shared?.budgetController.dispose();
     _shared = null;
   }
 
   late final InMemoryFinanceCategoryRepository categories;
   late final InMemoryFinanceRecordRepository records;
+  late final InMemoryBudgetRepository budgets;
   late final Future<int?> Function(DateTime month) loadBudgetMinor;
   late final FinanceSummaryService service;
   late final FinanceController controller;
+  late final BudgetController budgetController;
 
   EntityRepository<FinanceCategory> get categoryRepository => categories;
   FinanceRecordRepository get recordRepository => records;
+  BudgetRepository get budgetRepository => budgets;
 
   void dispose() {
     controller.dispose();
+    budgetController.dispose();
     if (identical(_shared, this)) {
       _shared = null;
     }
   }
 
   Future<int?> _demoBudget(DateTime month) async {
-    // Demo injection only; not a budget CRUD store.
-    return 100000;
+    // 演示模式：未设置任何分类预算时给出 1000 元示例额度；设置后改用真实总和。
+    final start = DateTime(month.year, month.month);
+    final forMonth = (await budgets.list())
+        .where((budget) => budget.month == start)
+        .toList();
+    if (forMonth.isEmpty) return 100000;
+    var total = 0;
+    for (final budget in forMonth) {
+      total = addAmountMinor(total, budget.amountMinor);
+    }
+    return total;
   }
 }

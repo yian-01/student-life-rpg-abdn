@@ -92,14 +92,22 @@ void main() {
     },
   );
 
-  test('unknown category sets error and notifies listeners', () async {
-    final errors = <Object?>[];
-    controller.addListener(() => errors.add(controller.error));
+  test('unknown category exposes saving lifecycle and visible error', () async {
+    final states = <({bool saving, Object? error})>[];
+    controller.addListener(
+      () => states.add((saving: controller.isSaving, error: controller.error)),
+    );
 
-    await controller.addRecord(categoryId: 'ghost', amountText: '5');
+    expect(
+      await controller.addRecord(categoryId: 'ghost', amountText: '5'),
+      isFalse,
+    );
 
     expect(controller.error, isStateError);
-    expect(errors.single, isStateError);
+    expect(states.first.saving, isTrue);
+    expect(states.last.saving, isFalse);
+    expect(states.last.error, isStateError);
+    expect(controller.monthRecords, isEmpty);
   });
 
   test('a later valid submission succeeds after earlier failures', () async {
@@ -123,6 +131,40 @@ void main() {
 
     expect(controller.error, isFormatException);
     expect(controller.monthRecords, isEmpty);
+  });
+
+  test('supplied date is stored and switches the list to its month', () async {
+    expect(
+      await controller.addRecord(
+        categoryId: 'food',
+        amountText: '35.50',
+        occurredAt: DateTime(2026, 9, 30, 12),
+      ),
+      isTrue,
+    );
+
+    expect(controller.error, isNull);
+    expect(controller.month, DateTime(2026, 9));
+    expect(
+      controller.monthRecords.single.occurredAt,
+      DateTime(2026, 9, 30, 12),
+    );
+    expect((await records.list()).single.occurredAt, DateTime(2026, 9, 30, 12));
+  });
+
+  test('invalid occurredAt fails without changing month or writing', () async {
+    expect(
+      await controller.addRecord(
+        categoryId: 'food',
+        amountText: '1',
+        occurredAt: DateTime.utc(2026, 9, 30, 12),
+      ),
+      isFalse,
+    );
+
+    expect(controller.error, isArgumentError);
+    expect(controller.month, DateTime(2026, 10));
+    expect(await records.list(), isEmpty);
   });
 
   test('clock returning an invalid timestamp is surfaced as error', () async {
