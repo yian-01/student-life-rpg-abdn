@@ -1,9 +1,9 @@
 name: Flutter Checks
 on:
   push:
-    branches: [ main, feat/* ]
+    branches: [ main, "feat/**", "fix/**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, "feat/**", "fix/**" ]
 
 jobs:
   build-and-test:
@@ -18,6 +18,10 @@ jobs:
           flutter-version: '3.44.6'
           channel: 'stable'
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed lib test
+      - name: Check formatting
+        shell: bash
+        run: |
+          dart format lib test
+          git diff --exit-code -- lib test
       - run: flutter analyze
       - run: flutter test

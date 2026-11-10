@@ -53,6 +53,43 @@ class Semester {
   final DateTime endDate;
   final DateTime week1Monday;
 
+  /// 该学期第一个合法周次。
+  ///
+  /// 周次从 1 起。`week1Monday` 可能早于 [startDate]，此时第 1 周是部分周，
+  /// 仍然合法。
+  int get firstValidWeek => 1;
+
+  /// 该学期最后一个合法周次（含）。
+  ///
+  /// 第 N 周的周一为 `week1Monday + (N-1)*7`；只要该周一不晚于 [endDate]，
+  /// 这一周就落在学期内——学期首尾都允许是部分周。
+  ///
+  /// 刻意不使用"学期天数 ÷ 7"：那会把首尾的部分周算错，也无法处理
+  /// `week1Monday` 早于 [startDate] 的情形。
+  ///
+  /// `week1Monday` 晚于 [endDate] 时没有可排课的周次，返回 0。
+  int get lastValidWeek {
+    // 用 UTC 日期求差，避免夏令时导致的 23/25 小时偏差。
+    final anchor = DateTime.utc(
+      week1Monday.year,
+      week1Monday.month,
+      week1Monday.day,
+    );
+    final last = DateTime.utc(endDate.year, endDate.month, endDate.day);
+    final days = last.difference(anchor).inDays;
+    if (days < 0) {
+      return 0;
+    }
+    return days ~/ 7 + 1;
+  }
+
+  /// 学期是否有任何可以排课的周次。
+  bool get hasSchedulableWeeks => lastValidWeek >= firstValidWeek;
+
+  /// 可排课周次的说明文字，用于表单提示和报错。
+  String get weekRangeLabel =>
+      hasSchedulableWeeks ? '$firstValidWeek–$lastValidWeek 周' : '无可用周次';
+
   /// 判断 [date] 是否落在学期内（包含首尾）。
   ///
   /// 只比较本地日期，忽略传入值的时间部分。
