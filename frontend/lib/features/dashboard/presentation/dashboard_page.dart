@@ -2,12 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_data.dart';
 import '../../../app/app_routes.dart';
+import '../../academic/models/assignment.dart';
+import '../../academic/models/exam.dart';
+import '../../finance/models/budget.dart';
 import '../../finance/models/monthly_finance_summary.dart';
 import '../../gpa/models/gpa_result.dart';
 import '../models/section_state.dart';
 import '../models/task_metrics.dart';
 import 'dashboard_layout.dart';
 import 'dashboard_section_view.dart';
+
+/// 当天需要展示的学业事项：当天截止的作业与当天进行的考试。
+typedef TodayAgenda = ({List<Assignment> assignments, List<Exam> exams});
+
+/// 财务分区数据：月度汇总、当月分类预算与分类名称。
+///
+/// 预算是分类粒度的，这里不提供“全局预算剩余”，避免把少数分类的预算
+/// 当成全局预算（验收口径 DB07）。
+typedef FinanceOverview = ({
+  MonthlyFinanceSummary summary,
+  List<Budget> budgets,
+  Map<String, String> categoryNames,
+});
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -18,8 +34,9 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   SectionState<TaskMetrics> _tasks = const SectionState.loading();
+  SectionState<TodayAgenda> _agenda = const SectionState.loading();
   SectionState<GpaResult> _gpa = const SectionState.loading();
-  SectionState<MonthlyFinanceSummary> _finance = const SectionState.loading();
+  SectionState<FinanceOverview> _finance = const SectionState.loading();
   int _request = 0;
 
   @override
@@ -32,10 +49,14 @@ class _DashboardPageState extends State<DashboardPage> {
     final request = ++_request;
     setState(() {
       _tasks = const SectionState.loading();
+      _agenda = const SectionState.loading();
       _gpa = const SectionState.loading();
       _finance = const SectionState.loading();
     });
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final month = DateTime(now.year, now.month);
     // Independent sections: a disk failure must not hide academic/finance data.
     await Future.wait([
       _read(
@@ -57,14 +78,57 @@ class _DashboardPageState extends State<DashboardPage> {
         request,
       ),
       _read(
+        () async {
+          final campus = await AppData.campus();
+          final assignments = await campus.assignments.list();
+          final exams = await campus.exams.list();
+          return (
+            // 作业按截止日期归入当天，考试按时间段是否覆盖当天归入。
+            assignments:
+                assignments
+                    .where(
+                      (item) =>
+                          !item.dueAt.isBefore(today) &&
+                          item.dueAt.isBefore(tomorrow),
+                    )
+                    .toList()
+                  ..sort((a, b) => a.dueAt.compareTo(b.dueAt)),
+            exams:
+                exams
+                    .where(
+                      (item) =>
+                          item.range.start.isBefore(tomorrow) &&
+                          item.range.end.isAfter(today),
+                    )
+                    .toList()
+                  ..sort((a, b) => a.range.start.compareTo(b.range.start)),
+          );
+        },
+        (state) => _agenda = state,
+        request,
+      ),
+      _read(
         () async => (await AppData.campus()).gpa.loadGpa(),
         (state) => _gpa = state,
         request,
       ),
       _read(
-        () async => (await AppData.campus()).financeService.loadMonth(
-          DateTime(now.year, now.month),
-        ),
+        () async {
+          final campus = await AppData.campus();
+          final summary = await campus.financeService.loadMonth(month);
+          final budgets = (await campus.budgets.list())
+              .where((budget) => budget.month == month)
+              .toList();
+          final categories = await campus.categories.list();
+          return (
+            summary: summary,
+            budgets: budgets
+              ..sort((a, b) => a.categoryId.compareTo(b.categoryId)),
+            categoryNames: {
+              for (final category in categories) category.id: category.name,
+            },
+          );
+        },
         (state) => _finance = state,
         request,
       ),
@@ -100,6 +164,22 @@ class _DashboardPageState extends State<DashboardPage> {
   );
 
   String _money(int minor) => '¥${(minor / 100).toStringAsFixed(2)}';
+
+  Widget _budgetLine({
+    required Budget budget,
+    required int spentMinor,
+    required String categoryName,
+  }) {
+    final remaining = budget.amountMinor - spentMinor;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        '$categoryName  预算 ${_money(budget.amountMinor)} · '
+        '已用 ${_money(spentMinor)} · '
+        '${remaining < 0 ? '超支 ${_money(-remaining)}' : '剩余 ${_money(remaining)}'}',
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -154,10 +234,34 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
             ),
           ),
-          const DashboardSectionView<void>(
+          DashboardSectionView<TodayAgenda>(
             title: '作业与考试',
-            description: '作业截止和当天考试由学业模块提供；该接口尚未接入，因此这里不显示数据，也不计入任务指标。',
-            state: SectionState<void>.notIntegrated(),
+            description: '作业按截止日期归入当天，考试按当天是否在考试时间段内归入；两者分开显示，不计入任务指标。',
+            state: _agenda,
+            onRetry: _load,
+            contentBuilder: (context, data) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  data.assignments.isEmpty && data.exams.isEmpty
+                      ? '今日暂无作业截止或考试'
+                      : '今日截止作业 ${data.assignments.length} 项 · '
+                            '今日考试 ${data.exams.length} 场',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                for (final assignment in data.assignments)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('作业截止  ${assignment.title}'),
+                  ),
+                for (final exam in data.exams)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('考试  ${exam.title}'),
+                  ),
+                _link(AppRoutes.academic),
+              ],
+            ),
           ),
           DashboardSectionView<GpaResult>(
             title: '学业',
@@ -181,35 +285,48 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
             ),
           ),
-          DashboardSectionView<MonthlyFinanceSummary>(
+          DashboardSectionView<FinanceOverview>(
             title: '本月收支',
+            description: '预算只抵扣对应分类的当月支出；未设置与设置为 0 是两种不同状态。',
             state: _finance,
             onRetry: _load,
-            contentBuilder: (context, data) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${data.month.year} / ${data.month.month}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                Text('收入  ${_money(data.incomeMinor)}'),
-                Text('支出  ${_money(data.expenseMinor)}'),
-                Text('结余  ${_money(data.balanceMinor)}'),
-                // 未设置预算与预算为 0 分开显示，避免把 null 显示成 0。
-                Text(
-                  data.remainingBudgetMinor == null
-                      ? '预算剩余  未设置'
-                      : '预算剩余  ${_money(data.remainingBudgetMinor!)}',
-                ),
-                if (data.incomeMinor == 0 && data.expenseMinor == 0)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Text('本月暂无收支记录（收支为 0）'),
+            contentBuilder: (context, data) {
+              final summary = data.summary;
+              final spentByCategory = {
+                for (final expense in summary.expenseByCategory)
+                  expense.categoryId: expense.amountMinor,
+              };
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${summary.month.year} / ${summary.month.month}',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                _link(AppRoutes.finance),
-              ],
-            ),
+                  const SizedBox(height: 12),
+                  Text('收入  ${_money(summary.incomeMinor)}'),
+                  Text('支出  ${_money(summary.expenseMinor)}'),
+                  Text('结余  ${_money(summary.balanceMinor)}'),
+                  if (summary.incomeMinor == 0 && summary.expenseMinor == 0)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text('本月暂无收支记录（收支为 0）'),
+                    ),
+                  const SizedBox(height: 8),
+                  if (data.budgets.isEmpty)
+                    const Text('本月未设置分类预算')
+                  else
+                    for (final budget in data.budgets)
+                      _budgetLine(
+                        budget: budget,
+                        spentMinor: spentByCategory[budget.categoryId] ?? 0,
+                        categoryName:
+                            data.categoryNames[budget.categoryId] ?? '未分类',
+                      ),
+                  _link(AppRoutes.finance),
+                ],
+              );
+            },
           ),
         ],
       ),
