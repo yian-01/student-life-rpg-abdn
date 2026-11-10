@@ -47,6 +47,9 @@ class FinanceController extends ChangeNotifier {
   bool _disposed = false;
 
   DateTime get month => _month;
+
+  /// 当前时钟读数；用于新建表单“默认今天”等展示默认值。
+  DateTime get now => _clock();
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
   Object? get error => _error;
@@ -68,15 +71,22 @@ class FinanceController extends ChangeNotifier {
 
   Future<void> retry() => _loadCurrent();
 
+  /// 新增收支记录。
+  ///
+  /// [occurredAt] 缺省时使用注入时钟的当前时间；保存成功后列表会切换到该记录
+  /// 所在月份，确保跨月补录后仍能在列表中看到刚录入的记录。
   Future<bool> addRecord({
     required String categoryId,
     required String amountText,
+    DateTime? occurredAt,
     String? note,
   }) => _write(() async {
     final category = await _categories.getById(categoryId);
     if (category == null) throw StateError('Unknown finance category');
     final now = _clock();
     requireLocalDateTime(now, 'now');
+    final effective = occurredAt ?? now;
+    requireLocalDateTime(effective, 'occurredAt');
     _recordSeq++;
     await _records.insert(
       FinanceRecord(
@@ -84,10 +94,11 @@ class FinanceController extends ChangeNotifier {
         categoryId: category.id,
         type: category.type,
         amountMinor: parseAmountMinor(amountText),
-        occurredAt: now,
+        occurredAt: effective,
         note: note == null || note.trim().isEmpty ? null : note.trim(),
       ),
     );
+    _month = DateTime(effective.year, effective.month);
   });
 
   Future<bool> updateRecord(
