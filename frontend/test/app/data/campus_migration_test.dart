@@ -110,6 +110,73 @@ void main() {
     expect(await File('$path.bak').readAsString(), fixture);
   });
 
+  test('有效空 records：空数组可正常读取并升级为 v2', () async {
+    final doc = jsonDecode(fixture) as Map<String, dynamic>;
+    doc['records'] = <dynamic>[];
+    doc['events'] = <dynamic>[];
+    await File(path).writeAsString(jsonEncode(doc));
+
+    final data = open();
+    await data.store.initialize();
+
+    expect(await data.records.list(), isEmpty);
+    expect(await data.events.list(), isEmpty);
+    expect((await data.courses.list()).length, 1);
+
+    final upgraded =
+        jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
+    expect(upgraded['schemaVersion'], 2);
+    expect(upgraded['records'], isEmpty);
+  });
+
+  test('v1 升级保留零绩点，且与未评分可区分；整数金额不丢精度', () async {
+    final doc = jsonDecode(fixture) as Map<String, dynamic>;
+    (doc['courses'] as List).add({
+      'id': 'course-ma101',
+      'semesterId': 'sem-2026-autumn',
+      'name': '高等数学',
+      'credits': 4,
+      'gradePoint': 0,
+      'slots': <dynamic>[],
+    });
+    await File(path).writeAsString(jsonEncode(doc));
+
+    final data = open();
+    await data.store.initialize();
+
+    final courses = await data.courses.list();
+    final zero = courses.firstWhere((c) => c.id == 'course-ma101');
+    expect(zero.gradePoint, 0.0);
+    // 零绩点与未评分必须可区分，不能被统一成 null
+    final ungraded = courses.firstWhere((c) => c.id == 'course-cs101');
+    expect(ungraded.gradePoint, isNull);
+
+    // 金额以最小货币单位按整数保留，迁移不得退化为浮点
+    final record = (await data.records.list()).single;
+    expect(record.amountMinor, 1250);
+  });
+
+  test('跨日考试的时间范围在重开后完整保留', () async {
+    await File(path).writeAsString(fixture);
+    final data = open();
+    await data.exams.insert(
+      Exam(
+        id: 'e-cross',
+        courseId: 'course-cs101',
+        title: '跨日考试',
+        range: TimeRange(
+          start: DateTime(2026, 12, 20, 23, 0),
+          end: DateTime(2026, 12, 21, 1, 0),
+        ),
+      ),
+    );
+
+    final reopened = open();
+    final exam = (await reopened.exams.list()).single;
+    expect(exam.range.start, DateTime(2026, 12, 20, 23, 0));
+    expect(exam.range.end, DateTime(2026, 12, 21, 1, 0));
+  });
+
   test('升级后可插入作业/考试/预算并重启后保留', () async {
     await File(path).writeAsString(fixture);
 
