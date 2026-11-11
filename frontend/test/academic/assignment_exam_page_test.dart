@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
+import 'package:student_life_rpg/features/academic/models/course.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
 import 'package:student_life_rpg/features/academic/presentation/assignment_exam_page.dart';
-import 'package:student_life_rpg/features/academic/repositories/assignment_repository.dart';
-import 'package:student_life_rpg/features/academic/repositories/exam_repository.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
+import '../support/campus_fixture.dart';
+import '../support/in_memory_academic_repositories.dart';
+
+Course _course() => Course(
+  id: 'c1',
+  semesterId: 's1',
+  name: '数据结构',
+  credits: 2,
+  scoreScaleMax: 4,
+  slots: const [],
+);
 
 /// 把编辑器当作真实对话框弹出来，验证保存/取消的记录行为。
 Future<BuildContext> _host(WidgetTester tester) async {
@@ -198,6 +208,111 @@ void main() {
         'a1',
         'a2',
       ]);
+    });
+  });
+
+  testWidgets('连续点击保存只产生一条记录（AC12）', (tester) async {
+    final data = await campusWithCourse();
+    addTearDown(data.dispose);
+    final context = await _host(tester);
+    showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          AssignmentEditor(repository: data.assignments, courseId: 'c1'),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('assignment-title')), '连点测试');
+
+    final save = find.widgetWithText(FilledButton, '保存');
+    await tester.tap(save);
+    // 不等待 settle，模拟快速第二次点击。
+    await tester.tap(save, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    final rows = await data.assignments.listForCourse('c1');
+    expect(rows, hasLength(1), reason: '防重入：连点不应产生两条');
+    expect(rows.single.title, '连点测试');
+  });
+
+  group('跨日与会话时长', () {
+    test('跨过午夜的考试被识别为跨日', () {
+      expect(
+        isCrossDay(DateTime(2026, 11, 3, 23, 30), DateTime(2026, 11, 4, 0, 30)),
+        isTrue,
+      );
+      expect(
+        isCrossDay(DateTime(2026, 11, 3, 9), DateTime(2026, 11, 3, 11)),
+        isFalse,
+      );
+      // 同年同日但不同月/年也必须识别。
+      expect(
+        isCrossDay(DateTime(2026, 12, 31, 22), DateTime(2027, 1, 1, 1)),
+        isTrue,
+      );
+    });
+
+    test('时长文案', () {
+      expect(formatDuration(const Duration(minutes: 30)), '30 分钟');
+      expect(formatDuration(const Duration(hours: 2)), '2 小时');
+      expect(
+        formatDuration(const Duration(hours: 2, minutes: 30)),
+        '2 小时 30 分钟',
+      );
+    });
+
+    testWidgets('跨午夜考试在列表显示跨日标记，点开详情字段完整', (tester) async {
+      final data = await campusWithCourse();
+      addTearDown(data.dispose);
+      await data.exams.insert(
+        Exam(
+          id: 'e1',
+          courseId: 'c1',
+          title: '跨午夜考试',
+          range: TimeRange(
+            start: DateTime(2026, 11, 3, 23, 30),
+            end: DateTime(2026, 11, 4, 0, 30),
+          ),
+          location: '教A101',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          AssignmentExamPage(data: data, course: _course()),
+                    ),
+                  ),
+                  child: const Text('打开'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('打开'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('考试'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('跨日'), findsOneWidget, reason: '列表应标出跨日');
+
+      await tester.tap(find.byKey(const Key('exam-tile-e1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('exam-detail-e1')), findsOneWidget);
+      expect(find.text('是（跨过午夜）'), findsOneWidget);
+      expect(find.text('1 小时'), findsOneWidget);
+      expect(find.text('教A101'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, '关闭'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('exam-detail-e1')), findsNothing);
     });
   });
 }

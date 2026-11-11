@@ -7,6 +7,7 @@ import '../models/semester.dart';
 import '../services/course_reference_guard.dart';
 import 'academic_editors.dart';
 import 'assignment_exam_page.dart';
+import 'timetable_import_page.dart';
 
 class AcademicManagementPage extends StatefulWidget {
   const AcademicManagementPage({super.key, required this.data});
@@ -122,6 +123,16 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
     if (mounted) await _load();
   }
 
+  Future<void> _openTimetableImport() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            TimetableImportPage(data: widget.data, semesters: _semesters),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
@@ -158,7 +169,29 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
         children: [
           if (_busy) const LinearProgressIndicator(),
           if (_error != null)
-            Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                key: const Key('academic-error'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: TabBarView(
               children: [
@@ -210,6 +243,15 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
                       onPressed: _busy ? null : () => _edit(isCourse: true),
                       icon: const Icon(Icons.add),
                       label: const Text('新建课程'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const Key('import-timetable'),
+                      onPressed: _busy || _semesters.isEmpty
+                          ? null
+                          : _openTimetableImport,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('从课表导入'),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),

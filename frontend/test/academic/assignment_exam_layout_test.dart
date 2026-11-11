@@ -6,9 +6,8 @@ import 'package:student_life_rpg/features/academic/models/course.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
 import 'package:student_life_rpg/features/academic/models/semester.dart';
 import 'package:student_life_rpg/features/academic/presentation/assignment_exam_page.dart';
-import 'package:student_life_rpg/features/academic/repositories/assignment_repository.dart';
-import 'package:student_life_rpg/features/academic/repositories/exam_repository.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
+import '../support/in_memory_academic_repositories.dart';
 
 import '../support/campus_fixture.dart';
 

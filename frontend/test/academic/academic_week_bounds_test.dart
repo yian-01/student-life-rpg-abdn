@@ -68,6 +68,17 @@ void main() {
       expect(semester.weekRangeLabel, '无可用周次');
     });
 
+    test('跨年学期（12 月到次年 1 月）周次连续', () {
+      // 2026-12-07 起的 8 周跨到 2027 年。
+      final semester = _semester(
+        start: DateTime(2026, 12, 7),
+        end: DateTime(2027, 1, 31),
+        week1Monday: DateTime(2026, 12, 7),
+      );
+      expect(semester.lastValidWeek, 8);
+      expect(semester.hasSchedulableWeeks, isTrue);
+    });
+
     test('只有一天且是周一锚点时，只有第 1 周', () {
       final semester = _semester(
         start: DateTime(2026, 10, 26),
@@ -146,6 +157,54 @@ void main() {
       for (final bad in ['', '3-1', '0', '1-3,3', '1-9999999', '1,x']) {
         expect(() => parseCourseWeeks(bad), throwsFormatException, reason: bad);
       }
+    });
+  });
+
+  group('parseCourseWeeks：单周与双周', () {
+    test('1-16单 只取奇数周', () {
+      expect(parseCourseWeeks('1-16单'), [
+        for (var week = 1; week <= 15; week += 2) week,
+      ]);
+    });
+
+    test('1-16双 只取偶数周', () {
+      expect(parseCourseWeeks('1-16双'), [
+        for (var week = 2; week <= 16; week += 2) week,
+      ]);
+    });
+
+    test('括号写法与全角括号同样接受', () {
+      expect(parseCourseWeeks('1-8(单)'), [1, 3, 5, 7]);
+      expect(parseCourseWeeks('1-8（双）'), [2, 4, 6, 8]);
+    });
+
+    test('单双周仍受学期上界约束', () {
+      expect(
+        () => parseCourseWeeks('1-16单', maxWeek: 5),
+        throwsFormatException,
+      );
+      expect(parseCourseWeeks('1-5单', maxWeek: 5), [1, 3, 5]);
+    });
+
+    test('重复的单周写法被拒绝', () {
+      expect(() => parseCourseWeeks('1-8单,1-8单'), throwsFormatException);
+    });
+
+    test('区间里没有符合条件的周次时明确报错', () {
+      expect(() => parseCourseWeeks('2-2单'), throwsFormatException);
+      expect(() => parseCourseWeeks('1-1双'), throwsFormatException);
+    });
+
+    test('单双周与普通周次可混写，结果排序', () {
+      expect(parseCourseWeeks('1-6单,2,9'), [1, 2, 3, 5, 9]);
+    });
+
+    test('混写时与普通区间重叠仍按重复拒绝', () {
+      expect(
+        () => parseCourseWeeks('1-6单,2-4'),
+        throwsFormatException,
+        reason: '第 3 周同时被 1-6单 与 2-4 覆盖',
+      );
     });
   });
 

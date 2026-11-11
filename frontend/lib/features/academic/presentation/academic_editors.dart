@@ -115,16 +115,21 @@ class _SemesterEditorState extends State<SemesterEditor> {
   );
 }
 
-/// Accepted grammar: 1-16 or 1,3,5; reject duplicates, reversed/oversized ranges.
+/// Accepted grammar: `1-16`、`1,3,5`、`1-16单`、`1-16双`、`1-16(单)`；
+/// 拒绝重复、倒序、越界与超出学期的周次。
 ///
 /// [maxWeek] 为所选学期的最后合法周次（[Semester.lastValidWeek]）。
-/// 给出时，任何超过它的周次都会被拒绝——五周学期的学期不可能接受 1-999。
+/// 给出时，任何超过它的周次都会被拒绝——五周学期不可能接受 1-999。
 /// 为 null 时只做结构校验，仍保留 1000 这个绝对上限，防止明显荒谬的输入。
 List<int> parseCourseWeeks(String text, {int? maxWeek}) {
   final weeks = <int>{};
   for (final part in text.replaceAll('，', ',').split(',')) {
-    final match = RegExp(r'^\s*(\d+)(?:\s*-\s*(\d+))?\s*$').firstMatch(part);
-    if (match == null) throw const FormatException('周次格式应为 1-16 或 1,3,5');
+    final match = RegExp(
+      r'^\s*(\d+)(?:\s*-\s*(\d+))?\s*(?:[（(]?\s*([单双])\s*[)）]?)?\s*$',
+    ).firstMatch(part);
+    if (match == null) {
+      throw const FormatException('周次格式应为 1-16、1,3,5 或 1-16单/双');
+    }
     final start = int.parse(match[1]!);
     final end = int.parse(match[2] ?? match[1]!);
     if (start < 1 || end < start || end > 1000) {
@@ -139,8 +144,16 @@ List<int> parseCourseWeeks(String text, {int? maxWeek}) {
         throw FormatException('本学期只有 1–$limit 周，周次不能超过 $limit');
       }
     }
+    final parity = match[3];
+    var added = 0;
     for (var i = start; i <= end; i++) {
+      if (parity == '单' && i.isEven) continue;
+      if (parity == '双' && i.isOdd) continue;
       if (!weeks.add(i)) throw const FormatException('周次不能重复');
+      added++;
+    }
+    if (added == 0) {
+      throw FormatException('第 $start–$end 周里没有$parity周，请检查周次写法');
     }
   }
   return weeks.toList()..sort();
@@ -386,10 +399,10 @@ class _CourseEditorState extends State<CourseEditor> {
                     controller: _slots[i].weeks,
                     decoration: InputDecoration(
                       labelText: '周次',
-                      hintText: '1,3 或 1-3',
+                      hintText: '1,3 / 1-3 / 1-16单',
                       helperText: _selectedSemester == null
-                          ? '示例：1,3 表示第 1、3 周；1-3 表示连续第 1 到 3 周'
-                          : '示例：1,3 或 1-3；本学期可用 '
+                          ? '示例：1,3 单独两周；1-3 连续三周；1-16单 单周；1-16双 双周'
+                          : '示例：1,3 / 1-3 / 1-16单；本学期可用 '
                                 '${_selectedSemester!.weekRangeLabel}',
                     ),
                   ),

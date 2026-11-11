@@ -1,10 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
 import 'package:student_life_rpg/features/academic/models/exam.dart';
-import 'package:student_life_rpg/features/academic/repositories/assignment_repository.dart';
-import 'package:student_life_rpg/features/academic/repositories/exam_repository.dart';
 import 'package:student_life_rpg/features/academic/services/course_reference_guard.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
+import '../support/in_memory_academic_repositories.dart';
 
 Assignment _assignment(String id, String courseId, DateTime dueAt) =>
     Assignment(id: id, courseId: courseId, title: '作业 $id', dueAt: dueAt);
