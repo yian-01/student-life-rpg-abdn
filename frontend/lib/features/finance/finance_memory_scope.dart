@@ -3,6 +3,7 @@ import 'controllers/budget_controller.dart';
 import 'controllers/finance_controller.dart';
 import 'models/finance_category.dart';
 import 'models/finance_type.dart';
+import 'models/money.dart';
 import 'repositories/budget_repository.dart';
 import 'repositories/in_memory_finance_repositories.dart';
 import 'services/finance_summary_service.dart';
@@ -33,6 +34,7 @@ class FinanceMemoryScope {
       records: records,
       categories: categories,
       loadBudget: loadBudgetMinor,
+      categoryBudgets: loadBudget == null ? budgets : null,
     );
     controller = FinanceController(
       records: records,
@@ -102,7 +104,16 @@ class FinanceMemoryScope {
   }
 
   Future<int?> _demoBudget(DateTime month) async {
-    // Demo injection only; not a budget CRUD store.
-    return 100000;
+    // 演示模式：未设置任何分类预算时给出 1000 元示例额度；设置后改用真实总和。
+    final start = DateTime(month.year, month.month);
+    final forMonth = (await budgets.list())
+        .where((budget) => budget.month == start)
+        .toList();
+    if (forMonth.isEmpty) return 100000;
+    var total = 0;
+    for (final budget in forMonth) {
+      total = addAmountMinor(total, budget.amountMinor);
+    }
+    return total;
   }
 }

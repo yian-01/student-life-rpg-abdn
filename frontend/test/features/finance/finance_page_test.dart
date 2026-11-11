@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:student_life_rpg/features/finance/controllers/budget_controller.dart';
 import 'package:student_life_rpg/features/finance/finance_memory_scope.dart';
 import 'package:student_life_rpg/features/finance/presentation/finance_page.dart';
 
@@ -18,13 +19,19 @@ void main() {
   Future<void> pumpPage(
     WidgetTester tester, {
     Size size = const Size(800, 1200),
+    BudgetController? budgetController,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
-      MaterialApp(home: FinancePage(controller: scope.controller)),
+      MaterialApp(
+        home: FinancePage(
+          controller: scope.controller,
+          budgetController: budgetController,
+        ),
+      ),
     );
     await tester.pumpAndSettle();
   }
@@ -58,12 +65,114 @@ void main() {
     expect(find.text('暂无记录'), findsOneWidget);
   });
 
+  testWidgets('new record defaults to the injected today', (tester) async {
+    await pumpPage(tester);
+    expect(find.text('2026-10-11'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '3.50');
+    await tester.tap(find.text('添加记录'));
+    await tester.pumpAndSettle();
+
+    expect(
+      (await scope.records.list()).single.occurredAt,
+      DateTime(2026, 10, 11, 12),
+    );
+  });
+
+  testWidgets('month navigation moves the new-record date with it', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.byTooltip('上个月'));
+    await tester.pumpAndSettle();
+    expect(find.text('2026-09'), findsOneWidget);
+    expect(find.text('2026-09-11'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '12');
+    await tester.tap(find.text('添加记录'));
+    await tester.pumpAndSettle();
+
+    expect(scope.controller.month, DateTime(2026, 9));
+    expect(
+      (await scope.records.list()).single.occurredAt,
+      DateTime(2026, 9, 11, 12),
+    );
+  });
+
+  testWidgets('saving a previous-month date switches the list to that month', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.text('2026-10-11'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Previous month'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('保存后将切换到 2026-09'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, '8');
+    await tester.tap(find.text('添加记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026-09'), findsOneWidget);
+    expect(find.text('暂无记录'), findsNothing);
+    expect(find.textContaining('支出 8.00 元'), findsWidgets);
+  });
+
+  testWidgets('per-category budget shows used and remaining in the summary', (
+    tester,
+  ) async {
+    await scope.budgetController.load(month: DateTime(2026, 10));
+    await scope.budgetController.setBudget(
+      categoryId: 'demo-food',
+      amountText: '100',
+    );
+    await scope.controller.addRecord(
+      categoryId: 'demo-food',
+      amountText: '35.50',
+      occurredAt: DateTime(2026, 10, 11, 12),
+    );
+
+    await pumpPage(tester, budgetController: scope.budgetController);
+
+    expect(find.text('已用 35.50 元 · 剩余 64.50 元'), findsOneWidget);
+    expect(find.textContaining('预算剩余 64.50 元'), findsOneWidget);
+    expect(find.textContaining('月预算 100.00 元'), findsOneWidget);
+  });
+
+  testWidgets('editing a budget refreshes the monthly total', (tester) async {
+    await scope.budgetController.load(month: DateTime(2026, 10));
+    await scope.budgetController.setBudget(
+      categoryId: 'demo-food',
+      amountText: '100',
+    );
+    await scope.controller.addRecord(
+      categoryId: 'demo-food',
+      amountText: '35.50',
+      occurredAt: DateTime(2026, 10, 11, 12),
+    );
+
+    await pumpPage(tester, budgetController: scope.budgetController);
+    await tester.tap(find.byTooltip('设置').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('budget-amount')), '200');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已用 35.50 元 · 剩余 164.50 元'), findsOneWidget);
+    expect(find.textContaining('预算剩余 164.50 元'), findsOneWidget);
+  });
+
   testWidgets('narrow window does not overflow', (tester) async {
     await pumpPage(tester, size: const Size(240, 320));
     expect(tester.takeException(), isNull);
     expect(find.textContaining('演示数据'), findsOneWidget);
     final addRecord = find.text('添加记录');
-    await tester.scrollUntilVisible(addRecord, 64);
     await tester.ensureVisible(addRecord);
     await tester.pumpAndSettle();
     await tester.tap(addRecord);

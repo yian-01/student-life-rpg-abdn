@@ -68,7 +68,7 @@ class CampusData {
     financeService = FinanceSummaryService(
       records: records,
       categories: categories,
-      loadBudget: (_) async => null,
+      categoryBudgets: budgets,
     );
     finance = FinanceController(
       records: records,

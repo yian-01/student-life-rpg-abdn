@@ -133,6 +133,40 @@ void main() {
     expect(controller.monthRecords, isEmpty);
   });
 
+  test('supplied date is stored and switches the list to its month', () async {
+    expect(
+      await controller.addRecord(
+        categoryId: 'food',
+        amountText: '35.50',
+        occurredAt: DateTime(2026, 9, 30, 12),
+      ),
+      isTrue,
+    );
+
+    expect(controller.error, isNull);
+    expect(controller.month, DateTime(2026, 9));
+    expect(
+      controller.monthRecords.single.occurredAt,
+      DateTime(2026, 9, 30, 12),
+    );
+    expect((await records.list()).single.occurredAt, DateTime(2026, 9, 30, 12));
+  });
+
+  test('invalid occurredAt fails without changing month or writing', () async {
+    expect(
+      await controller.addRecord(
+        categoryId: 'food',
+        amountText: '1',
+        occurredAt: DateTime.utc(2026, 9, 30, 12),
+      ),
+      isFalse,
+    );
+
+    expect(controller.error, isArgumentError);
+    expect(controller.month, DateTime(2026, 10));
+    expect(await records.list(), isEmpty);
+  });
+
   test('clock returning an invalid timestamp is surfaced as error', () async {
     var brokenClock = false;
     final broken = FinanceController(
