@@ -80,7 +80,10 @@ class FinanceSummaryService {
       }
       for (final expense in expenseByCategory) {
         if (budgets.containsKey(expense.categoryId)) {
-          coveredExpenses = addAmountMinor(coveredExpenses, expense.amountMinor);
+          coveredExpenses = addAmountMinor(
+            coveredExpenses,
+            expense.amountMinor,
+          );
         }
       }
       budgetMinor = budgetTotal;
