@@ -29,7 +29,8 @@ Course _existing({
   double? gradePoint,
   List<CourseSlot>? slots,
 }) => Course(
-  id: id ??
+  id:
+      id ??
       stableImportedCourseId(
         _parse([
           _courseLine(name: '数据结构与算法*', weeks: '1-16周', credits: '3.5'),
@@ -136,7 +137,10 @@ void main() {
       expect(plan.createCount, 2);
       expect(plan.blockedCount, 0);
       expect(
-        coursesFromPlan(plan, scoreScaleMax: 4).map((course) => course.id).toSet(),
+        coursesFromPlan(
+          plan,
+          scoreScaleMax: 4,
+        ).map((course) => course.id).toSet(),
         hasLength(2),
       );
     });
