@@ -34,6 +34,7 @@ class FinanceMemoryScope {
       records: records,
       categories: categories,
       loadBudget: loadBudgetMinor,
+      categoryBudgets: loadBudget == null ? budgets : null,
     );
     controller = FinanceController(
       records: records,

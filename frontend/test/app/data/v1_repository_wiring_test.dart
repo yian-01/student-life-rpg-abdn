@@ -60,12 +60,27 @@ void main() {
             occurredAt: DateTime(2026, 11, 5, 12),
           ),
         );
+        await second.records.insert(
+          FinanceRecord(
+            id: 'wire-unbudgeted-expense',
+            categoryId: 'transport',
+            type: FinanceType.expense,
+            amountMinor: 8000,
+            occurredAt: DateTime(2026, 11, 5, 12),
+          ),
+        );
         final summary = await second.financeService.loadMonth(
           DateTime(2026, 11),
         );
         expect(summary.budgetMinor, 10000);
         expect(summary.remainingBudgetMinor, 6450);
-        expect(summary.expenseByCategory.single.amountMinor, 3550);
+        expect(summary.expenseMinor, 11550);
+        expect(
+          summary.expenseByCategory
+              .singleWhere((expense) => expense.categoryId == 'food')
+              .amountMinor,
+          3550,
+        );
 
         await expectLater(
           second.courses.remove('course-cs101'),

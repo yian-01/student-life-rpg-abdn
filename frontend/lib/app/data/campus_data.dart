@@ -11,7 +11,6 @@ import '../../features/finance/controllers/finance_controller.dart';
 import '../../features/finance/controllers/budget_controller.dart';
 import '../../features/finance/models/finance_category.dart';
 import '../../features/finance/models/finance_record.dart';
-import '../../features/finance/models/money.dart';
 import '../../features/finance/services/finance_summary_service.dart';
 import '../../features/gpa/composition/gpa_composition.dart';
 import '../../features/schedule/composition/schedule_composition.dart';
@@ -69,17 +68,7 @@ class CampusData {
     financeService = FinanceSummaryService(
       records: records,
       categories: categories,
-      loadBudget: (month) async {
-        final start = DateTime(month.year, month.month);
-        var total = 0;
-        var hasBudget = false;
-        for (final budget in await budgets.list()) {
-          if (budget.month != start) continue;
-          hasBudget = true;
-          total = addAmountMinor(total, budget.amountMinor);
-        }
-        return hasBudget ? total : null;
-      },
+      categoryBudgets: budgets,
     );
     finance = FinanceController(
       records: records,
