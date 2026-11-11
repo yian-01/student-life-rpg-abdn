@@ -17,13 +17,14 @@ class ConflictDetails extends StatelessWidget {
     final byId = {for (final item in items) item.id: item};
     String label(String id) {
       final item = byId[id]!;
-      final type =
-          typeLabels[id] ??
-          switch (item.sourceType) {
-            ScheduleSourceType.course => '课程',
-            ScheduleSourceType.task => '任务',
-            ScheduleSourceType.event => '事件',
-          };
+      const sourceLabels = {
+        'course': '课程',
+        'task': '任务',
+        'event': '事件',
+        'exam': '考试',
+      };
+      final source = item.sourceType.name;
+      final type = typeLabels[id] ?? sourceLabels[source] ?? source;
       return '$type · ${item.title}（${item.sourceId}）';
     }
 

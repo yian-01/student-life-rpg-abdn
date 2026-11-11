@@ -282,9 +282,7 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
               ),
             ),
           ] else ...[
-            const Text(
-              '打开华师教务系统，在学校页面登录并进入个人课表，再点「读取当前课表」。',
-            ),
+            const Text('打开华师教务系统，在学校页面登录并进入个人课表，再点「读取当前课表」。'),
             const SizedBox(height: 8),
             TextField(
               key: const Key('timetable-url'),

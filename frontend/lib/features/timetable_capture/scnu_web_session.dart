@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'timetable_page_capture.dart';
 
@@ -24,10 +25,7 @@ class ScnuWebSession implements AuthenticatedPageSession {
   final BuildContext context;
 
   @override
-  Future<PageSnapshot> openAndRead(
-    Uri url, {
-    required Duration timeout,
-  }) async {
+  Future<PageSnapshot> openAndRead(Uri url, {required Duration timeout}) async {
     if (!isScnuTimetableUrl(url)) {
       throw const TimetableCaptureException(CaptureErrorCode.invalidUrl);
     }
@@ -96,14 +94,33 @@ class _ScnuBrowserState extends State<_ScnuBrowser> {
   bool _loading = true;
   bool _reading = false;
   String? _error;
-  late final Future<bool> _runtime = _hasRuntime();
+  late final Future<WebViewEnvironment?> _environment = _openEnvironment();
 
-  Future<bool> _hasRuntime() async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return true;
+  Future<WebViewEnvironment?> _openEnvironment() async {
+    if (defaultTargetPlatform != TargetPlatform.windows) return null;
+    if (await WebViewEnvironment.getAvailableVersion() == null) {
+      throw StateError('WebView2 Runtime unavailable');
+    }
+    final support = await getApplicationSupportDirectory();
+    return WebViewEnvironment.create(
+      settings: WebViewEnvironmentSettings(
+        userDataFolder: '${support.path}\\scnu-webview',
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_disposeEnvironment());
+    super.dispose();
+  }
+
+  Future<void> _disposeEnvironment() async {
     try {
-      return await WebViewEnvironment.getAvailableVersion() != null;
+      final environment = await _environment;
+      await environment?.dispose();
     } catch (_) {
-      return false;
+      // Runtime setup may already have failed.
     }
   }
 
@@ -139,9 +156,9 @@ class _ScnuBrowserState extends State<_ScnuBrowser> {
         });
         return;
       }
-      Navigator.of(context).pop(
-        PageSnapshot(finalUrl: url, text: grid, mimeType: 'text/html'),
-      );
+      Navigator.of(
+        context,
+      ).pop(PageSnapshot(finalUrl: url, text: grid, mimeType: 'text/html'));
     } on TimeoutException {
       unawaited(_stopLoading(controller));
       if (mounted) setState(() => _error = '读取课表超时，请重试。');
@@ -180,20 +197,18 @@ class _ScnuBrowserState extends State<_ScnuBrowser> {
       actions: [
         IconButton(
           tooltip: '重新打开课表网址',
-          onPressed: _controller == null || _reading
-              ? null
-              : _reload,
+          onPressed: _controller == null || _reading ? null : _reload,
           icon: const Icon(Icons.refresh),
         ),
       ],
     ),
-    body: FutureBuilder<bool>(
-      future: _runtime,
+    body: FutureBuilder<WebViewEnvironment?>(
+      future: _environment,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.data != true) {
+        if (snapshot.hasError) {
           return const Center(
             child: Text('需要 Microsoft Edge WebView2 Runtime。安装后重试，或返回粘贴课表文本。'),
           );
@@ -205,6 +220,7 @@ class _ScnuBrowserState extends State<_ScnuBrowser> {
               Padding(padding: const EdgeInsets.all(8), child: Text(error)),
             Expanded(
               child: InAppWebView(
+                webViewEnvironment: snapshot.data,
                 initialUrlRequest: URLRequest(
                   url: WebUri(widget.url.toString()),
                 ),

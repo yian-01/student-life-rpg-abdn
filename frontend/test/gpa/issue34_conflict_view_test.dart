@@ -9,7 +9,11 @@ void main() {
     'same-name three-way overlap counts pairs with explicit exam label',
     (tester) async {
       final items = [
-        for (final type in ScheduleSourceType.values)
+        for (final type in [
+          ScheduleSourceType.course,
+          ScheduleSourceType.task,
+          ScheduleSourceType.event,
+        ])
           ScheduleItem(
             id: type.name,
             sourceId: type.name,

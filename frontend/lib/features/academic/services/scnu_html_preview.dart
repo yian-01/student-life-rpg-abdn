@@ -80,7 +80,7 @@ TimetableParseResult parseScnuHtml(
   // Expose as issues; never silently drop or invent identity/credits.
   if (html.contains('其它课程') || html.contains('其他课程')) {
     issues.add(
-      const TimetableIssue(0, '存在无固定时段的其它课程，请在预览中补充来源身份和学分；尚未包含在可保存课程中'),
+      const TimetableIssue(0, '课表含无固定时段的其它课程，缺少可用的教学班标识，本次未导入，请手动添加。'),
     );
   }
   return TimetableParseResult(

@@ -29,7 +29,9 @@ class ScnuTimetableHtmlLoader implements TimetableHtmlLoader {
       );
       return captured.text;
     } on TimetableCaptureException catch (error) {
-      throw TimetableLoadException(TimetableLoadError.values.byName(error.code.name));
+      throw TimetableLoadException(
+        TimetableLoadError.values.byName(error.code.name),
+      );
     }
   }
 }
@@ -38,12 +40,16 @@ TimetablePageKind classifyScnuTimetablePage(PageSnapshot page) {
   if (!isScnuBrowserUrl(page.finalUrl)) return TimetablePageKind.unsupported;
   if (isScnuTimetableUrl(page.finalUrl) &&
       page.mimeType == 'text/html' &&
-      RegExp(r'''<table\b[^>]*\bid=["']kbgrid_table_0["']''',
+      RegExp(
+        r'''<table\b[^>]*\bid=["']kbgrid_table_0["']''',
         caseSensitive: false,
       ).hasMatch(page.text)) {
     return TimetablePageKind.timetable;
   }
-  if (RegExp(r'''type=["']password["']''', caseSensitive: false).hasMatch(page.text)) {
+  if (RegExp(
+    r'''type=["']password["']''',
+    caseSensitive: false,
+  ).hasMatch(page.text)) {
     return TimetablePageKind.login;
   }
   return TimetablePageKind.unsupported;

@@ -12,8 +12,10 @@ class _SnapshotSession implements AuthenticatedPageSession {
   final PageSnapshot page;
 
   @override
-  Future<PageSnapshot> openAndRead(Uri url, {required Duration timeout}) async =>
-      page;
+  Future<PageSnapshot> openAndRead(
+    Uri url, {
+    required Duration timeout,
+  }) async => page;
 }
 
 void main() {
@@ -42,7 +44,9 @@ void main() {
       'test/fixtures/issue34/scnu_deidentified.html',
     ).readAsStringSync();
     final loader = ScnuTimetableHtmlLoader(
-      _SnapshotSession(PageSnapshot(finalUrl: url, text: html, mimeType: 'text/html')),
+      _SnapshotSession(
+        PageSnapshot(finalUrl: url, text: html, mimeType: 'text/html'),
+      ),
     );
     final result = const ScnuTimetableHtmlParser().parse(
       await loader.load(url),
@@ -65,7 +69,9 @@ void main() {
       );
       await expectLater(
         loader.load(url),
-        throwsA(isA<TimetableLoadException>().having((e) => e.error, 'error', error)),
+        throwsA(
+          isA<TimetableLoadException>().having((e) => e.error, 'error', error),
+        ),
       );
     }
 
