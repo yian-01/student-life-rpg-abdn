@@ -133,6 +133,7 @@ class CampusStore {
         if (row is! Map<String, dynamic>) {
           throw FormatException('Invalid $table row');
         }
+        final Object? rowId = row['id'];
         switch (table) {
           case 'semesters':
             Semester.fromJson(row);
@@ -150,9 +151,18 @@ class CampusStore {
             FinanceRecord.fromJson(row);
           case 'budgets':
             // 预算行沿用 finance 模块模型，额外带派生 `id`（= 唯一键）。
-            Budget.fromJson(Map<String, dynamic>.from(row)..remove('id'));
+            // id 必须等于模型推导出的键，否则按 id 查找与按键写入会不一致。
+            final budget = Budget.fromJson(
+              Map<String, dynamic>.from(row)..remove('id'),
+            );
+            if (rowId != budget.key) {
+              throw const FormatException(
+                'Budget row id must equal its category/month key',
+              );
+            }
         }
-        if (!ids.add(row['id'] as String)) {
+        if (rowId is! String) throw FormatException('Missing $table ID');
+        if (!ids.add(rowId)) {
           throw FormatException('Duplicate $table ID');
         }
       }

@@ -1,7 +1,23 @@
 # I：单日日程
 
-状态：随 Issue #9 分支 `feat/9-task-day-schedule` 提交。真实课程发生项依赖 #10（G），
-持久化依赖 #7（O），当前用注入回调与内存仓库。
+当前增量：#32，基于 #58 候选 `e0e38b5`，分支 `fix/v1-schedule-followup`。
+生产宿主使用同一 `CampusData` 的课程／事件／考试／作业仓库及独立的文件 TaskRepository。
+本次共享模型增量须由组长和 #34／共享维护者复核，尚未表示候选已合入集成分支。
+
+## 2026-11-06 日程接口增量
+
+冻结契约中的本地时间、半开区间、JSON、错误及 ID 规则继续适用。本轮按 #29/#32 的11月整改要求新增：
+
+- `ScheduleSourceType.exam` 追加在 `task` 后；未改变既有枚举顺序。
+- `DayScheduleService`／`ScheduleComposition` 可选注入 `EntityRepository<Exam>? examRepository`、`EntityRepository<Assignment>? assignmentRepository`，正式 `CampusData.schedule(tasks)` 注入 `data.exams`／`data.assignments`。
+- `DaySchedule.assignmentDeadlines`：不可变 `List<Assignment>`，按 `[dayStart, dayEnd)` 筛选 `dueAt`，按截止时间／ID排序。不构造时间范围，不复制 Task，不参与冲突，不假设尚未接入的作业提交状态。
+- `DaySchedule.errors`：不可变 `Map<ScheduleDataSource, Object>`，来源为 courses/events/tasks/exams/assignments，保存原始异常；错误来源不能作为成功空列表解读。健康来源正常显示，界面分别提示任务与校园数据失败。
+- `TaskScheduleAdapter.examToScheduleItem(Exam)` 保留原始 `sourceId=exam.id` 与完整 `range`，派生 ID 为 `exam:<Uri.encodeComponent(exam.id)>:YYYYMMDD:HHmmssffffff`；小数部分沿用毫秒乘1000加微秒。跨日查询不改变该ID，源时间修改后重新生成。
+- 同日起读取错误时保留该来源上次成功数据并显示错误；切日期不携带旧日期数据。恢复成功后从真实仓库重新加载，不复用失败来源的旧快照。
+- 日程中的课程／事件／考试分别打开原实体详情；作业截止打开原作业；任务使用任务编辑器。课程修改经 `/academic` 正式管理和引用校验，不直接写课程。
+- `ScheduleRecordController<T>` 通过 `EntityRepository<T>` 读取／删除原实体，错误可重试、删除防重。复用既有考试／作业／事件编辑器保留失败草稿。
+
+根装配的必要增量位于 `app/data/campus_data.dart` 与 `app/task_schedule_host.dart`，没有修改存储格式、文件仓库或冲突算法。Dashboard 接入仍由 #35 负责。
 
 ## 输入与组合
 
@@ -34,7 +50,7 @@ dayEnd   = 次日本地 00:00
 
 ## 排序
 
-日程项依次按 `range.start`、`range.end`、sourceType（course、event、task）、`id`。
+日程项依次按 `range.start`、`range.end`、sourceType（course、event、task、exam）、`id`。
 未安排任务按非空 `dueAt` 升序、空 `dueAt` 最后、再按 `id`。
 
 ## 页面状态

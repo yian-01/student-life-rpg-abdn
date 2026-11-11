@@ -68,7 +68,7 @@ class CampusData {
     financeService = FinanceSummaryService(
       records: records,
       categories: categories,
-      loadBudget: (_) async => null,
+      categoryBudgets: budgets,
     );
     finance = FinanceController(
       records: records,
@@ -96,6 +96,8 @@ class CampusData {
     taskRepository: tasks,
     eventRepository: events,
     courseOccurrencesForDate: courseOccurrences,
+    examRepository: exams,
+    assignmentRepository: assignments,
   );
 
   Future<List<ScheduleItem>> courseOccurrences(DateTime date) async {

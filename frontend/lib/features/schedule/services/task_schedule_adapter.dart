@@ -1,11 +1,20 @@
 import '../../../shared/models/schedule_item.dart';
+import '../../academic/models/exam.dart';
 import '../models/event.dart';
 import '../models/task.dart';
 
-/// 把 Event 和已排程 Task 归一为共享 [ScheduleItem]。
+/// 把 Event、Exam 和已排程 Task 归一为共享 [ScheduleItem]。
 /// 未排程 Task 不产生日程项；本适配器只做映射，不创建占位时间。
 class TaskScheduleAdapter {
   const TaskScheduleAdapter();
+
+  ScheduleItem examToScheduleItem(Exam exam) => ScheduleItem(
+    id: buildItemId(ScheduleSourceType.exam, exam.id, exam.range.start),
+    sourceId: exam.id,
+    sourceType: ScheduleSourceType.exam,
+    title: exam.title,
+    range: exam.range,
+  );
 
   ScheduleItem eventToScheduleItem(Event event) {
     return ScheduleItem(

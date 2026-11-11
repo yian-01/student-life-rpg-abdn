@@ -125,12 +125,26 @@ class _BudgetEditorDialogState extends State<BudgetEditorDialog> {
   }
 }
 
-/// 可嵌入页面的分类月度预算区块：列出支出类别的已设置/未设置状态，
+/// 可嵌入页面的分类月度预算区块：列出支出类别的预算、已用、剩余/超支状态，
 /// 并提供设置与清除入口。
+///
+/// [spentByCategory] 来自月度汇总的分类支出（`expenseByCategory`），因此页面和
+/// 总览共用同一套金额算法，不在本组件内重复汇总。
 class BudgetSection extends StatefulWidget {
-  const BudgetSection({super.key, required this.controller});
+  const BudgetSection({
+    super.key,
+    required this.controller,
+    this.spentByCategory = const {},
+    this.month,
+  });
 
   final BudgetController controller;
+
+  /// 类别 ID → 本月已用金额（分）。收入和其他类别的支出不在此抵消预算。
+  final Map<String, int> spentByCategory;
+
+  /// 与页面总览保持一致的本地月份；为空时沿用控制器当前月份。
+  final DateTime? month;
 
   @override
   State<BudgetSection> createState() => _BudgetSectionState();
@@ -142,8 +156,16 @@ class _BudgetSectionState extends State<BudgetSection> {
     super.initState();
     widget.controller.addListener(_onChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.controller.load();
+      if (mounted) widget.controller.load(month: widget.month);
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant BudgetSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.month != oldWidget.month) {
+      widget.controller.load(month: widget.month);
+    }
   }
 
   @override
@@ -205,11 +227,26 @@ class _BudgetSectionState extends State<BudgetSection> {
           ...categories.map((category) {
             final isSet = controller.isBudgetSet(category.id);
             final amount = controller.budgetFor(category.id);
+            final spent = widget.spentByCategory[category.id] ?? 0;
+            final remaining = isSet ? amount! - spent : null;
+            final overspent = remaining != null && remaining < 0;
+            final status = !isSet
+                ? '未设置预算 · 已用 ${formatAmountMinor(spent)} 元'
+                : overspent
+                ? '已用 ${formatAmountMinor(spent)} 元 · 超支 ${formatAmountMinor(-remaining)} 元'
+                : '已用 ${formatAmountMinor(spent)} 元 · 剩余 ${formatAmountMinor(remaining!)} 元';
             return ListTile(
+              key: Key('budget-row-${category.id}'),
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text(category.name, overflow: TextOverflow.ellipsis),
-              subtitle: Text(isSet ? '已设置' : '未设置'),
+              subtitle: Text(
+                status,
+                key: Key('budget-status-${category.id}'),
+                style: overspent
+                    ? TextStyle(color: Theme.of(context).colorScheme.error)
+                    : null,
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

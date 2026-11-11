@@ -6,6 +6,8 @@ import 'package:student_life_rpg/features/academic/models/assignment.dart';
 import 'package:student_life_rpg/features/academic/repositories/assignment_repository.dart';
 import 'package:student_life_rpg/features/academic/repositories/exam_repository.dart';
 import 'package:student_life_rpg/features/finance/models/budget.dart';
+import 'package:student_life_rpg/features/finance/models/finance_record.dart';
+import 'package:student_life_rpg/features/finance/models/finance_type.dart';
 import 'package:student_life_rpg/features/finance/repositories/campus_budget_repository.dart';
 import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
@@ -48,6 +50,38 @@ void main() {
         );
         await second.budgetController.load(month: DateTime(2026, 11));
         expect(second.budgetController.budgetFor('food'), 10000);
+
+        await second.records.insert(
+          FinanceRecord(
+            id: 'wire-expense',
+            categoryId: 'food',
+            type: FinanceType.expense,
+            amountMinor: 3550,
+            occurredAt: DateTime(2026, 11, 5, 12),
+          ),
+        );
+        await second.records.insert(
+          FinanceRecord(
+            id: 'wire-unbudgeted-expense',
+            categoryId: 'transport',
+            type: FinanceType.expense,
+            amountMinor: 8000,
+            occurredAt: DateTime(2026, 11, 5, 12),
+          ),
+        );
+        final summary = await second.financeService.loadMonth(
+          DateTime(2026, 11),
+        );
+        expect(summary.budgetMinor, 10000);
+        expect(summary.remainingBudgetMinor, 6450);
+        expect(summary.expenseMinor, 11550);
+        expect(
+          summary.expenseByCategory
+              .singleWhere((expense) => expense.categoryId == 'food')
+              .amountMinor,
+          3550,
+        );
+
         await expectLater(
           second.courses.remove('course-cs101'),
           throwsStateError,

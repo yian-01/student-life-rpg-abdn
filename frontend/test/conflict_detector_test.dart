@@ -123,8 +123,11 @@ void main() {
     ];
     expect(pairs(findConflicts(items)), [
       'course|event',
+      'course|exam',
       'course|task',
+      'event|exam',
       'event|task',
+      'exam|task',
     ]);
   });
 }

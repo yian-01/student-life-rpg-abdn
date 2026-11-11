@@ -2,11 +2,12 @@ import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/finance_controller.dart';
+import '../controllers/budget_controller.dart';
+import '../../../shared/presentation/civil_datetime_field.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import 'finance_record_editor.dart';
 import 'category_manager.dart';
 import 'budget_editor.dart';
-import '../controllers/budget_controller.dart';
 import '../finance_memory_scope.dart';
 import '../models/finance_category.dart';
 import '../models/finance_record.dart';
@@ -35,10 +36,13 @@ class FinancePage extends StatefulWidget {
 class _FinancePageState extends State<FinancePage> {
   late final FinanceController _controller;
   late final bool _ownsController;
+  late final BudgetController? _budgetController;
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   FinanceType _selectedType = FinanceType.expense;
   String? _selectedCategoryId;
+  late DateTime _recordDate;
+  bool _budgetWasSaving = false;
 
   @override
   void initState() {
@@ -51,20 +55,31 @@ class _FinancePageState extends State<FinancePage> {
       _controller = FinanceMemoryScope.shared.controller;
       _ownsController = false;
     }
+    _recordDate = _controller.now;
+    _budgetController =
+        widget.budgetController ??
+        (injected == null ? FinanceMemoryScope.shared.budgetController : null);
     _controller.addListener(_onChanged);
-    widget.budgetController?.addListener(_onBudgetChanged);
+    _budgetController?.addListener(_onBudgetChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _controller.load();
     });
   }
 
   void _onBudgetChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final saving = _budgetController?.isSaving ?? false;
+    // 预算保存完成后重新读取月汇总，使总额剩余与分类状态一致。
+    if (_budgetWasSaving && !saving) {
+      _controller.refresh();
+    }
+    _budgetWasSaving = saving;
+    setState(() {});
   }
 
   @override
   void dispose() {
-    widget.budgetController?.removeListener(_onBudgetChanged);
+    _budgetController?.removeListener(_onBudgetChanged);
     _controller.removeListener(_onChanged);
     _amountController.dispose();
     _noteController.dispose();
@@ -86,6 +101,26 @@ class _FinancePageState extends State<FinancePage> {
       }
     });
   }
+
+  void _changeMonth(int delta) {
+    final target = DateTime(
+      _controller.month.year,
+      _controller.month.month + delta,
+    );
+    setState(() => _recordDate = _dateInMonth(_recordDate, target));
+    _controller.load(month: target);
+  }
+
+  static DateTime _dateInMonth(DateTime date, DateTime month) {
+    final lastDay = DateTime(month.year, month.month + 1, 0).day;
+    final day = date.day > lastDay ? lastDay : date.day;
+    return DateTime(month.year, month.month, day, date.hour, date.minute);
+  }
+
+  Map<String, int> _spentByCategory() => {
+    for (final expense in _controller.summary?.expenseByCategory ?? const [])
+      expense.categoryId: expense.amountMinor,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -111,167 +146,155 @@ class _FinancePageState extends State<FinancePage> {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              return ListView(
+              return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                children: [
-                  ModuleNotice(
-                    widget.isPersistent
-                        ? '收支记录与分类预算保存在本机。'
-                        : '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        tooltip: '上个月',
-                        onPressed: _controller.isLoading
-                            ? null
-                            : () => _controller.load(
-                                month: DateTime(
-                                  _controller.month.year,
-                                  _controller.month.month - 1,
-                                ),
-                              ),
-                        icon: const Icon(Icons.chevron_left),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '${_controller.month.year}-${_controller.month.month.toString().padLeft(2, '0')}',
-                          textAlign: TextAlign.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ModuleNotice(
+                      widget.isPersistent
+                          ? '收支记录与分类预算保存在本机。'
+                          : '演示数据：账本记录仅存内存，关闭应用后重置。分类为示例，演示预算为 1000 元。',
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          tooltip: '上个月',
+                          onPressed: _controller.isLoading
+                              ? null
+                              : () => _changeMonth(-1),
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${_controller.month.year}-${_controller.month.month.toString().padLeft(2, '0')}',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '下个月',
+                          onPressed: _controller.isLoading
+                              ? null
+                              : () => _changeMonth(1),
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_controller.isLoading) const Text('加载中'),
+                    if (_controller.error != null) ...[
+                      Text(
+                        '错误：${_controller.error}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-                      IconButton(
-                        tooltip: '下个月',
-                        onPressed: _controller.isLoading
-                            ? null
-                            : () => _controller.load(
-                                month: DateTime(
-                                  _controller.month.year,
-                                  _controller.month.month + 1,
-                                ),
-                              ),
-                        icon: const Icon(Icons.chevron_right),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: _controller.retry,
+                          child: const Text('重试'),
+                        ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (_controller.isLoading) const Text('加载中'),
-                  if (_controller.error != null) ...[
-                    Text(
-                      '错误：${_controller.error}',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+                    _SummaryCard(summary: _controller.summary),
+                    if (_budgetController != null) ...[
+                      const SizedBox(height: 12),
+                      BudgetSection(
+                        controller: _budgetController,
+                        month: _controller.month,
+                        spentByCategory: _spentByCategory(),
                       ),
+                    ],
+                    const SizedBox(height: 16),
+                    _AddRecordForm(
+                      categories: _controller.categoriesFor(_selectedType),
+                      selectedType: _selectedType,
+                      selectedCategoryId: _selectedCategoryId,
+                      amountController: _amountController,
+                      noteController: _noteController,
+                      date: _recordDate,
+                      viewedMonth: _controller.month,
+                      onDateChanged: (value) =>
+                          setState(() => _recordDate = value),
+                      onTypeChanged: (type) {
+                        setState(() {
+                          _selectedType = type;
+                          final matching = _controller.categoriesFor(type);
+                          _selectedCategoryId = matching.isEmpty
+                              ? null
+                              : matching.first.id;
+                        });
+                      },
+                      onCategoryChanged: (id) {
+                        setState(() => _selectedCategoryId = id);
+                      },
+                      onSubmit:
+                          _selectedCategoryId == null ||
+                              _controller.isSaving ||
+                              _controller.isLoading
+                          ? null
+                          : () async {
+                              final saved = await _controller.addRecord(
+                                categoryId: _selectedCategoryId!,
+                                amountText: _amountController.text,
+                                occurredAt: _recordDate,
+                                note: _noteController.text,
+                              );
+                              if (!mounted) return;
+                              if (saved) {
+                                _amountController.clear();
+                                _noteController.clear();
+                              }
+                            },
                     ),
+                    const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton(
-                        onPressed: _controller.retry,
-                        child: const Text('重试'),
+                        onPressed: _controller.refresh,
+                        child: const Text('刷新'),
                       ),
                     ),
+                    const Text('本月记录'),
+                    const SizedBox(height: 8),
+                    if (_controller.monthRecords.isEmpty)
+                      const Text('暂无记录')
+                    else
+                      ..._controller.monthRecords.map(
+                        (record) => _RecordTile(
+                          record,
+                          categoryName:
+                              _controller.availableCategories
+                                  .where((c) => c.id == record.categoryId)
+                                  .map((c) => c.name)
+                                  .firstOrNull ??
+                              record.categoryId,
+                          onAction: _controller.isSaving
+                              ? null
+                              : (action) async {
+                                  if (action == 'edit') {
+                                    await showDialog<bool>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (_) => FinanceRecordEditor(
+                                        controller: _controller,
+                                        record: record,
+                                      ),
+                                    );
+                                  } else if (await confirmRemoval(
+                                        context,
+                                        '这笔收支记录',
+                                      ) &&
+                                      mounted) {
+                                    await _controller.removeRecord(record.id);
+                                  }
+                                },
+                        ),
+                      ),
+                    SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
                   ],
-                  _SummaryCard(summary: _controller.summary),
-                  if (widget.budgetController != null)
-                    TextButton.icon(
-                      icon: const Icon(Icons.account_balance_wallet),
-                      label: const Text('分类月度预算'),
-                      onPressed: () async {
-                        final budgets = widget.budgetController!;
-                        await budgets.load(month: _controller.month);
-                        if (!context.mounted) return;
-                        if (budgets.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('预算读取失败，请重试')),
-                          );
-                          return;
-                        }
-                        await showBudgetEditor(context, controller: budgets);
-                        await _controller.retry();
-                      },
-                    ),
-                  const SizedBox(height: 16),
-                  _AddRecordForm(
-                    categories: _controller.categoriesFor(_selectedType),
-                    selectedType: _selectedType,
-                    selectedCategoryId: _selectedCategoryId,
-                    amountController: _amountController,
-                    noteController: _noteController,
-                    onTypeChanged: (type) {
-                      setState(() {
-                        _selectedType = type;
-                        final matching = _controller.categoriesFor(type);
-                        _selectedCategoryId = matching.isEmpty
-                            ? null
-                            : matching.first.id;
-                      });
-                    },
-                    onCategoryChanged: (id) {
-                      setState(() => _selectedCategoryId = id);
-                    },
-                    onSubmit:
-                        _selectedCategoryId == null ||
-                            _controller.isSaving ||
-                            _controller.isLoading
-                        ? null
-                        : () async {
-                            final saved = await _controller.addRecord(
-                              categoryId: _selectedCategoryId!,
-                              amountText: _amountController.text,
-                              note: _noteController.text,
-                            );
-                            if (!mounted) return;
-                            if (saved) {
-                              _amountController.clear();
-                              _noteController.clear();
-                            }
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: _controller.refresh,
-                      child: const Text('刷新'),
-                    ),
-                  ),
-                  const Text('本月记录'),
-                  const SizedBox(height: 8),
-                  if (_controller.monthRecords.isEmpty)
-                    const Text('暂无记录')
-                  else
-                    ..._controller.monthRecords.map(
-                      (record) => _RecordTile(
-                        record,
-                        categoryName:
-                            _controller.availableCategories
-                                .where((c) => c.id == record.categoryId)
-                                .map((c) => c.name)
-                                .firstOrNull ??
-                            record.categoryId,
-                        onAction: _controller.isSaving
-                            ? null
-                            : (action) async {
-                                if (action == 'edit') {
-                                  await showDialog<bool>(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder: (_) => FinanceRecordEditor(
-                                      controller: _controller,
-                                      record: record,
-                                    ),
-                                  );
-                                } else if (await confirmRemoval(
-                                      context,
-                                      '这笔收支记录',
-                                    ) &&
-                                    mounted) {
-                                  await _controller.removeRecord(record.id);
-                                }
-                              },
-                      ),
-                    ),
-                  SizedBox(height: constraints.maxHeight < 360 ? 8 : 24),
-                ],
+                ),
               );
             },
           ),
@@ -314,9 +337,19 @@ class _SummaryCard extends StatelessWidget {
               ),
             ),
             Text(
+              data.budgetMinor == null
+                  ? '月预算 未设置'
+                  : '月预算 ${formatAmountMinor(data.budgetMinor!)} 元',
+            ),
+            Text(
               remaining == null
                   ? '预算剩余 未设置'
+                  : remaining < 0
+                  ? '预算剩余 ${formatAmountMinor(remaining)} 元（超支）'
                   : '预算剩余 ${formatAmountMinor(remaining)} 元',
+              style: remaining != null && remaining < 0
+                  ? TextStyle(color: Theme.of(context).colorScheme.error)
+                  : null,
             ),
           ],
         ),
@@ -332,6 +365,9 @@ class _AddRecordForm extends StatelessWidget {
     required this.selectedCategoryId,
     required this.amountController,
     required this.noteController,
+    required this.date,
+    required this.viewedMonth,
+    required this.onDateChanged,
     required this.onTypeChanged,
     required this.onCategoryChanged,
     required this.onSubmit,
@@ -342,12 +378,17 @@ class _AddRecordForm extends StatelessWidget {
   final String? selectedCategoryId;
   final TextEditingController amountController;
   final TextEditingController noteController;
+  final DateTime date;
+  final DateTime viewedMonth;
+  final ValueChanged<DateTime> onDateChanged;
   final ValueChanged<FinanceType> onTypeChanged;
   final ValueChanged<String?> onCategoryChanged;
   final VoidCallback? onSubmit;
 
   @override
   Widget build(BuildContext context) {
+    final crossesMonth =
+        date.year != viewedMonth.year || date.month != viewedMonth.month;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -391,6 +432,22 @@ class _AddRecordForm extends StatelessWidget {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
         const SizedBox(height: 12),
+        CivilDateTimeField(
+          label: '日期',
+          value: date,
+          enabled: onSubmit != null,
+          showTime: false,
+          onChanged: onDateChanged,
+        ),
+        if (crossesMonth)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '保存后将切换到 ${date.year}-${date.month.toString().padLeft(2, '0')}',
+              key: const Key('finance-date-month-hint'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
         TextField(
           controller: noteController,
           decoration: const InputDecoration(labelText: '备注（可选）'),
