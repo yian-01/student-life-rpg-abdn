@@ -76,7 +76,9 @@ void main() {
       final examItem = const TaskScheduleAdapter().examToScheduleItem(exam);
       expect(examItem.sourceType, ScheduleSourceType.exam);
       for (final type in ScheduleSourceType.values) {
-        final sourceId = type == ScheduleSourceType.exam ? 'other-exam' : 'same';
+        final sourceId = type == ScheduleSourceType.exam
+            ? 'other-exam'
+            : 'same';
         ScheduleItem item(DateTime start, DateTime end) => ScheduleItem(
           id: TaskScheduleAdapter.buildItemId(type, sourceId, start),
           sourceId: sourceId,
