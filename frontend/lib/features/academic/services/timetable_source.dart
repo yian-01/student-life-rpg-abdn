@@ -84,7 +84,8 @@ String describeLoadError(TimetableLoadException error) {
     TimetableLoadError.cancelled => '已取消加载。',
     TimetableLoadError.networkUnavailable => '网络不可用，请检查连接后重试。',
     TimetableLoadError.readFailed => '读取页面失败，请重试。',
-    TimetableLoadError.invalidUrl => '请输入有效的 HTTPS 课表页网址。',
+    TimetableLoadError.invalidUrl =>
+      error.detail ?? '请输入有效的 HTTPS 课表页网址。',
     TimetableLoadError.notWired => error.detail ?? '抓取层尚未接入，当前请使用粘贴文本方式导入。',
   };
 }

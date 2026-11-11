@@ -162,6 +162,73 @@ void main() {
     movement.dispose();
   });
 
+  testWidgets('returning while inactive restores room focus on resume', (
+    tester,
+  ) async {
+    final door = RoomSpec.hall.doors.first;
+    final movement = PlayerMovementController(
+      start: door.point,
+      area: RoomSpec.hall.area,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MenuPage(movement: movement),
+        onGenerateRoute: AppRoutes.generateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('${door.id}-interaction')));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(movement.isPaused, isFalse);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'room-input');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+    expect(movement.footPosition.dy, greaterThan(door.point.dy));
+    await tester.pumpWidget(const SizedBox());
+    movement.dispose();
+  });
+
+  testWidgets('four modules survive twenty enter and return cycles', (
+    tester,
+  ) async {
+    for (final door in RoomSpec.hall.doors) {
+      final movement = PlayerMovementController(
+        start: door.point,
+        area: RoomSpec.hall.area,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MenuPage(movement: movement),
+          onGenerateRoute: AppRoutes.generateRoute,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final room = tester.element(find.byType(RoomScenePage));
+      for (var cycle = 0; cycle < 5; cycle++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
+        await tester.pumpAndSettle();
+        expect(movement.isPaused, isTrue);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(tester.element(find.byType(RoomScenePage)), same(room));
+        expect(movement.isPaused, isFalse);
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'room-input');
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox());
+      movement.dispose();
+    }
+  });
+
   testWidgets('phone door signs and action button keep a usable touch area', (
     tester,
   ) async {

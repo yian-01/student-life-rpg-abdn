@@ -283,8 +283,7 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
             ),
           ] else ...[
             const Text(
-              '填入教务系统课表页的 HTTPS 网址，用当前登录态抓取后解析。'
-              '不会在这里输入或保存密码。',
+              '打开华师教务系统，在学校页面登录并进入个人课表，再点「读取当前课表」。',
             ),
             const SizedBox(height: 8),
             TextField(
@@ -295,7 +294,7 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
                 labelText: '课表页网址',
-                hintText: 'https://jwxt.example.edu.cn/…',
+                hintText: 'https://jwxt.scnu.edu.cn/',
               ),
             ),
           ],
@@ -437,6 +436,10 @@ class _PlanTile extends StatelessWidget {
   final bool canSelect;
   final VoidCallback onCreditsChanged;
 
+  String _time(int minute) =>
+      '${(minute ~/ 60).toString().padLeft(2, '0')}:'
+      '${(minute % 60).toString().padLeft(2, '0')}';
+
   @override
   Widget build(BuildContext context) {
     final label = switch (item.action) {
@@ -474,10 +477,20 @@ class _PlanTile extends StatelessWidget {
               padding: const EdgeInsets.only(left: 8, bottom: 4),
               child: Text(
                 '${item.parsed.classCode} · ${item.parsed.slots.length} 个时段'
+                '${item.parsed.teacher?.isNotEmpty == true ? ' · ${item.parsed.teacher}' : ''}'
                 '${item.reason == null ? '' : ' · ${item.reason}'}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+            for (final slot in item.parsed.slots)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 4),
+                child: Text(
+                  '周${slot.weekday} · ${_time(slot.startMinute)}–${_time(slot.endMinute)} · '
+                  '${slot.weeks.join('、')} 周'
+                  '${slot.location?.isNotEmpty == true ? ' · ${slot.location}' : ''}',
+                ),
+              ),
             if (credits != null && item.action != ImportAction.unchanged)
               Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
