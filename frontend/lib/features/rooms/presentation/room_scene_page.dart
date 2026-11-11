@@ -52,11 +52,7 @@ class RoomScenePageState extends State<RoomScenePage>
             await Navigator.of(context).pushNamed<void>(route);
             if (!mounted) return;
             await _waitForRoomReveal();
-            if (mounted &&
-                _foreground &&
-                (ModalRoute.of(context)?.isCurrent ?? false)) {
-              _focus.requestFocus();
-            }
+            _restoreRoomFocus();
           },
         ),
     ];
@@ -120,6 +116,14 @@ class RoomScenePageState extends State<RoomScenePage>
     _lastTick = null;
   }
 
+  void _restoreRoomFocus() {
+    if (mounted &&
+        _foreground &&
+        (ModalRoute.of(context)?.isCurrent ?? false)) {
+      _focus.requestFocus();
+    }
+  }
+
   Future<void> _waitForRoomReveal() async {
     // pushNamed completes when the next route is popped, before its reverse
     // transition finishes. The room's secondary animation reaches dismissed
@@ -154,6 +158,15 @@ class RoomScenePageState extends State<RoomScenePage>
     _foreground = state == AppLifecycleState.resumed;
     if (!_foreground) _clearInput();
     if (mounted) setState(() {});
+    if (_foreground) {
+      // A covered route may finish popping while the app is inactive. Its
+      // navigation lock is then released without requesting room focus.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_doors.any((door) => door.isNavigating)) {
+          _restoreRoomFocus();
+        }
+      });
+    }
   }
 
   @override

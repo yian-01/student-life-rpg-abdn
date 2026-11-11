@@ -1,0 +1,127 @@
+diff --git a/frontend/lib/features/academic/services/scnu_html_preview.dart b/frontend/lib/features/academic/services/scnu_html_preview.dart
+new file mode 100644
+index 0000000..58a733e
+--- /dev/null
++++ b/frontend/lib/features/academic/services/scnu_html_preview.dart
+@@ -0,0 +1,90 @@
++import '../../gpa/services/scnu_timetable_reader.dart';
++import 'period_time_table.dart';
++import 'timetable_import.dart';
++
++/// HTML only, no URL fetching, login or writes. Explicit semester bound required.
++TimetableParseResult parseScnuHtml(
++  String html, {
++  required int maxWeek,
++  PeriodTimeTable periods = PeriodTimeTable.scnuNanhai,
++}) {
++  final issues = <TimetableIssue>[];
++  final rows = ScnuTimetableReader().read(
++    html,
++    maxWeek: maxWeek,
++    periods: {
++      for (final entry in periods.periods.entries)
++        entry.key: (start: entry.value.$1, end: entry.value.$2),
++    },
++    allowOtherCoursesForPreview: true,
++  );
++  final groups = <String, List<ScnuTimetableRow>>{};
++  final theory = {
++    for (final row in rows)
++      if (row.name.endsWith('*'))
++        Uri.decodeComponent(row.sourceId.substring(5)): row,
++  };
++  for (final row in rows) {
++    var code = Uri.decodeComponent(row.sourceId.substring(5));
++    final name = row.name
++        .replaceFirst('【调】', '')
++        .replaceFirst(RegExp(r'[*&#]$'), '')
++        .trim();
++    // Only match an observed lab to an observed theory of the same name/credits.
++    if (row.name.endsWith('&') && code.endsWith('A')) {
++      final parent = theory[code.substring(0, code.length - 1)];
++      if (parent != null &&
++          parent.name.replaceFirst(RegExp(r'[*&#]$'), '').trim() == name &&
++          parent.credits == row.credits) {
++        code = code.substring(0, code.length - 1);
++      }
++    }
++    groups.putIfAbsent(code, () => []).add(row);
++  }
++  final courses = <ParsedCourse>[];
++  for (final group in groups.entries) {
++    final first = group.value.first;
++    final credits = group.value.map((r) => r.credits).toSet();
++    if (credits.length > 1) {
++      issues.add(TimetableIssue(0, '教学班 ${group.key} 学分不一致，需修正'));
++    }
++    courses.add(
++      ParsedCourse(
++        name: first.name
++            .replaceFirst('【调】', '')
++            .replaceFirst(RegExp(r'[*&#]$'), '')
++            .trim(),
++        classCode: group.key,
++        credits: credits.length == 1 ? first.credits : null,
++        teacher: group.value
++            .map((r) => r.teacher)
++            .whereType<String>()
++            .toSet()
++            .join('；'),
++        adjusted: group.value.any((r) => r.name.contains('【调】')),
++        slots: List.unmodifiable(
++          group.value.map(
++            (r) => ParsedSlot(
++              weekday: r.weekday,
++              startMinute: r.startMinute,
++              endMinute: r.endMinute,
++              weeks: r.weeks,
++              location: r.location,
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++  // Source has no dependable class identity or credits for these rows.
++  // Expose as issues; never silently drop or invent identity/credits.
++  if (html.contains('其它课程') || html.contains('其他课程')) {
++    issues.add(
++      const TimetableIssue(0, '存在无固定时段的其它课程，请在预览中补充来源身份和学分；尚未包含在可保存课程中'),
++    );
++  }
++  return TimetableParseResult(
++    courses: List.unmodifiable(courses),
++    issues: List.unmodifiable(issues),
++  );
++}
+diff --git a/frontend/test/scnu_adapter_contract_test.dart b/frontend/test/scnu_adapter_contract_test.dart
+new file mode 100644
+index 0000000..ff31dae
+--- /dev/null
++++ b/frontend/test/scnu_adapter_contract_test.dart
+@@ -0,0 +1,25 @@
++import 'dart:io';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:student_life_rpg/features/academic/services/scnu_html_preview.dart';
++import 'package:student_life_rpg/features/academic/services/timetable_import.dart';
++
++void main() {
++  test('HTML adapter returns provider real TimetableParseResult', () {
++    final html = File(
++      'test/fixtures/issue34/scnu_deidentified.html',
++    ).readAsStringSync();
++    final TimetableParseResult result = parseScnuHtml(html, maxWeek: 17);
++    expect(result.courses, isNotEmpty);
++    expect(
++      result.courses.every(
++        (c) => !c.name.endsWith('*') && !c.name.endsWith('&'),
++      ),
++      isTrue,
++    );
++    expect(result.courses.expand((c) => c.slots).length, 22);
++    expect(result.issues.any((i) => i.message.contains('其它课程')), isTrue);
++    final java = result.courses.where((c) => c.name == 'JAVA语言程序设计').single;
++    expect(java.credits, 4);
++    expect(java.slots.length, 5);
++  });
++}

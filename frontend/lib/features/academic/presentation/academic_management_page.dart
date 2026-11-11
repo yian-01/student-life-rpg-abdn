@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../timetable_capture/scnu_web_session.dart';
+import '../services/scnu_timetable_source.dart';
 import '../../../app/campus_recovery.dart';
 import '../../../app/data/campus_data.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
@@ -126,8 +128,12 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
   Future<void> _openTimetableImport() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            TimetableImportPage(data: widget.data, semesters: _semesters),
+        builder: (context) => TimetableImportPage(
+          data: widget.data,
+          semesters: _semesters,
+          htmlLoader: ScnuTimetableHtmlLoader(ScnuWebSession(context)),
+          htmlParser: const ScnuTimetableHtmlParser(),
+        ),
       ),
     );
     if (mounted) await _load();
