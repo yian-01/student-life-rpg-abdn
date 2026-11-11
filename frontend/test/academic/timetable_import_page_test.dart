@@ -41,7 +41,7 @@ void main() {
       findsOneWidget,
       reason: '理论课与实验课应合并为一门',
     );
-    expect(find.byKey(const Key('plan-item-数据结构与算法')), findsOneWidget);
+    expect(find.text('数据结构与算法'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('confirm-import')),
@@ -63,6 +63,40 @@ void main() {
       hasLength(1),
       reason: '夹具里原有课程应保留',
     );
+  });
+
+  testWidgets('缺失学分补填后可勾选并确认导入', (tester) async {
+    final data = await campusWithCourse();
+    addTearDown(data.dispose);
+    final semesters = await data.semesters.list();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimetableImportPage(data: data, semesters: semesters),
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const Key('timetable-input')),
+      _timetableText.replaceAll('学分：3.5', '学分：'),
+    );
+    await tester.tap(find.byKey(const Key('parse-button')));
+    await tester.pumpAndSettle();
+
+    final credits = find.widgetWithText(TextField, '学分（可修正）');
+    await tester.ensureVisible(credits);
+    await tester.enterText(credits, '2.5');
+    await tester.pumpAndSettle();
+    final checkbox = find.byType(Checkbox);
+    await tester.ensureVisible(checkbox);
+    await tester.tap(checkbox);
+    await tester.pumpAndSettle();
+    final confirm = find.byKey(const Key('confirm-import'));
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+
+    final courses = await data.courses.list();
+    final imported = courses.singleWhere((course) => course.name == '数据结构与算法');
+    expect(imported.credits, 2.5);
   });
 
   testWidgets('未点确认时不会写入任何课程', (tester) async {

@@ -23,13 +23,18 @@ TimetableParseResult _parse(List<String> lines) =>
     parseTimetableText(_text(lines));
 
 Course _existing({
-  String id = 'c1',
+  String? id,
   String name = '数据结构与算法',
   double credits = 2,
   double? gradePoint,
   List<CourseSlot>? slots,
 }) => Course(
-  id: id,
+  id: id ??
+      stableImportedCourseId(
+        _parse([
+          _courseLine(name: '数据结构与算法*', weeks: '1-16周', credits: '3.5'),
+        ]).courses.single,
+      ),
   semesterId: 's1',
   name: name,
   credits: credits,
@@ -67,7 +72,7 @@ void main() {
         scoreScaleMax: 4,
       );
       expect(plan.updateCount, 1);
-      expect(plan.items.single.existing?.id, 'c1');
+      expect(plan.items.single.existing?.id, _existing().id);
       expect(plan.items.single.reason, contains('保留原学分与成绩'));
     });
 
@@ -113,7 +118,7 @@ void main() {
       expect(item.selected, isFalse, reason: '需修正的条目默认不勾选');
     });
 
-    test('课表内同名课程只导入第一门', () {
+    test('同名但教学班不同的课程分别导入', () {
       final plan = buildImportPlan(
         parsed: _parse([
           _courseLine(name: '数据结构与算法*', weeks: '1-16周', credits: '3.5'),
@@ -128,9 +133,12 @@ void main() {
         semesterId: 's1',
         scoreScaleMax: 4,
       );
-      expect(plan.createCount, 1);
-      expect(plan.blockedCount, 1);
-      expect(plan.items.last.reason, contains('同名'));
+      expect(plan.createCount, 2);
+      expect(plan.blockedCount, 0);
+      expect(
+        coursesFromPlan(plan, scoreScaleMax: 4).map((course) => course.id).toSet(),
+        hasLength(2),
+      );
     });
 
     test('其他学期的同名课程不参与比对', () {
@@ -164,9 +172,15 @@ void main() {
         semesterId: 's1',
         scoreScaleMax: 4,
       );
-      final courses = coursesFromPlan(plan, scoreScaleMax: 4);
+      expect(coursesFromPlan(plan, scoreScaleMax: 4), isEmpty);
+      plan.items.single.selected = true;
+      final courses = coursesFromPlan(
+        plan,
+        scoreScaleMax: 4,
+        creditsOverrides: {plan.items.single.id: 3.5},
+      );
       expect(courses, hasLength(1));
-      expect(courses.single.id, 'c1', reason: '更新应复用原 ID');
+      expect(courses.single.id, _existing().id, reason: '更新应复用原 ID');
       expect(courses.single.gradePoint, 3.7, reason: '已有成绩不被覆盖');
       expect(courses.single.credits, 2, reason: '已有学分不被导入覆盖');
       expect(courses.single.slots, hasLength(1));
@@ -188,11 +202,31 @@ void main() {
       final courses = coursesFromPlan(
         plan,
         scoreScaleMax: 4,
-        creditsOverrides: {'数据结构与算法': 3.5},
+        creditsOverrides: {plan.items.single.id: 3.5},
       );
       expect(courses, hasLength(1));
       expect(courses.single.credits, 3.5);
       expect(courses.single.gradePoint, isNull, reason: '新课程未评分');
+    });
+
+    test('同一教学班导入不同学期时使用不同 ID', () {
+      final parsed = _parse([
+        _courseLine(name: '数据结构与算法*', weeks: '1-16周', credits: '3.5'),
+      ]);
+      Course importInto(String semester, List<Course> existing) {
+        final plan = buildImportPlan(
+          parsed: parsed,
+          existingCourses: existing,
+          semesterId: semester,
+          scoreScaleMax: 4,
+        );
+        return coursesFromPlan(plan, scoreScaleMax: 4).single;
+      }
+
+      final first = importInto('s1', const []);
+      final second = importInto('s2', [first]);
+      expect(second.id, isNot(first.id));
+      expect(second.semesterId, 's2');
     });
 
     test('未勾选的条目不会被写入', () {

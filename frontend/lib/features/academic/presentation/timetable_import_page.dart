@@ -61,10 +61,21 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
   void dispose() {
     _text.dispose();
     _url.dispose();
+    _disposeCreditsEditors();
+    super.dispose();
+  }
+
+  void _disposeCreditsEditors() {
     for (final editor in _creditsEditors.values) {
       editor.dispose();
     }
-    super.dispose();
+    _creditsEditors.clear();
+  }
+
+  void _clearPreview() {
+    _plan = null;
+    _issues = const [];
+    _disposeCreditsEditors();
   }
 
   /// 走「网址」来源：校验 URL → 抓取 → 解析 → 生成计划。
@@ -87,11 +98,16 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
       _busy = true;
       _error = null;
       _done = null;
-      _plan = null;
+      _clearPreview();
     });
     try {
       final html = await widget.htmlLoader.load(uri);
-      final parsed = widget.htmlParser.parse(html);
+      if (!mounted) return;
+      final semester = widget.semesters.firstWhere((s) => s.id == semesterId);
+      final parsed = widget.htmlParser.parse(
+        html,
+        maxWeek: semester.lastValidWeek,
+      );
       await _applyParsed(parsed, semesterId);
     } on TimetableLoadException catch (error) {
       if (mounted) setState(() => _error = describeLoadError(error));
@@ -120,10 +136,11 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
     setState(() {
       _plan = plan;
       _issues = parsed.issues;
-      _creditsEditors.clear();
+      _disposeCreditsEditors();
       for (final item in plan.items) {
+        if (item.existing != null) continue;
         final credits = item.parsed.credits;
-        _creditsEditors[item.parsed.name] = TextEditingController(
+        _creditsEditors[item.id] = TextEditingController(
           text: credits == null ? '' : '$credits',
         );
       }
@@ -144,6 +161,7 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
       _busy = true;
       _error = null;
       _done = null;
+      _clearPreview();
     });
     try {
       final parsed = parseTimetableText(_text.text);
@@ -159,14 +177,14 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
     final result = <String, double>{};
     for (final entry in _creditsEditors.entries) {
       final value = double.tryParse(entry.value.text.trim());
-      if (value != null) result[entry.key] = value;
+      result[entry.key] = value ?? double.nan;
     }
     return result;
   }
 
   Future<void> _confirm() async {
     final plan = _plan;
-    if (plan == null) return;
+    if (plan == null || _busy) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -235,12 +253,14 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
               ),
             ],
             selected: {_source},
-            onSelectionChanged: (value) => setState(() {
-              _source = value.first;
-              _error = null;
-              _done = null;
-              _plan = null;
-            }),
+            onSelectionChanged: _busy
+                ? null
+                : (value) => setState(() {
+                    _source = value.first;
+                    _error = null;
+                    _done = null;
+                    _clearPreview();
+                  }),
           ),
           const SizedBox(height: 12),
           if (_source == TimetableImportSource.paste) ...[
@@ -252,6 +272,8 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
             TextField(
               key: const Key('timetable-input'),
               controller: _text,
+              enabled: !_busy,
+              onChanged: (_) => setState(_clearPreview),
               maxLines: 6,
               decoration: const InputDecoration(
                 labelText: '课表文本',
@@ -268,6 +290,8 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
             TextField(
               key: const Key('timetable-url'),
               controller: _url,
+              enabled: !_busy,
+              onChanged: (_) => setState(_clearPreview),
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
                 labelText: '课表页网址',
@@ -289,7 +313,14 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
                   ),
                 )
                 .toList(),
-            onChanged: (value) => setState(() => _semesterId = value),
+            onChanged: _busy
+                ? null
+                : (value) => setState(() {
+                    _semesterId = value;
+                    _error = null;
+                    _done = null;
+                    _clearPreview();
+                  }),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -344,7 +375,10 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
             for (final item in _plan!.items)
               _PlanTile(
                 item: item,
-                credits: _creditsEditors[item.parsed.name],
+                credits: _creditsEditors[item.id],
+                enabled: !_busy,
+                canSelect: item.isWritable(_creditsOverrides()),
+                onCreditsChanged: () => setState(() {}),
                 onToggle: (value) => setState(() => item.selected = value),
               ),
             const SizedBox(height: 12),
@@ -359,8 +393,9 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '没有需要写入的课程：解析出的 ${_plan!.items.length} 门'
-                        '课程都已存在且时段一致，重复导入不会产生副本。',
+                        _plan!.unchangedCount == _plan!.items.length
+                            ? '没有需要写入的课程：已存在且时段一致。'
+                            : '没有需要写入的课程，请补填合法学分并勾选要导入的课程。',
                       ),
                     ),
                   ],
@@ -374,7 +409,7 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
                   : _confirm,
               child: Text(
                 _plan!.pendingWith(_creditsOverrides()).isEmpty
-                    ? '无需导入（0 门有变更）'
+                    ? '无需导入（未选择可写入的课程）'
                     : '确认导入 ${_plan!.pendingWith(_creditsOverrides()).length} 门',
               ),
             ),
@@ -390,11 +425,17 @@ class _PlanTile extends StatelessWidget {
     required this.item,
     required this.credits,
     required this.onToggle,
+    required this.enabled,
+    required this.canSelect,
+    required this.onCreditsChanged,
   });
 
   final ImportPlanItem item;
   final TextEditingController? credits;
   final ValueChanged<bool> onToggle;
+  final bool enabled;
+  final bool canSelect;
+  final VoidCallback onCreditsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -405,7 +446,7 @@ class _PlanTile extends StatelessWidget {
       ImportAction.blocked => '需修正',
     };
     return Card(
-      key: Key('plan-item-${item.parsed.name}'),
+      key: Key('plan-item-${item.id}'),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(
@@ -415,7 +456,7 @@ class _PlanTile extends StatelessWidget {
               children: [
                 Checkbox(
                   value: item.selected,
-                  onChanged: item.action == ImportAction.blocked
+                  onChanged: !enabled || (!canSelect && !item.selected)
                       ? null
                       : (value) => onToggle(value ?? false),
                 ),
@@ -432,7 +473,7 @@ class _PlanTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 8, bottom: 4),
               child: Text(
-                '${item.parsed.slots.length} 个时段'
+                '${item.parsed.classCode} · ${item.parsed.slots.length} 个时段'
                 '${item.reason == null ? '' : ' · ${item.reason}'}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -441,7 +482,9 @@ class _PlanTile extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),
                 child: TextField(
-                  key: Key('plan-credits-${item.parsed.name}'),
+                  key: Key('plan-credits-${item.id}'),
+                  enabled: enabled,
+                  onChanged: (_) => onCreditsChanged(),
                   controller: credits,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
