@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:path_provider/path_provider.dart';
+import 'data/full_backup.dart';
 import 'data/campus_data.dart';
 import 'data/campus_store.dart';
 
@@ -7,6 +10,29 @@ import '../features/schedule/repositories/task_repository.dart';
 import '../shared/storage/json_document_store.dart';
 
 abstract final class AppData {
+  static Future<Directory>? _directory;
+
+  static Future<Directory> directory() =>
+      _directory ??= _openDirectory().catchError((Object error) {
+        _directory = null;
+        throw error;
+      });
+
+  static Future<Directory> _openDirectory() async {
+    final path = await getApplicationSupportDirectory();
+    await path.create(recursive: true);
+    await FullBackupService.recoverInterrupted(path);
+    return path;
+  }
+
+  static Future<FullBackupService> backup() async {
+    final path = await directory();
+    final repository = await tasks();
+    if (repository is! FileTaskRepository)
+      throw StateError('File-backed task repository required');
+    return FullBackupService(path, (await campus()).store, repository);
+  }
+
   static Future<CampusData>? _campus;
   static CampusData? _injectedCampus;
 
@@ -20,13 +46,9 @@ abstract final class AppData {
   }
 
   static Future<CampusData> _openCampus() async {
-    final directory = await getApplicationSupportDirectory();
-    await directory.create(recursive: true);
+    final path = await directory();
     return CampusData(
-      CampusStore(
-        const FileJsonDocumentStore(),
-        '${directory.path}/campus.json',
-      ),
+      CampusStore(const FileJsonDocumentStore(), '${path.path}/campus.json'),
     );
   }
 
@@ -48,11 +70,10 @@ abstract final class AppData {
   }
 
   static Future<TaskRepository> _openTasks() async {
-    final directory = await getApplicationSupportDirectory();
-    await directory.create(recursive: true);
+    final path = await directory();
     return FileTaskRepository(
       const FileJsonDocumentStore(),
-      '${directory.path}/tasks.json',
+      '${path.path}/tasks.json',
     );
   }
 

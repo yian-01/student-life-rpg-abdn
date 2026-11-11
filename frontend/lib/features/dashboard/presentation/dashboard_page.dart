@@ -88,6 +88,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 assignments
                     .where(
                       (item) =>
+                          item.status != AssignmentStatus.submitted &&
                           !item.dueAt.isBefore(today) &&
                           item.dueAt.isBefore(tomorrow),
                     )
@@ -186,6 +187,21 @@ class _DashboardPageState extends State<DashboardPage> {
     appBar: AppBar(
       title: const Text('生活总览'),
       actions: [
+        IconButton(
+          tooltip: '备份与恢复',
+          onPressed: () => _open('/backup'),
+          icon: const Icon(Icons.folder_copy_outlined),
+        ),
+        IconButton(
+          tooltip: '待办',
+          onPressed: () => _open('/todo'),
+          icon: const Icon(Icons.checklist),
+        ),
+        IconButton(
+          tooltip: '本地搜索',
+          onPressed: () => _open('/search'),
+          icon: const Icon(Icons.search),
+        ),
         IconButton(
           tooltip: '刷新总览',
           onPressed: _load,

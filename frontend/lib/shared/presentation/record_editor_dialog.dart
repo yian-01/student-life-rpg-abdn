@@ -78,12 +78,18 @@ class _RecordEditorDialogState extends State<RecordEditorDialog> {
   );
 }
 
-Future<bool> confirmRemoval(BuildContext context, String name) async =>
+Future<bool> confirmRemoval(
+  BuildContext context,
+  String name, {
+  bool undoable = false,
+}) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认删除？'),
-        content: Text('删除“$name”后无法撤销。有关联记录时不能删除。'),
+        content: Text(
+          undoable ? '删除“$name”后可在本次会话内短时撤销。' : '删除“$name”后无法撤销。有关联记录时不能删除。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../features/local_records/local_records_page.dart';
 
 import '../features/bedroom/presentation/bedroom_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
@@ -8,6 +9,7 @@ import '../features/academic/presentation/academic_management_page.dart';
 import '../features/schedule/presentation/event_management_page.dart';
 import 'campus_data_host.dart';
 import 'campus_recovery.dart';
+import 'full_backup_page.dart';
 import '../features/menu/presentation/menu_page.dart';
 import 'unknown_route_page.dart';
 import 'task_schedule_host.dart';
@@ -23,6 +25,9 @@ abstract final class AppRoutes {
 
   static const academic = '/academic';
   static const events = '/events';
+  static const todo = '/todo';
+  static const search = '/search';
+  static const backup = '/backup';
 
   static Route<void> generateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
@@ -55,6 +60,9 @@ abstract final class AppRoutes {
           controller: data.finance,
           budgetController: data.budgetController,
           isPersistent: true,
+          initialMonth: settings.arguments is DateTime
+              ? settings.arguments as DateTime
+              : null,
           onRecover: () async {
             if (await recoverCampusData(context, data)) {
               await data.finance.retry();
@@ -63,6 +71,9 @@ abstract final class AppRoutes {
         ),
       ),
       dashboard => const DashboardPage(),
+      todo => const LocalRecordsPage(),
+      search => const LocalRecordsPage(search: true),
+      backup => const FullBackupPage(),
       _ => UnknownRoutePage(routeName: settings.name),
     };
     return MaterialPageRoute<void>(

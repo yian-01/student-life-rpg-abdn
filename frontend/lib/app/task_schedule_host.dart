@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/schedule/presentation/schedule_page.dart';
+import '../features/schedule/presentation/week_schedule_page.dart';
 import '../features/schedule/repositories/file_task_repository.dart';
 import '../features/schedule/repositories/task_repository.dart';
 import '../features/schedule/presentation/schedule_record_page.dart';
@@ -83,6 +84,15 @@ class _TaskScheduleHostState extends State<TaskScheduleHost> {
             // must not prevent the independent Task repository from displaying.
             return SchedulePage(
               loader: data.schedule(repository),
+              onOpenWeek: (date) => Navigator.of(context).push<DateTime>(
+                MaterialPageRoute(
+                  builder: (_) => WeekSchedulePage(
+                    data: data,
+                    tasks: repository,
+                    initialDate: date,
+                  ),
+                ),
+              ),
               onManageEvents: (date) => Navigator.of(
                 context,
               ).pushNamed<void>('/events', arguments: date),

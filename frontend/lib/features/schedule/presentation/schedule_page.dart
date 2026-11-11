@@ -29,6 +29,7 @@ class SchedulePage extends StatefulWidget {
     this.onOpenItem,
     this.onOpenAssignment,
     this.onRecoverCampus,
+    this.onOpenWeek,
   });
 
   final Future<void> Function()? onRecover;
@@ -37,6 +38,7 @@ class SchedulePage extends StatefulWidget {
   final Future<void> Function(ScheduleItem item)? onOpenItem;
   final Future<void> Function(Assignment assignment)? onOpenAssignment;
   final Future<void> Function()? onRecoverCampus;
+  final Future<DateTime?> Function(DateTime date)? onOpenWeek;
   final DayScheduleLoader? loader;
   final TaskRepository? taskRepository;
 
@@ -92,5 +94,6 @@ class _SchedulePageState extends State<SchedulePage> {
     onOpenItem: widget.onOpenItem,
     onOpenAssignment: widget.onOpenAssignment,
     onRecoverCampus: widget.onRecoverCampus,
+    onOpenWeek: widget.onOpenWeek,
   );
 }

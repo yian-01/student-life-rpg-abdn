@@ -37,7 +37,7 @@ List<ScheduleItem> occurrencesForDate(
     return const <ScheduleItem>[];
   }
 
-  final weekNumber = _weekNumberFor(semester.week1Monday, day);
+  final weekNumber = academicWeekNumber(semester.week1Monday, day);
   if (weekNumber == null || weekNumber < 1) {
     return const <ScheduleItem>[];
   }
@@ -80,6 +80,7 @@ List<ScheduleItem> occurrencesForDate(
         sourceType: ScheduleSourceType.course,
         title: course.name,
         range: range,
+        location: slot.location,
       ),
     );
   }
@@ -89,7 +90,7 @@ List<ScheduleItem> occurrencesForDate(
 /// 计算 [date] 相对 [week1Monday] 的周次，第一周为 1。
 ///
 /// 使用日历差而非 UTC 秒差，避免夏令时/时区偏移影响周次。
-int? _weekNumberFor(DateTime week1Monday, DateTime date) {
+int? academicWeekNumber(DateTime week1Monday, DateTime date) {
   // Gregorian day ordinals count civil dates independently of timezone/DST.
   final days = _dayOrdinal(date) - _dayOrdinal(week1Monday);
   if (days < 0) {
@@ -118,4 +119,62 @@ String _dateToken(DateTime day) {
   final month = day.month.toString().padLeft(2, '0');
   final dayOfMonth = day.day.toString().padLeft(2, '0');
   return '$year$month$dayOfMonth';
+}
+
+List<ScheduleItem> adjustedOccurrencesForDate(
+  Course course,
+  Semester semester,
+  DateTime date,
+) {
+  final day = DateTime(date.year, date.month, date.day);
+  final next = DateTime(date.year, date.month, date.day + 1);
+  final exceptions = {
+    for (final row in course.adjustments) row.occurrenceId: row,
+  };
+  return [
+    ...occurrencesForDate(
+      course,
+      semester,
+      date,
+    ).where((item) => !exceptions.containsKey(item.id)),
+    for (final row in course.adjustments)
+      if (row.replacement case final replacement?)
+        if (replacement.start.isBefore(next) && replacement.end.isAfter(day))
+          ScheduleItem(
+            id: row.occurrenceId,
+            sourceId: course.id,
+            sourceType: ScheduleSourceType.course,
+            title: course.name,
+            range: replacement,
+            location:
+                row.location ??
+                occurrencesForDate(course, semester, row.original.start)
+                    .where((item) => item.id == row.occurrenceId)
+                    .firstOrNull
+                    ?.location,
+          ),
+  ];
+}
+
+void validateCourseAdjustments(Course course, Semester semester) {
+  final last = semester.endDate;
+  final afterSemester = DateTime(last.year, last.month, last.day + 1);
+  for (final row in course.adjustments) {
+    final originalMatches =
+        occurrencesForDate(course, semester, row.original.start).any(
+          (item) =>
+              item.id == row.occurrenceId &&
+              item.range.start == row.original.start &&
+              item.range.end == row.original.end,
+        );
+    if (!originalMatches) {
+      throw const FormatException('常规安排的修改会影响已有调课或停课，请先在课程详情恢复原安排。');
+    }
+    final range = row.replacement;
+    if (range != null &&
+        (!semester.containsDate(range.start) ||
+            range.end.isAfter(afterSemester))) {
+      throw const FormatException('本次调课必须在所属学期内。');
+    }
+  }
 }

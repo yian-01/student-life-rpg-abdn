@@ -1,5 +1,7 @@
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
+import '../../../shared/presentation/undo_removal.dart';
+import '../services/copy_schedule_item.dart';
 
 import '../../../shared/models/schedule_item.dart';
 import '../../academic/models/assignment.dart';
@@ -19,6 +21,7 @@ class DaySchedulePage extends StatefulWidget {
     this.onOpenItem,
     this.onOpenAssignment,
     this.onRecoverCampus,
+    this.onOpenWeek,
   });
 
   final Future<void> Function()? onRecover;
@@ -27,6 +30,7 @@ class DaySchedulePage extends StatefulWidget {
   final Future<void> Function(ScheduleItem item)? onOpenItem;
   final Future<void> Function(Assignment assignment)? onOpenAssignment;
   final Future<void> Function()? onRecoverCampus;
+  final Future<DateTime?> Function(DateTime date)? onOpenWeek;
   final DayScheduleController controller;
 
   @override
@@ -125,24 +129,35 @@ class _DaySchedulePageState extends State<DaySchedulePage>
 
   Future<void> _showAddTaskDialog() => _showEditor();
 
-  Future<void> _showEditor([String? id]) async {
+  Future<void> _showEditor([String? id, bool copy = false]) async {
     if (_adding || (id != null && _savingTasks.contains(id))) return;
     setState(() => _adding = true);
     try {
-      final task = id == null ? null : await widget.controller.taskById(id);
+      var task = id == null ? null : await widget.controller.taskById(id);
       if (!mounted) return;
+      var date = widget.controller.selectedDate;
+      if (copy && task != null) {
+        final target = await chooseCopyDate(context, date);
+        if (target == null || !mounted) return;
+        date = target;
+        task = taskCopyDraft(task, target);
+      }
       await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (_) => TaskEditorDialog(
           task: task,
-          selectedDate: widget.controller.selectedDate,
-          onSave: (value) => id == null
+          selectedDate: date,
+          copying: copy,
+          onSave: (value) => id == null || copy
               ? widget.controller.addTask(
                   title: value.title,
                   estimatedMinutes: value.estimatedMinutes,
                   dueAt: value.dueAt,
                   scheduledRange: value.scheduledRange,
+                  note: value.note,
+                  priority: value.priority,
+                  steps: value.steps,
                 )
               : widget.controller.updateTask(
                   id,
@@ -150,6 +165,9 @@ class _DaySchedulePageState extends State<DaySchedulePage>
                   estimatedMinutes: value.estimatedMinutes,
                   dueAt: value.dueAt,
                   scheduledRange: value.scheduledRange,
+                  note: value.note,
+                  priority: value.priority,
+                  steps: value.steps,
                 ),
         ),
       );
@@ -182,7 +200,14 @@ class _DaySchedulePageState extends State<DaySchedulePage>
         ),
       );
       if (confirmed != true || !mounted) return;
+      final task = await widget.controller.taskById(id);
       await widget.controller.removeTask(id);
+      if (mounted) {
+        offerRemovalUndo(context, task.title, () async {
+          await widget.controller.taskRepository!.insert(task);
+          if (mounted) await widget.controller.loadDay();
+        });
+      }
     } catch (_) {
       _showMessage('删除失败，任务已保留，请重试。');
     } finally {
@@ -197,6 +222,7 @@ class _DaySchedulePageState extends State<DaySchedulePage>
           if (action == 'edit') {
             _showEditor(id);
           }
+          if (action == 'copy') _showEditor(id, true);
           if (action == 'delete') {
             _removeTask(id);
           }
@@ -276,6 +302,17 @@ class _DaySchedulePageState extends State<DaySchedulePage>
       appBar: AppBar(
         title: const Text('日程手账'),
         actions: [
+          if (widget.onOpenWeek != null)
+            IconButton(
+              tooltip: '周课表',
+              icon: const Icon(Icons.view_week_outlined),
+              onPressed: () async {
+                final target = await widget.onOpenWeek!(
+                  widget.controller.selectedDate,
+                );
+                if (mounted) await widget.controller.loadDay(target);
+              },
+            ),
           IconButton(
             key: const Key('refresh-schedule'),
             tooltip: '刷新日程',
@@ -959,6 +996,7 @@ class _TaskActions extends StatelessWidget {
           onSelected: onAction,
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'edit', child: Text('编辑 / 安排时间')),
+            PopupMenuItem(value: 'copy', child: Text('复制任务')),
             PopupMenuItem(value: 'delete', child: Text('删除任务')),
           ],
         ),

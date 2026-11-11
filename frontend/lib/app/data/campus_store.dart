@@ -5,6 +5,7 @@ import '../../features/academic/models/assignment.dart';
 import '../../features/academic/models/course.dart';
 import '../../features/academic/models/exam.dart';
 import '../../features/academic/models/semester.dart';
+import '../../features/academic/services/course_occurrence_service.dart';
 import '../../features/finance/models/budget.dart';
 import '../../features/finance/models/finance_category.dart';
 import '../../features/finance/models/finance_record.dart';
@@ -30,6 +31,7 @@ class CampusStore {
   final String path;
   Map<String, dynamic>? _state;
   Future<void>? _tail;
+  bool _restoreInterrupted = false;
   static const scoreScaleMax = 4.0;
 
   /// 持久化契约 v2：新增 assignments / exams / budgets 三张表。
@@ -55,7 +57,14 @@ class CampusStore {
 
   Future<T> _queue<T>(Future<T> Function() action) {
     // Start in the caller zone rather than scheduling work at construction.
-    final result = _tail?.then((_) => action()) ?? Future<T>.sync(action);
+    Future<T> guarded() {
+      if (_restoreInterrupted) {
+        throw StateError('请重启应用以恢复替换前的数据。');
+      }
+      return action();
+    }
+
+    final result = _tail?.then((_) => guarded()) ?? Future<T>.sync(guarded);
     _tail = result.then<void>((_) {}, onError: (Object _) {});
     return result;
   }
@@ -99,7 +108,7 @@ class CampusStore {
   /// schemaVersion 1 的旧文档自动补齐 v2 新增空表（assignments/exams/budgets），
   /// 原记录保持不变，返回规范 v2 结构并标记 `migrated`；schemaVersion > 2
   /// 或顶层键不匹配的未知未来文档一律拒绝。
-  ({Map<String, dynamic> doc, bool migrated}) _decode(String raw) {
+  static ({Map<String, dynamic> doc, bool migrated}) _decode(String raw) {
     final value = jsonDecode(raw);
     if (value is! Map<String, dynamic> ||
         value['entityType'] != 'CampusData' ||
@@ -175,6 +184,19 @@ class CampusStore {
         throw const FormatException('Missing semester reference');
       }
     }
+    final semestersById = {
+      for (final row in value['semesters'] as List)
+        (row as Map<String, dynamic>)['id'] as String: Semester.fromJson(row),
+    };
+    for (final row in value['courses'] as List) {
+      final course = Course.fromJson(
+        row as Map<String, dynamic>,
+        scoreScaleMax: scoreScaleMax,
+      );
+      if (course.adjustments.isNotEmpty) {
+        validateCourseAdjustments(course, semestersById[course.semesterId]!);
+      }
+    }
     final courseIds = (value['courses'] as List).map((v) => v['id']).toSet();
     for (final table in const ['assignments', 'exams']) {
       for (final row in value[table] as List) {
@@ -209,6 +231,28 @@ class CampusStore {
     }
     return (doc: value, migrated: migrated);
   }
+
+  static Map<String, dynamic> validateBackupDocument(String raw) =>
+      _decode(raw).doc;
+
+  void suspendAfterFailedRestore() => _restoreInterrupted = true;
+
+  Future<T> withBackupLock<T>(
+    Future<T> Function(String snapshot, Future<void> Function(String) replace)
+    action,
+  ) => _queue(() async {
+    final current = jsonEncode(await _load());
+    final disk = await store.readDocument(path);
+    if (disk == null ? _hasWritten : jsonEncode(_decode(disk).doc) != current) {
+      throw StateError('学业或账本文件已变化，请先重新读取。');
+    }
+    return action(current, (raw) async {
+      final candidate = _decode(raw).doc;
+      await store.writeDocument(path, jsonEncode(candidate));
+      _state = candidate;
+      _hasWritten = true;
+    });
+  });
 
   Future<Map<String, dynamic>> _load() async {
     if (_state != null) return _state!;

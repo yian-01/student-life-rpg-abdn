@@ -3,6 +3,8 @@ import '../../../shared/presentation/civil_datetime_field.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import '../controllers/finance_controller.dart';
 import '../models/finance_record.dart';
+import '../models/finance_type.dart';
+import 'receipt_fields.dart';
 
 class FinanceRecordEditor extends StatefulWidget {
   const FinanceRecordEditor({
@@ -23,6 +25,8 @@ class _FinanceRecordEditorState extends State<FinanceRecordEditor> {
   late final _note = TextEditingController(text: widget.record.note ?? '');
   late String _category = widget.record.categoryId;
   late DateTime _date = widget.record.occurredAt;
+  late ReimbursementStatus _status = widget.record.reimbursement;
+  late String? _receipt = widget.record.receipt;
   @override
   void dispose() {
     _amount.dispose();
@@ -40,6 +44,9 @@ class _FinanceRecordEditorState extends State<FinanceRecordEditor> {
         amountText: _amount.text,
         occurredAt: _date,
         note: _note.text,
+        reimbursement: _status,
+        receipt: _receipt,
+        replaceReceipt: true,
       );
       if (!saved) throw const FormatException('保存失败，请检查金额、分类和存储后重试。');
     },
@@ -72,6 +79,17 @@ class _FinanceRecordEditorState extends State<FinanceRecordEditor> {
           controller: _note,
           decoration: const InputDecoration(labelText: '备注'),
         ),
+        if (widget.controller.availableCategories.any(
+          (row) => row.id == _category && row.type == FinanceType.expense,
+        ))
+          ReceiptFields(
+            status: _status,
+            receipt: _receipt,
+            onChanged: (status, image) => setState(() {
+              _status = status;
+              _receipt = image;
+            }),
+          ),
         const SizedBox(height: 12),
         CivilDateTimeField(
           label: '发生时间',

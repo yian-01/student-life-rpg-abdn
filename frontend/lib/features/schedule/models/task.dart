@@ -10,7 +10,64 @@ const Set<String> _taskJsonKeys = <String>{
   'isCompleted',
   'dueAt',
   'scheduledRange',
+  'priority',
+  'steps',
+  'note',
 };
+
+enum TaskPriority {
+  low('低'),
+  normal('普通'),
+  high('高');
+
+  const TaskPriority(this.label);
+  final String label;
+}
+
+class TaskStep {
+  TaskStep({required this.id, required this.title, this.done = false}) {
+    if (id.trim().isEmpty || title.trim().isEmpty) {
+      throw ArgumentError('Blank task step');
+    }
+  }
+
+  final String id;
+  final String title;
+  final bool done;
+
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'done': done};
+
+  factory TaskStep.fromJson(Object? json) {
+    if (json is! Map<String, dynamic> || json.length != 3) {
+      throw const FormatException('Invalid task step');
+    }
+    final id = json['id'];
+    final title = json['title'];
+    final done = json['done'];
+    if (id is! String || title is! String || done is! bool) {
+      throw const FormatException('Invalid task step');
+    }
+    return TaskStep(id: id, title: title, done: done);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TaskStep &&
+      other.id == id &&
+      other.title == title &&
+      other.done == done;
+
+  @override
+  int get hashCode => Object.hash(id, title, done);
+}
+
+TaskPriority _readPriority(Object? value) {
+  if (value == null) return TaskPriority.normal;
+  for (final priority in TaskPriority.values) {
+    if (priority.name == value) return priority;
+  }
+  throw const FormatException('Unknown task priority');
+}
 
 /// H 的任务模型：不可变，ID 不可修改，时间使用本地民用时间。
 ///
@@ -24,7 +81,13 @@ class Task {
     this.isCompleted = false,
     this.dueAt,
     this.scheduledRange,
-  }) {
+    this.note,
+    this.priority = TaskPriority.normal,
+    List<TaskStep> steps = const [],
+  }) : steps = List.unmodifiable(steps) {
+    if (this.steps.map((step) => step.id).toSet().length != this.steps.length) {
+      throw ArgumentError('Duplicate task step ID');
+    }
     if (id.trim().isEmpty) {
       throw ArgumentError.value(id, 'id', 'must not be empty');
     }
@@ -50,6 +113,9 @@ class Task {
   final bool isCompleted;
   final DateTime? dueAt;
   final TimeRange? scheduledRange;
+  final String? note;
+  final TaskPriority priority;
+  final List<TaskStep> steps;
 
   /// 返回新对象；不提供修改 `id` 的能力，可空字段用 `null` 显式清空。
   Task copyWith({
@@ -58,6 +124,9 @@ class Task {
     bool? isCompleted,
     Object? dueAt = _unset,
     Object? scheduledRange = _unset,
+    Object? note = _unset,
+    TaskPriority? priority,
+    List<TaskStep>? steps,
   }) {
     final nextDueAt = identical(dueAt, _unset) ? this.dueAt : dueAt;
     if (nextDueAt != null && nextDueAt is! DateTime) {
@@ -82,6 +151,9 @@ class Task {
       isCompleted: isCompleted ?? this.isCompleted,
       dueAt: nextDueAt as DateTime?,
       scheduledRange: nextScheduledRange as TimeRange?,
+      note: identical(note, _unset) ? this.note : note as String?,
+      priority: priority ?? this.priority,
+      steps: steps ?? this.steps,
     );
   }
 
@@ -95,6 +167,10 @@ class Task {
       'isCompleted': isCompleted,
       'dueAt': due == null ? null : encodeLocalDateTime(due, 'dueAt'),
       'scheduledRange': scheduled?.toJson(),
+      if (note != null) 'note': note,
+      if (priority != TaskPriority.normal) 'priority': priority.name,
+      if (steps.isNotEmpty)
+        'steps': steps.map((step) => step.toJson()).toList(),
     };
   }
 
@@ -125,6 +201,12 @@ class Task {
         ? null
         : decodeTimeRange(scheduledRangeValue, 'Task.scheduledRange');
 
+    final rawSteps = json['steps'];
+    final note = json['note'];
+    if ((rawSteps != null && rawSteps is! List) ||
+        (note != null && note is! String)) {
+      throw const FormatException('Invalid task note or steps');
+    }
     try {
       return Task(
         id: id,
@@ -133,6 +215,9 @@ class Task {
         isCompleted: isCompleted,
         dueAt: dueAt,
         scheduledRange: scheduledRange,
+        note: note as String?,
+        priority: _readPriority(json['priority']),
+        steps: (rawSteps as List?)?.map(TaskStep.fromJson).toList() ?? [],
       );
     } on ArgumentError catch (error) {
       throw FormatException('Task contains an invalid value: ${error.message}');
@@ -147,6 +232,12 @@ class Task {
         other.estimatedMinutes == estimatedMinutes &&
         other.isCompleted == isCompleted &&
         other.dueAt == dueAt &&
+        other.note == note &&
+        other.priority == priority &&
+        other.steps.length == steps.length &&
+        Iterable<int>.generate(
+          steps.length,
+        ).every((i) => other.steps[i] == steps[i]) &&
         _sameRange(other.scheduledRange, scheduledRange);
   }
 
@@ -159,6 +250,9 @@ class Task {
     dueAt,
     scheduledRange?.start,
     scheduledRange?.end,
+    note,
+    priority,
+    Object.hashAll(steps),
   );
 
   @override

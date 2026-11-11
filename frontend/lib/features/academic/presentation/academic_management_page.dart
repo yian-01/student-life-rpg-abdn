@@ -8,6 +8,7 @@ import '../models/course.dart';
 import '../models/semester.dart';
 import '../services/course_reference_guard.dart';
 import 'academic_editors.dart';
+import 'course_detail_page.dart';
 import 'assignment_exam_page.dart';
 import 'timetable_import_page.dart';
 
@@ -270,6 +271,19 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
                       Card(
                         child: ListTile(
                           title: Text(course.name),
+                          onTap: _busy
+                              ? null
+                              : () async {
+                                  await Navigator.of(context).push<void>(
+                                    MaterialPageRoute(
+                                      builder: (_) => CourseDetailPage(
+                                        data: widget.data,
+                                        id: course.id,
+                                      ),
+                                    ),
+                                  );
+                                  if (mounted) await _load();
+                                },
                           subtitle: Text(
                             '${_semesters.where((s) => s.id == course.semesterId).map((s) => s.name).firstOrNull ?? course.semesterId} · ${course.credits} 学分\n${course.slots.length} 个上课时段',
                           ),

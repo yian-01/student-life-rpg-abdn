@@ -67,6 +67,9 @@ class DayScheduleController extends ChangeNotifier {
     required int estimatedMinutes,
     required DateTime? dueAt,
     required TimeRange? scheduledRange,
+    String? note,
+    TaskPriority? priority,
+    List<TaskStep>? steps,
   }) async {
     final current = await taskById(id);
     await taskRepository!.update(
@@ -75,6 +78,9 @@ class DayScheduleController extends ChangeNotifier {
         estimatedMinutes: estimatedMinutes,
         dueAt: dueAt,
         scheduledRange: scheduledRange,
+        note: note,
+        priority: priority,
+        steps: steps,
       ),
     );
     await loadDay();
@@ -152,6 +158,9 @@ class DayScheduleController extends ChangeNotifier {
     required int estimatedMinutes,
     DateTime? dueAt,
     TimeRange? scheduledRange,
+    String? note,
+    TaskPriority priority = TaskPriority.normal,
+    List<TaskStep> steps = const [],
   }) async {
     final repository = taskRepository;
     if (repository == null) {
@@ -164,6 +173,9 @@ class DayScheduleController extends ChangeNotifier {
       estimatedMinutes: estimatedMinutes,
       dueAt: dueAt,
       scheduledRange: scheduledRange,
+      note: note,
+      priority: priority,
+      steps: steps,
     );
 
     await repository.insert(task);

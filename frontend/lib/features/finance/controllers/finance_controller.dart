@@ -69,6 +69,14 @@ class FinanceController extends ChangeNotifier {
 
   Future<void> refresh() => _loadCurrent();
 
+  Future<List<FinanceRecord>> listRecords() => _records.list();
+  Future<List<FinanceCategory>> listCategories() => _categories.list();
+
+  Future<void> restoreRecord(FinanceRecord record) async {
+    await _records.insert(record);
+    await _loadCurrent();
+  }
+
   Future<void> retry() => _loadCurrent();
 
   /// 新增收支记录。
@@ -80,6 +88,8 @@ class FinanceController extends ChangeNotifier {
     required String amountText,
     DateTime? occurredAt,
     String? note,
+    ReimbursementStatus reimbursement = ReimbursementStatus.none,
+    String? receipt,
   }) => _write(() async {
     final category = await _categories.getById(categoryId);
     if (category == null) throw StateError('Unknown finance category');
@@ -96,6 +106,8 @@ class FinanceController extends ChangeNotifier {
         amountMinor: parseAmountMinor(amountText),
         occurredAt: effective,
         note: note == null || note.trim().isEmpty ? null : note.trim(),
+        reimbursement: reimbursement,
+        receipt: receipt,
       ),
     );
     _month = DateTime(effective.year, effective.month);
@@ -107,6 +119,9 @@ class FinanceController extends ChangeNotifier {
     required String amountText,
     required DateTime occurredAt,
     String? note,
+    ReimbursementStatus? reimbursement,
+    String? receipt,
+    bool replaceReceipt = false,
   }) => _write(() async {
     final existing = await _records.getById(id);
     final category = await _categories.getById(categoryId);
@@ -119,6 +134,8 @@ class FinanceController extends ChangeNotifier {
         type: category.type,
         amountMinor: parseAmountMinor(amountText),
         occurredAt: occurredAt,
+        reimbursement: reimbursement,
+        receipt: replaceReceipt ? receipt : existing.receipt,
         note: note == null || note.trim().isEmpty ? null : note.trim(),
       ),
     );

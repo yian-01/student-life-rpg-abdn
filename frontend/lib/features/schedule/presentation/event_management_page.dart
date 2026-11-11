@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../shared/presentation/undo_removal.dart';
+import '../services/copy_schedule_item.dart';
 import '../../../app/campus_recovery.dart';
 import '../../../app/data/campus_data.dart';
 import '../../../shared/models/time_range.dart';
@@ -42,16 +44,26 @@ class _EventManagementPageState extends State<EventManagementPage> {
     }
   }
 
-  Future<void> _edit([Event? event]) async {
+  Future<void> _edit([Event? event, bool copying = false]) async {
     if (_editing || _busy || _confirming) return;
     setState(() => _editing = true);
     try {
+      var draft = event;
+      if (copying && event != null) {
+        final date = await chooseCopyDate(
+          context,
+          widget.initialDate ?? DateTime.now(),
+        );
+        if (date == null || !mounted) return;
+        draft = event.copyWith(range: copyRangeToDate(event.range, date));
+      }
       final saved = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (_) => EventEditor(
           data: widget.data,
-          event: event,
+          event: draft,
+          copying: copying,
           initialDate: widget.initialDate,
         ),
       );
@@ -65,10 +77,18 @@ class _EventManagementPageState extends State<EventManagementPage> {
     if (_busy || _editing || _confirming) return;
     setState(() => _confirming = true);
     try {
-      if (!await confirmRemoval(context, event.title) || !mounted) return;
+      if (!await confirmRemoval(context, event.title, undoable: true) ||
+          !mounted)
+        return;
       setState(() => _busy = true);
-      await widget.data.eventController.remove(event.id);
-      if (mounted) await _load();
+      final repository = widget.data.events;
+      if (!await repository.remove(event.id)) throw StateError('Missing event');
+      if (!mounted) return;
+      offerRemovalUndo(context, event.title, () async {
+        await repository.insert(event);
+        if (mounted) await _load();
+      });
+      await _load();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -128,12 +148,15 @@ class _EventManagementPageState extends State<EventManagementPage> {
                 onSelected: (v) {
                   if (v == 'edit') {
                     _edit(event);
+                  } else if (v == 'copy') {
+                    _edit(event, true);
                   } else {
                     _remove(event);
                   }
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'edit', child: Text('编辑')),
+                  PopupMenuItem(value: 'copy', child: Text('复制事件')),
                   PopupMenuItem(value: 'delete', child: Text('删除')),
                 ],
               ),
@@ -155,10 +178,12 @@ class EventEditor extends StatefulWidget {
     super.key,
     required this.data,
     this.event,
+    this.copying = false,
     this.initialDate,
   });
   final CampusData data;
   final Event? event;
+  final bool copying;
   final DateTime? initialDate;
   @override
   State<EventEditor> createState() => _EventEditorState();
@@ -183,7 +208,8 @@ class _EventEditorState extends State<EventEditor> {
         _start.minute,
       );
   late final _id =
-      widget.event?.id ?? 'event-${DateTime.now().microsecondsSinceEpoch}';
+      (widget.copying ? null : widget.event?.id) ??
+      'event-${DateTime.now().microsecondsSinceEpoch}';
   @override
   void dispose() {
     _title.dispose();
@@ -204,13 +230,17 @@ class _EventEditorState extends State<EventEditor> {
     );
     await widget.data.eventController.save(
       event,
-      creating: widget.event == null,
+      creating: widget.copying || widget.event == null,
     );
   }
 
   @override
   Widget build(BuildContext context) => RecordEditorDialog(
-    title: widget.event == null ? '新增事件' : '编辑事件',
+    title: widget.copying
+        ? '复制事件'
+        : widget.event == null
+        ? '新增事件'
+        : '编辑事件',
     onSave: _save,
     child: Column(
       mainAxisSize: MainAxisSize.min,

@@ -100,6 +100,8 @@ class GpaController extends ChangeNotifier {
           credits: course.credits,
           gradePoint: gradePoint,
           slots: course.slots,
+          teacher: course.teacher,
+          adjustments: course.adjustments,
           scoreScaleMax: scoreScaleMax,
         ),
       );

@@ -17,6 +17,7 @@ class CourseSlot {
     required this.startMinute,
     required this.endMinute,
     required List<int> weeks,
+    this.location,
   }) : weeks = List<int>.unmodifiable(weeks) {
     if (weekday < 1 || weekday > 7) {
       throw ArgumentError.value(weekday, 'weekday', 'Must be between 1 and 7.');
@@ -54,6 +55,7 @@ class CourseSlot {
         throw ArgumentError.value(
           weeks,
           'weeks',
+          'location',
           'Must be strictly increasing without duplicates.',
         );
       }
@@ -70,6 +72,7 @@ class CourseSlot {
   final int weekday;
   final int startMinute;
   final int endMinute;
+  final String? location;
 
   /// 该时间段生效的周次，严格递增，构造时已复制为不可变列表。
   final List<int> weeks;
@@ -79,6 +82,7 @@ class CourseSlot {
     'startMinute': startMinute,
     'endMinute': endMinute,
     'weeks': List<int>.unmodifiable(weeks),
+    if (location != null) 'location': location,
   };
 
   factory CourseSlot.fromJson(Map<String, dynamic> json) {
@@ -94,6 +98,7 @@ class CourseSlot {
         startMinute: startMinute,
         endMinute: endMinute,
         weeks: weeks,
+        location: readNullableString(json, 'location'),
       ),
     );
   }

@@ -120,7 +120,7 @@ class CampusData {
       if (semester == null) {
         throw StateError('Missing semester ${course.semesterId}');
       }
-      result.addAll(occurrencesForDate(course, semester, date));
+      result.addAll(adjustedOccurrencesForDate(course, semester, date));
     }
     return result;
   }

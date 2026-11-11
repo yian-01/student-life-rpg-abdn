@@ -10,11 +10,17 @@ class TaskEditorValue {
     required this.estimatedMinutes,
     this.dueAt,
     this.scheduledRange,
+    this.note,
+    this.priority = TaskPriority.normal,
+    this.steps = const [],
   });
   final String title;
   final int estimatedMinutes;
   final DateTime? dueAt;
   final TimeRange? scheduledRange;
+  final String? note;
+  final TaskPriority priority;
+  final List<TaskStep> steps;
 }
 
 /// Keeps the user's draft open on write failure; closes only after persistence.
@@ -24,9 +30,11 @@ class TaskEditorDialog extends StatefulWidget {
     required this.selectedDate,
     required this.onSave,
     this.task,
+    this.copying = false,
   });
   final DateTime selectedDate;
   final Task? task;
+  final bool copying;
   final Future<void> Function(TaskEditorValue value) onSave;
 
   @override
@@ -35,6 +43,11 @@ class TaskEditorDialog extends StatefulWidget {
 
 class _TaskEditorDialogState extends State<TaskEditorDialog> {
   late final _title = TextEditingController(text: widget.task?.title ?? '');
+  late final _note = TextEditingController(text: widget.task?.note ?? '');
+  final _step = TextEditingController();
+  late TaskPriority _priority = widget.task?.priority ?? TaskPriority.normal;
+  late final List<TaskStep> _steps = [...?widget.task?.steps];
+  int _stepSequence = 0;
   late final _minutes = TextEditingController(
     text: '${widget.task?.estimatedMinutes ?? 30}',
   );
@@ -71,7 +84,56 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
   void dispose() {
     _title.dispose();
     _minutes.dispose();
+    _note.dispose();
+    _step.dispose();
     super.dispose();
+  }
+
+  void _addStep() {
+    final title = _step.text.trim();
+    if (_saving || title.isEmpty) return;
+    setState(() {
+      _steps.add(
+        TaskStep(
+          id: 'step-${DateTime.now().microsecondsSinceEpoch}-${_stepSequence++}',
+          title: title,
+        ),
+      );
+      _step.clear();
+    });
+  }
+
+  Future<void> _renameStep(int index) async {
+    final old = _steps[index];
+    var title = old.title;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑子步骤'),
+        content: TextFormField(
+          initialValue: title,
+          onChanged: (value) => title = value,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (title.trim().isNotEmpty) Navigator.pop(context, title.trim());
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && result != null) {
+      setState(
+        () =>
+            _steps[index] = TaskStep(id: old.id, title: result, done: old.done),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -90,6 +152,7 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
       setState(() => _error = error);
       return;
     }
+    if (_step.text.trim().isNotEmpty) _addStep();
     setState(() {
       _saving = true;
       _error = null;
@@ -100,6 +163,9 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
           title: title,
           estimatedMinutes: minutes!,
           dueAt: _hasDue ? _due : null,
+          note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+          priority: _priority,
+          steps: List.unmodifiable(_steps),
           scheduledRange: _scheduled
               ? TimeRange(start: _start, end: _end)
               : null,
@@ -118,7 +184,13 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
     canPop: !_saving,
     child: AlertDialog(
       scrollable: true,
-      title: Text(widget.task == null ? '添加任务' : '编辑任务'),
+      title: Text(
+        widget.copying
+            ? '复制任务'
+            : widget.task == null
+            ? '添加任务'
+            : '编辑任务',
+      ),
       content: SizedBox(
         width: 340,
         child: Column(
@@ -175,6 +247,71 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
                 enabled: !_saving,
                 onChanged: (v) => setState(() => _due = v),
               ),
+            if (widget.copying && _hasDue) const Text('原截止时间已保留。可在上方修改或清除。'),
+            TextField(
+              controller: _note,
+              enabled: !_saving,
+              decoration: const InputDecoration(labelText: '备注（可选）'),
+            ),
+            DropdownButtonFormField<TaskPriority>(
+              initialValue: _priority,
+              decoration: const InputDecoration(labelText: '优先级'),
+              items: [
+                for (final priority in TaskPriority.values)
+                  DropdownMenuItem(
+                    value: priority,
+                    child: Text(priority.label),
+                  ),
+              ],
+              onChanged: _saving
+                  ? null
+                  : (value) {
+                      if (value != null) setState(() => _priority = value);
+                    },
+            ),
+            if (_steps.isNotEmpty)
+              Text(
+                '子步骤 ${_steps.where((step) => step.done).length}/${_steps.length}（任务完成状态单独设置）',
+              ),
+            for (final (index, step) in _steps.indexed)
+              ListTile(
+                key: ValueKey(step.id),
+                contentPadding: EdgeInsets.zero,
+                leading: Checkbox(
+                  value: step.done,
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() {
+                          _steps[index] = TaskStep(
+                            id: step.id,
+                            title: step.title,
+                            done: value ?? false,
+                          );
+                        }),
+                ),
+                title: Text(step.title),
+                onTap: _saving ? null : () => _renameStep(index),
+                trailing: IconButton(
+                  tooltip: '删除子步骤',
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _steps.removeAt(index)),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            TextField(
+              controller: _step,
+              enabled: !_saving,
+              onSubmitted: (_) => _addStep(),
+              decoration: InputDecoration(
+                labelText: '新子步骤',
+                suffixIcon: IconButton(
+                  tooltip: '添加子步骤',
+                  onPressed: _saving ? null : _addStep,
+                  icon: const Icon(Icons.add),
+                ),
+              ),
+            ),
             if (_error != null)
               Text(
                 _error!,
@@ -202,3 +339,28 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
     ),
   );
 }
+
+/// Shared task editing entry point for list-based views.
+Future<bool?> editExistingTask(
+  BuildContext context,
+  Task task,
+  Future<void> Function(Task) save,
+) => showDialog<bool>(
+  context: context,
+  barrierDismissible: false,
+  builder: (_) => TaskEditorDialog(
+    task: task,
+    selectedDate: task.scheduledRange?.start ?? task.dueAt ?? DateTime.now(),
+    onSave: (value) => save(
+      task.copyWith(
+        title: value.title,
+        estimatedMinutes: value.estimatedMinutes,
+        scheduledRange: value.scheduledRange,
+        dueAt: value.dueAt,
+        note: value.note,
+        priority: value.priority,
+        steps: value.steps,
+      ),
+    ),
+  ),
+);
