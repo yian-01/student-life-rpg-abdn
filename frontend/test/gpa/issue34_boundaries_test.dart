@@ -5,6 +5,7 @@ import 'package:student_life_rpg/features/academic/models/exam.dart';
 import 'package:student_life_rpg/features/academic/models/semester.dart';
 import 'package:student_life_rpg/features/academic/services/semester_week_guard.dart';
 import 'package:student_life_rpg/features/schedule/services/conflict_detector.dart';
+import 'package:student_life_rpg/features/schedule/services/task_schedule_adapter.dart';
 import 'package:student_life_rpg/shared/models/schedule_item.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
 
@@ -72,18 +73,13 @@ void main() {
           end: DateTime(2026, 11, 7, 0, 30),
         ),
       );
-      // Test-only projection: production I exam adapter is not in this baseline.
-      final examItem = ScheduleItem(
-        id: 'exam:same',
-        sourceId: exam.id,
-        sourceType: ScheduleSourceType.event,
-        title: exam.title,
-        range: exam.range,
-      );
+      final examItem = const TaskScheduleAdapter().examToScheduleItem(exam);
+      expect(examItem.sourceType, ScheduleSourceType.exam);
       for (final type in ScheduleSourceType.values) {
+        final sourceId = type == ScheduleSourceType.exam ? 'other-exam' : 'same';
         ScheduleItem item(DateTime start, DateTime end) => ScheduleItem(
-          id: '${type.name}:same',
-          sourceId: 'same',
+          id: TaskScheduleAdapter.buildItemId(type, sourceId, start),
+          sourceId: sourceId,
           sourceType: type,
           title: '同名',
           range: TimeRange(start: start, end: end),
