@@ -57,6 +57,14 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# WebView2 plugin 0.7.0-beta.3 still includes MSVC's experimental coroutine
+# headers. Limit Microsoft's compatibility definition to that plugin.
+if(MSVC AND TARGET flutter_inappwebview_windows_plugin)
+  target_compile_definitions(flutter_inappwebview_windows_plugin PRIVATE
+    _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+endif()
+
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can
