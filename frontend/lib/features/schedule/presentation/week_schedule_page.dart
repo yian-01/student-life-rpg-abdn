@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/data/campus_data.dart';
-import '../../../app/module_body.dart';
 import '../../../shared/models/schedule_item.dart';
 import '../../academic/models/semester.dart';
 import '../../academic/presentation/assignment_exam_page.dart';
@@ -91,74 +90,77 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('周课表')),
-    body: ModuleBody(
-      child: ListView(
-        padding: const EdgeInsets.all(12),
-        children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            children: [
-              IconButton(
-                tooltip: '上一周',
-                onPressed: () => _select(_dayAt(_monday, -7)),
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Text('${_date(_monday)} — ${_date(_dayAt(_monday, 6))}'),
-              IconButton(
-                tooltip: '下一周',
-                onPressed: () => _select(_dayAt(_monday, 7)),
-                icon: const Icon(Icons.chevron_right),
-              ),
-              TextButton(
-                onPressed: () => _select(DateTime.now()),
-                child: const Text('本周'),
-              ),
-            ],
-          ),
-          FutureBuilder<_Week>(
-            future: _week,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const LinearProgressIndicator();
-              }
-              final result = snapshot.data;
-              if (result == null) {
-                return TextButton(
-                  onPressed: () => _select(_monday),
-                  child: const Text('读取失败，重试'),
-                );
-              }
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final columns = constraints.maxWidth >= 960
-                      ? 7
-                      : constraints.maxWidth >= 600
-                      ? 3
-                      : 1;
-                  final width =
-                      (constraints.maxWidth - (columns - 1) * 8) / columns;
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final (i, day) in result.days.indexed)
-                        SizedBox(
-                          width: width,
-                          child: _section(
-                            context,
-                            _dayAt(_monday, i),
-                            day,
-                            result.semesters,
-                          ),
-                        ),
-                    ],
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                IconButton(
+                  tooltip: '上一周',
+                  onPressed: () => _select(_dayAt(_monday, -7)),
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text('${_date(_monday)} — ${_date(_dayAt(_monday, 6))}'),
+                IconButton(
+                  tooltip: '下一周',
+                  onPressed: () => _select(_dayAt(_monday, 7)),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+                TextButton(
+                  onPressed: () => _select(DateTime.now()),
+                  child: const Text('本周'),
+                ),
+              ],
+            ),
+            FutureBuilder<_Week>(
+              future: _week,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const LinearProgressIndicator();
+                }
+                final result = snapshot.data;
+                if (result == null) {
+                  return TextButton(
+                    onPressed: () => _select(_monday),
+                    child: const Text('读取失败，重试'),
                   );
-                },
-              );
-            },
-          ),
-        ],
+                }
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth >= 960
+                        ? 7
+                        : constraints.maxWidth >= 600
+                        ? 3
+                        : 1;
+                    final width =
+                        (constraints.maxWidth - (columns - 1) * 8) / columns;
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final (i, day) in result.days.indexed)
+                          SizedBox(
+                            width: width,
+                            child: _section(
+                              context,
+                              _dayAt(_monday, i),
+                              day,
+                              result.semesters,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     ),
   );

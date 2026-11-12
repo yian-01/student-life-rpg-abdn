@@ -188,21 +188,6 @@ class _DashboardPageState extends State<DashboardPage> {
       title: const Text('生活总览'),
       actions: [
         IconButton(
-          tooltip: '备份与恢复',
-          onPressed: () => _open('/backup'),
-          icon: const Icon(Icons.folder_copy_outlined),
-        ),
-        IconButton(
-          tooltip: '待办',
-          onPressed: () => _open('/todo'),
-          icon: const Icon(Icons.checklist),
-        ),
-        IconButton(
-          tooltip: '本地搜索',
-          onPressed: () => _open('/search'),
-          icon: const Icon(Icons.search),
-        ),
-        IconButton(
           tooltip: '刷新总览',
           onPressed: _load,
           icon: const Icon(Icons.refresh),
@@ -219,6 +204,27 @@ class _DashboardPageState extends State<DashboardPage> {
               Text('生活总览', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 8),
               const Text('任务、学业与账本保存在本机。'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.checklist),
+                    label: const Text('待办'),
+                    onPressed: () => _open('/todo'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.search),
+                    label: const Text('本地搜索'),
+                    onPressed: () => _open('/search'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.folder_copy_outlined),
+                    label: const Text('备份与恢复'),
+                    onPressed: () => _open('/backup'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

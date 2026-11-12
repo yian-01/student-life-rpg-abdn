@@ -309,17 +309,6 @@ class _DaySchedulePageState extends State<DaySchedulePage>
       appBar: AppBar(
         title: const Text('日程手账'),
         actions: [
-          if (widget.onOpenWeek != null)
-            IconButton(
-              tooltip: '周课表',
-              icon: const Icon(Icons.view_week_outlined),
-              onPressed: () async {
-                final target = await widget.onOpenWeek!(
-                  widget.controller.selectedDate,
-                );
-                if (mounted) await widget.controller.loadDay(target);
-              },
-            ),
           IconButton(
             key: const Key('refresh-schedule'),
             tooltip: '刷新日程',
@@ -359,6 +348,20 @@ class _DaySchedulePageState extends State<DaySchedulePage>
             children: [
               if (widget.controller.demoData) const _DemoDataBanner(),
               _DateNavigator(controller: widget.controller),
+              if (widget.onOpenWeek != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.view_week_outlined),
+                    label: const Text('周课表'),
+                    onPressed: () async {
+                      final target = await widget.onOpenWeek!(
+                        widget.controller.selectedDate,
+                      );
+                      if (mounted) await widget.controller.loadDay(target);
+                    },
+                  ),
+                ),
               const Divider(height: 1),
               Expanded(child: _buildBody(schedule)),
             ],
