@@ -93,8 +93,8 @@ class _TaskScheduleHostState extends State<TaskScheduleHost> {
       for (final course in courses)
         course.id: [
           course.name,
-          if (semesters[course.semesterId] case final term?) term,
-          if (course.teacher case final teacher?) teacher,
+          ?semesters[course.semesterId],
+          ?course.teacher,
         ].join(' · '),
     };
     final counts = <String, int>{};
