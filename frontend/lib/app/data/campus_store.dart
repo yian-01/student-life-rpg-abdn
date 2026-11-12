@@ -407,8 +407,9 @@ class CampusStore {
     if (raw != null) {
       try {
         final decoded = _decode(raw);
-        if (decoded.migrated)
+        if (decoded.migrated) {
           await store.writeDocument(path, jsonEncode(decoded.doc));
+        }
         _state = decoded.doc;
         _hasWritten = true;
         return;

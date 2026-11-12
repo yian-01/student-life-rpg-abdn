@@ -68,6 +68,34 @@ void main() {
     },
   );
 
+  testWidgets('weekly chart can filter the ledger to the selected day', (
+    tester,
+  ) async {
+    final category = (await scope.controller.listCategories()).first;
+    await scope.controller.addRecord(
+      categoryId: category.id,
+      amountText: '3.50',
+      occurredAt: DateTime(2026, 10, 5, 12),
+      note: '周一测试账目',
+    );
+    await pumpPage(tester, size: const Size(380, 700));
+    final openChart = find.text('每周收支趋势');
+    await tester.ensureVisible(openChart);
+    await tester.tap(openChart);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('weekly-finance-line-chart')), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '一'));
+    await tester.pumpAndSettle();
+    expect(find.text('10 月 5 日 · 1 笔'), findsOneWidget);
+    final details = find.text('看明细');
+    await tester.ensureVisible(details);
+    await tester.tap(details);
+    await tester.pumpAndSettle();
+    expect(find.text('筛选结果 · 1 笔'), findsOneWidget);
+    expect(find.textContaining('周一测试账目'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('adding a valid expense refreshes the list and summary', (
     tester,
   ) async {

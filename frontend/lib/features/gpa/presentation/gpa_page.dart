@@ -152,11 +152,20 @@ class _GpaPageState extends State<GpaPage> {
                         ),
                       ],
                       if (controller.result case final result?) ...[
-                        Text(
-                          result.value == null
-                              ? 'GPA：暂无已评分课程'
-                              : 'GPA：${result.value!.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        Wrap(
+                          spacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              result.value == null
+                                  ? 'GPA：暂无已评分课程'
+                                  : 'GPA：${result.value!.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            Text(
+                              '满分 ${controller.scoreScaleMax.toStringAsFixed(1)}',
+                            ),
+                          ],
                         ),
                         Text(
                           '已评分学分：${result.gradedCredits} · 已评分课程：${result.gradedCourseCount} · 未评分：${result.missingCount}',

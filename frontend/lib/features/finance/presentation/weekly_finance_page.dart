@@ -124,8 +124,8 @@ class _WeeklyFinancePageState extends State<WeeklyFinancePage> {
     final day = week.days[_selected];
     final difference = week.expense - week.previousExpense;
     final compare = difference == 0
-        ? '与上周持平'
-        : '${difference > 0 ? '比上周多' : '比上周少'} ${_yuan(difference.abs())}';
+        ? '与上周整周持平'
+        : '${difference > 0 ? '比上周整周多' : '比上周整周少'} ${_yuan(difference.abs())}';
     final theme = Theme.of(context);
     final expenses = theme.colorScheme.primary;
     final income = theme.colorScheme.tertiary;
@@ -143,7 +143,7 @@ class _WeeklyFinancePageState extends State<WeeklyFinancePage> {
           ],
         ),
         const SizedBox(height: 6),
-        Text('上周支出 ${_yuan(week.previousExpense)} · $compare'),
+        Text('上周整周支出 ${_yuan(week.previousExpense)} · $compare'),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,

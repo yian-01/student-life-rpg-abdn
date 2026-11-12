@@ -164,6 +164,7 @@ class FinanceController extends ChangeNotifier {
         name: name.trim(),
         type: type,
       );
+      await _ensureCategoryNameAvailable(category);
       await _categories.insert(category);
       created = category;
     });
@@ -178,10 +179,27 @@ class FinanceController extends ChangeNotifier {
   }) => _write(() async {
     final existing = await _categories.getById(id);
     if (existing == null) throw StateError('未知分类。');
-    await _categories.update(
-      FinanceCategory(id: existing.id, name: name, type: type),
+    final category = FinanceCategory(
+      id: existing.id,
+      name: name.trim(),
+      type: type,
     );
+    await _ensureCategoryNameAvailable(category);
+    await _categories.update(category);
   });
+
+  Future<void> _ensureCategoryNameAvailable(FinanceCategory candidate) async {
+    final normalized = candidate.name.trim().toLowerCase();
+    final categories = await _categories.list();
+    if (categories.any(
+      (category) =>
+          category.id != candidate.id &&
+          category.type == candidate.type &&
+          category.name.trim().toLowerCase() == normalized,
+    )) {
+      throw StateError('同类型下已存在同名分类。');
+    }
+  }
 
   /// 删除分类。被记录或预算引用时阻止删除并说明原因。
   Future<bool> deleteCategory(String id) => _write(() async {
