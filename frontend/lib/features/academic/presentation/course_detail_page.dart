@@ -12,6 +12,7 @@ import '../models/course.dart';
 import '../models/course_adjustment.dart';
 import '../models/exam.dart';
 import '../models/semester.dart';
+import '../services/course_occurrence_service.dart';
 import 'academic_editors.dart';
 import 'assignment_exam_page.dart';
 
@@ -41,6 +42,7 @@ typedef _CourseDetail = ({
 class _CourseDetailPageState extends State<CourseDetailPage> {
   late Future<_CourseDetail?> _detail = _load();
   bool _working = false;
+  TimeRange? _original;
 
   Future<_CourseDetail?> _load() async {
     final course = await widget.data.courses.getById(widget.id);
@@ -80,16 +82,18 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
   Future<void> _storeAdjustment(String id, CourseAdjustment? adjustment) async {
     final latest = await widget.data.courses.getById(widget.id);
     if (latest == null) throw const FormatException('课程已经删除。');
-    await widget.data.courses.update(
-      Course.fromJson({
-        ...latest.toJson(),
-        'adjustments': [
-          for (final row in latest.adjustments)
-            if (row.occurrenceId != id) row.toJson(),
-          if (adjustment != null) adjustment.toJson(),
-        ],
-      }, scoreScaleMax: CampusStore.scoreScaleMax),
-    );
+    final candidate = Course.fromJson({
+      ...latest.toJson(),
+      'adjustments': [
+        for (final row in latest.adjustments)
+          if (row.occurrenceId != id) row.toJson(),
+        if (adjustment != null) adjustment.toJson(),
+      ],
+    }, scoreScaleMax: CampusStore.scoreScaleMax);
+    final term = await widget.data.semesters.getById(latest.semesterId);
+    if (term == null) throw const FormatException('所属学期已删除。');
+    validateCourseAdjustments(candidate, term);
+    await widget.data.courses.update(candidate);
   }
 
   @override
@@ -114,6 +118,25 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
         if (detail == null) return const Center(child: Text('课程已删除'));
         final course = detail.course;
         final occurrence = widget.occurrence;
+        final current = course.adjustments
+            .where((row) => row.occurrenceId == occurrence?.id)
+            .firstOrNull;
+        _original ??= current?.original ?? occurrence?.range;
+        final original = _original;
+        final term = detail.semesters
+            .where((row) => row.id == course.semesterId)
+            .firstOrNull;
+        final originalItem = original == null || term == null
+            ? null
+            : occurrencesForDate(
+                course,
+                term,
+                original.start,
+              ).where((row) => row.id == occurrence?.id).firstOrNull;
+        final range = current == null
+            ? originalItem?.range
+            : current.replacement;
+        final location = current?.location ?? originalItem?.location;
         return ModuleBody(
           child: ListView(
             padding: const EdgeInsets.all(16),
@@ -127,21 +150,20 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
               ),
               Text('教师 · ${course.teacher ?? '未填写'}'),
               if (occurrence != null) ...[
-                Text(
-                  '本次 ${formatLocalDateTime(occurrence.range.start)} — ${formatLocalDateTime(occurrence.range.end)}',
-                ),
-                Text('教室 · ${occurrence.location ?? '未填写'}'),
+                if (range != null) ...[
+                  Text(
+                    '本次 ${formatLocalDateTime(range.start)} — ${formatLocalDateTime(range.end)}',
+                  ),
+                  Text('教室 · ${location ?? '未填写'}'),
+                ] else
+                  Text(current != null ? '本次已停课' : '原课次已变更，请从日程重新打开。'),
                 OutlinedButton(
-                  onPressed: _working
+                  onPressed: _working || originalItem == null
                       ? null
                       : () => _dialog(
                           _AdjustmentEditor(
-                            occurrence: occurrence,
-                            current: course.adjustments
-                                .where(
-                                  (row) => row.occurrenceId == occurrence.id,
-                                )
-                                .firstOrNull,
+                            occurrence: originalItem,
+                            current: current,
                             onSave: (value) =>
                                 _storeAdjustment(occurrence.id, value),
                           ),
@@ -303,9 +325,10 @@ class _AdjustmentEditorState extends State<_AdjustmentEditor> {
   late DateTime _end =
       (widget.current?.replacement ?? widget.occurrence.range).end;
   late final _location = TextEditingController(
-    text: widget.occurrence.location ?? '',
+    text: widget.current?.location ?? widget.occurrence.location ?? '',
   );
-  bool _cancelled = false;
+  late bool _cancelled =
+      widget.current != null && widget.current!.replacement == null;
 
   @override
   void dispose() {

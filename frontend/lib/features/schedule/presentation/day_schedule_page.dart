@@ -207,11 +207,13 @@ class _DaySchedulePageState extends State<DaySchedulePage>
         ),
       );
       if (confirmed != true || !mounted) return;
-      final task = await widget.controller.taskById(id);
-      await widget.controller.removeTask(id);
+      final controller = widget.controller;
+      final repository = controller.taskRepository!;
+      final task = await controller.taskById(id);
+      await controller.removeTask(id);
       if (mounted) {
         offerRemovalUndo(context, task.title, () async {
-          await widget.controller.taskRepository!.insert(task);
+          await repository.insert(task);
           if (mounted) await widget.controller.loadDay();
         });
       }
