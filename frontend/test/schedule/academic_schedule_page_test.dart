@@ -351,18 +351,8 @@ void main() {
             .first,
       );
       expect(find.text('健康任务'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('恢复学业／事件'),
-        -200,
-        scrollable: find
-            .descendant(
-              of: find.byType(ListView).first,
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.tap(find.text('恢复学业／事件'));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('schedule-new-assignment')), findsNothing);
+      await tapRow(tester, '恢复学业／事件');
       await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
       expect(documents.documents['campus.json'], '{bad');

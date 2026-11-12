@@ -468,7 +468,8 @@ class _DaySchedulePageState extends State<DaySchedulePage>
           spacing: 8,
           children: [
             const _SectionTitle('当日作业截止'),
-            if (widget.onAddAssignment != null)
+            if (widget.onAddAssignment != null &&
+                !schedule.errors.containsKey(ScheduleDataSource.assignments))
               TextButton.icon(
                 key: const Key('schedule-new-assignment'),
                 onPressed: _opening
