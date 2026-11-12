@@ -7,9 +7,11 @@ import 'data/campus_store.dart';
 
 import '../features/schedule/repositories/file_task_repository.dart';
 import '../features/schedule/repositories/task_repository.dart';
+import '../features/schedule/services/focus_timer.dart';
 import '../shared/storage/json_document_store.dart';
 
 abstract final class AppData {
+  static final focusTimer = FocusTimer();
   static Future<Directory>? _directory;
 
   static Future<Directory> directory() =>

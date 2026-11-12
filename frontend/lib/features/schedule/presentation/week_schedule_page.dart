@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/data/campus_data.dart';
@@ -7,6 +8,7 @@ import '../../academic/presentation/assignment_exam_page.dart';
 import '../../academic/services/course_occurrence_service.dart';
 import '../repositories/task_repository.dart';
 import '../services/day_schedule_service.dart';
+import '../services/calendar_export.dart';
 import 'schedule_record_page.dart';
 import 'task_editor_dialog.dart';
 import 'week_timetable_grid.dart';
@@ -38,6 +40,7 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
   );
   late Future<_Week> _week = _load(_monday);
   bool _opening = false;
+  bool _exporting = false;
   ScheduleSourceType? _filter;
 
   Future<_Week> _load(DateTime monday) async {
@@ -86,6 +89,33 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
     } finally {
       _opening = false;
       if (mounted) _select(_monday);
+    }
+  }
+
+  Future<void> _export(List<List<ScheduleItem>> items) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final bytes = exportCalendar(items.expand((day) => day), DateTime.now());
+      final saved = await FilePicker.platform.saveFile(
+        dialogTitle: '导出周课表',
+        fileName: 'student-life-week-${_date(_monday)}.ics',
+        bytes: bytes,
+        lockParentWindow: true,
+      );
+      if (mounted && saved != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已保存日历文件。')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('日历导出失败，请检查保存位置。')));
+      }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
   }
 
@@ -203,6 +233,13 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
                       .map((item) => item.id)
                       .toSet()
                       .length;
+                  final canExport =
+                      count > 0 &&
+                      !result.days.any(
+                        (day) => day.errors.keys.any(
+                          (source) => source != ScheduleDataSource.assignments,
+                        ),
+                      );
                   return Column(
                     children: [
                       if (result.days.any((day) => day.errors.isNotEmpty))
@@ -210,19 +247,32 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
                           onPressed: () => _select(_monday),
                           child: const Text('部分数据读取失败 · 重试'),
                         ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        child: Text(
-                          [
-                            ...termWeeks,
-                            count == 0 ? '本周无匹配事项' : '$count 项安排',
-                          ].join('  ·  '),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                [
+                                  ...termWeeks,
+                                  count == 0 ? '本周无匹配事项' : '$count 项安排',
+                                ].join('  ·  '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '导出本周日历（ICS）',
+                            onPressed: canExport && !_exporting
+                                ? () => _export(items)
+                                : null,
+                            icon: const Icon(Icons.file_download_outlined),
+                          ),
+                        ],
                       ),
                       Expanded(
                         child: WeekTimetableGrid(

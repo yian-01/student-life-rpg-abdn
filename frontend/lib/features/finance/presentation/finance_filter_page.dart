@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/module_body.dart';
@@ -10,6 +11,7 @@ import '../models/finance_record.dart';
 import '../models/finance_type.dart';
 import '../models/money.dart';
 import '../services/finance_calculator.dart';
+import '../services/finance_csv_export.dart';
 import 'finance_record_editor.dart';
 
 class FinanceFilterPage extends StatefulWidget {
@@ -59,7 +61,7 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
     if (mounted && range != null) setState(() => _range = range);
   }
 
-  Future<void> _edit(FinanceRecord row) async {
+  Future<void> _edit(FinanceRecord row, {bool duplicate = false}) async {
     if (_acting) return;
     setState(() => _acting = true);
     try {
@@ -71,8 +73,11 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
       await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (_) =>
-            FinanceRecordEditor(controller: widget.controller, record: row),
+        builder: (_) => FinanceRecordEditor(
+          controller: widget.controller,
+          record: row,
+          duplicate: duplicate,
+        ),
       );
       if (mounted) _refresh();
     } catch (_) {
@@ -108,6 +113,38 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('删除失败，请重试。')));
+      }
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  Future<void> _export(
+    List<FinanceRecord> rows,
+    Map<String, FinanceCategory> categories,
+  ) async {
+    if (_acting) return;
+    setState(() => _acting = true);
+    try {
+      final saved = await FilePicker.platform.saveFile(
+        dialogTitle: '导出筛选账目',
+        fileName: 'student-life-ledger-${_day(widget.controller.now)}.csv',
+        bytes: exportFinanceCsv(
+          rows,
+          categories.map((id, category) => MapEntry(id, category.name)),
+        ),
+        lockParentWindow: true,
+      );
+      if (mounted && saved != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已导出 ${rows.length} 笔账目。')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('账目导出失败，请检查保存位置。')));
       }
     } finally {
       if (mounted) setState(() => _acting = false);
@@ -248,7 +285,23 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
                 ],
               ),
               const Divider(),
-              Text('筛选结果 · ${rows.length} 笔'),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  Text('筛选结果 · ${rows.length} 笔'),
+                  TextButton.icon(
+                    icon: const Icon(Icons.file_download_outlined),
+                    label: const Text('导出 CSV'),
+                    onPressed:
+                        rows.isEmpty ||
+                            _acting ||
+                            snapshot.connectionState != ConnectionState.done
+                        ? null
+                        : () => _export(rows, byId),
+                  ),
+                ],
+              ),
               Text(
                 '收入 ¥${_money(totals.incomeMinor)} · 支出 ¥${_money(totals.expenseMinor)} · 结余 ¥${_money(totals.balanceMinor)}',
               ),
@@ -266,15 +319,20 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
                       '${row.note == null ? '' : '\n${row.note}'}',
                     ),
                     onTap: _acting ? null : () => _edit(row),
-                    trailing: IconButton(
-                      tooltip: '删除账目',
-                      onPressed: _acting
-                          ? null
-                          : () => _delete(
-                              row,
-                              byId[row.categoryId]?.name ?? '账目',
-                            ),
-                      icon: const Icon(Icons.delete_outline),
+                    trailing: PopupMenuButton<String>(
+                      tooltip: '账目操作',
+                      enabled: !_acting,
+                      onSelected: (action) {
+                        if (action == 'copy') {
+                          _edit(row, duplicate: true);
+                        } else {
+                          _delete(row, byId[row.categoryId]?.name ?? '账目');
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'copy', child: Text('复制记账')),
+                        PopupMenuItem(value: 'delete', child: Text('删除账目')),
+                      ],
                     ),
                   ),
                 ),

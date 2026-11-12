@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/features/finance/controllers/budget_controller.dart';
 import 'package:student_life_rpg/features/finance/finance_memory_scope.dart';
+import 'package:student_life_rpg/features/finance/models/finance_record.dart';
+import 'package:student_life_rpg/features/finance/models/finance_type.dart';
 import 'package:student_life_rpg/features/finance/presentation/finance_page.dart';
 
 void main() {
@@ -95,6 +97,44 @@ void main() {
     expect(find.textContaining('周一测试账目'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'copy a ledger record creates a fresh entry with today and no inherited status',
+    (tester) async {
+      final category = (await scope.controller.listCategories()).firstWhere(
+        (item) => item.type == FinanceType.expense,
+      );
+      await scope.controller.addRecord(
+        categoryId: category.id,
+        amountText: '12.34',
+        occurredAt: DateTime(2026, 10, 10, 12),
+        note: '实验打印',
+        reimbursement: ReimbursementStatus.reimbursed,
+      );
+      final original = (await scope.records.list()).single;
+      await pumpPage(tester);
+      final menu = find.byKey(Key('finance-actions-${original.id}'));
+      await tester.ensureVisible(menu);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('复制记账'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      final entries = await scope.records.list();
+      final copy = entries.singleWhere((row) => row.id != original.id);
+      expect(copy.categoryId, original.categoryId);
+      expect(copy.note, '实验打印');
+      expect(copy.amountMinor, 1234);
+      expect(copy.occurredAt, scope.controller.now);
+      expect(copy.reimbursement, ReimbursementStatus.none);
+      expect(
+        entries.singleWhere((row) => row.id == original.id).reimbursement,
+        ReimbursementStatus.reimbursed,
+      );
+    },
+  );
 
   testWidgets('adding a valid expense refreshes the list and summary', (
     tester,

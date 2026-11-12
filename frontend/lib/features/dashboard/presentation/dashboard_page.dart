@@ -209,6 +209,16 @@ class _DashboardPageState extends State<DashboardPage> {
                 spacing: 8,
                 children: [
                   ActionChip(
+                    avatar: const Icon(Icons.today_outlined),
+                    label: const Text('今日规划'),
+                    onPressed: () => _open(AppRoutes.today),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.timer_outlined),
+                    label: const Text('专注计时'),
+                    onPressed: () => _open(AppRoutes.focus),
+                  ),
+                  ActionChip(
                     avatar: const Icon(Icons.checklist),
                     label: const Text('待办'),
                     onPressed: () => _open('/todo'),

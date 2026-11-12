@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../features/schedule/models/task.dart';
+import '../features/schedule/presentation/focus_timer_page.dart';
+import '../features/schedule/presentation/today_planner_page.dart';
+import 'app_data.dart';
 import '../features/local_records/local_records_page.dart';
 
 import '../features/bedroom/presentation/bedroom_page.dart';
@@ -28,6 +32,8 @@ abstract final class AppRoutes {
   static const todo = '/todo';
   static const search = '/search';
   static const backup = '/backup';
+  static const today = '/today';
+  static const focus = '/focus';
 
   static Route<void> generateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
@@ -74,6 +80,11 @@ abstract final class AppRoutes {
       todo => const LocalRecordsPage(),
       search => const LocalRecordsPage(search: true),
       backup => const FullBackupPage(),
+      today => const TodayPlannerPage(),
+      focus => FocusTimerPage(
+        timer: AppData.focusTimer,
+        task: settings.arguments is Task ? settings.arguments as Task : null,
+      ),
       _ => UnknownRoutePage(routeName: settings.name),
     };
     return MaterialPageRoute<void>(

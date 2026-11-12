@@ -349,13 +349,14 @@ class _FinancePageState extends State<FinancePage> {
                           onAction: _controller.isSaving
                               ? null
                               : (action) async {
-                                  if (action == 'edit') {
+                                  if (action == 'edit' || action == 'copy') {
                                     await showDialog<bool>(
                                       context: context,
                                       barrierDismissible: false,
                                       builder: (_) => FinanceRecordEditor(
                                         controller: _controller,
                                         record: record,
+                                        duplicate: action == 'copy',
                                       ),
                                     );
                                   } else if (await confirmRemoval(
@@ -580,6 +581,7 @@ class _RecordTile extends StatelessWidget {
                 onSelected: onAction,
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'edit', child: Text('编辑')),
+                  PopupMenuItem(value: 'copy', child: Text('复制记账')),
                   PopupMenuItem(value: 'delete', child: Text('删除')),
                 ],
               ),
