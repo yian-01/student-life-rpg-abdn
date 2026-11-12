@@ -157,11 +157,15 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
                 final order = b.occurredAt.compareTo(a.occurredAt);
                 return order == 0 ? a.id.compareTo(b.id) : order;
               });
-        final totals = const FinanceCalculator().calculate(rows);
+        final totals = const FinanceCalculator().calculate(
+          rows,
+          limitTotals: false,
+        );
         final pending = const FinanceCalculator().calculate(
           rows
               .where((row) => row.reimbursement == ReimbursementStatus.pending)
               .toList(),
+          limitTotals: false,
         );
         return ModuleBody(
           child: ListView(

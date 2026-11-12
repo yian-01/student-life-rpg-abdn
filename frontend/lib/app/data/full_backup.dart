@@ -102,14 +102,18 @@ class FullBackup {
 }
 
 Future<Uint8List> readBackupFile(File file) async {
-  if (await file.length() > maxBackupBytes) {
+  final length = await file.length();
+  if (length > maxBackupBytes) {
     throw const FormatException('备份超过 64 MB。');
   }
   final fileHandle = await file.open();
   try {
-    final bytes = await fileHandle.read(maxBackupBytes + 1);
+    final bytes = await fileHandle.read(length + 1);
     if (bytes.length > maxBackupBytes) {
       throw const FormatException('备份超过 64 MB。');
+    }
+    if (bytes.length != length || (await fileHandle.read(1)).isNotEmpty) {
+      throw const FormatException('读取时备份文件发生变化，请重新选择。');
     }
     return bytes;
   } finally {

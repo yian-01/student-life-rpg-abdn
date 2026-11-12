@@ -31,10 +31,12 @@ class TaskEditorDialog extends StatefulWidget {
     required this.onSave,
     this.task,
     this.copying = false,
+    this.copyAnchor,
   });
   final DateTime selectedDate;
   final Task? task;
   final bool copying;
+  final DateTime? copyAnchor;
   final Future<void> Function(TaskEditorValue value) onSave;
 
   @override
@@ -134,6 +136,27 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
             _steps[index] = TaskStep(id: old.id, title: result, done: old.done),
       );
     }
+  }
+
+  void _shiftDeadline() {
+    final anchor = widget.copyAnchor!;
+    final target = widget.selectedDate;
+    final original = widget.task!.dueAt!;
+    final delta = DateTime.utc(
+      target.year,
+      target.month,
+      target.day,
+    ).difference(DateTime.utc(anchor.year, anchor.month, anchor.day)).inDays;
+    _due = DateTime(
+      original.year,
+      original.month,
+      original.day + delta,
+      original.hour,
+      original.minute,
+      original.second,
+      original.millisecond,
+      original.microsecond,
+    );
   }
 
   Future<void> _save() async {
@@ -247,7 +270,24 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
                 enabled: !_saving,
                 onChanged: (v) => setState(() => _due = v),
               ),
-            if (widget.copying && _hasDue) const Text('原截止时间已保留。可在上方修改或清除。'),
+            if (widget.copying && _hasDue && widget.task?.dueAt != null)
+              Wrap(
+                children: [
+                  TextButton(
+                    onPressed: _saving
+                        ? null
+                        : () => setState(() => _due = widget.task!.dueAt!),
+                    child: const Text('保留原截止'),
+                  ),
+                  if (widget.copyAnchor != null)
+                    TextButton(
+                      onPressed: _saving
+                          ? null
+                          : () => setState(_shiftDeadline),
+                      child: const Text('随目标日期平移'),
+                    ),
+                ],
+              ),
             TextField(
               controller: _note,
               enabled: !_saving,

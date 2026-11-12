@@ -136,19 +136,23 @@ class _DaySchedulePageState extends State<DaySchedulePage>
       var task = id == null ? null : await widget.controller.taskById(id);
       if (!mounted) return;
       var date = widget.controller.selectedDate;
+      final copyAnchor = copy
+          ? task?.scheduledRange?.start ?? task?.dueAt
+          : null;
       if (copy && task != null) {
         final target = await chooseCopyDate(context, date);
         if (target == null || !mounted) return;
         date = target;
         task = taskCopyDraft(task, target);
       }
-      await showDialog<bool>(
+      final saved = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (_) => TaskEditorDialog(
           task: task,
           selectedDate: date,
           copying: copy,
+          copyAnchor: copyAnchor,
           onSave: (value) => id == null || copy
               ? widget.controller.addTask(
                   title: value.title,
@@ -171,6 +175,9 @@ class _DaySchedulePageState extends State<DaySchedulePage>
                 ),
         ),
       );
+      if (copy && saved == true && mounted) {
+        await widget.controller.loadDay(date);
+      }
     } catch (_) {
       _showMessage('任务读取失败，请重试。');
     } finally {
@@ -186,7 +193,7 @@ class _DaySchedulePageState extends State<DaySchedulePage>
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('删除任务？'),
-          content: const Text('删除后无法撤销。'),
+          content: const Text('删除后可在本次会话内短时撤销。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
