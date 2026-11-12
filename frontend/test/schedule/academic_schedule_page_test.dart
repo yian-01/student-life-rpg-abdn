@@ -113,6 +113,63 @@ void main() {
   }
 
   testWidgets(
+    'daily schedule creates an assignment for the selected course and date',
+    (tester) async {
+      await seed();
+      await data.courses.insert(
+        Course(
+          id: 'other-course',
+          semesterId: 'term',
+          name: '另一门课',
+          credits: 3,
+          scoreScaleMax: 4,
+          slots: [],
+        ),
+      );
+      final controller = await open(tester);
+      await tapRow(tester, '新建作业');
+      expect(find.byType(AssignmentEditor), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(await data.assignments.list(), isEmpty);
+
+      await tapRow(tester, '新建作业');
+      final courseField = find.byKey(const Key('assignment-course'));
+      await tester.tap(courseField);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('课程源 · 学期').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('assignment-title')),
+        '线性代数练习',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.pumpAndSettle();
+
+      final assignment = (await data.assignments.list()).single;
+      expect(assignment.courseId, 'course');
+      expect(assignment.dueAt, DateTime(2028, 2, 28, 23, 59));
+      expect(controller.selectedDate, day);
+      expect(controller.schedule!.assignmentDeadlines.single.id, assignment.id);
+      await tapRow(tester, '线性代数练习');
+      expect(find.text('作业详情'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'daily schedule explains how to create a course when none exist',
+    (tester) async {
+      await open(tester);
+      await tapRow(tester, '新建作业');
+      expect(find.text('先创建一门课程'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '去学期与课程'));
+      await tester.pumpAndSettle();
+      expect(find.text('学期与课程'), findsOneWidget);
+      expect(await data.assignments.list(), isEmpty);
+    },
+  );
+
+  testWidgets(
     'SC01/SC02 formal route opens exam source; edit date, return and delete refresh correct day',
     (tester) async {
       await seed();

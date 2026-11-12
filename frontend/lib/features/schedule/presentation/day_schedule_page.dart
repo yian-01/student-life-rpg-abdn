@@ -20,6 +20,7 @@ class DaySchedulePage extends StatefulWidget {
     this.onManageAcademic,
     this.onOpenItem,
     this.onOpenAssignment,
+    this.onAddAssignment,
     this.onRecoverCampus,
     this.onOpenWeek,
   });
@@ -29,6 +30,7 @@ class DaySchedulePage extends StatefulWidget {
   final Future<void> Function()? onManageAcademic;
   final Future<void> Function(ScheduleItem item)? onOpenItem;
   final Future<void> Function(Assignment assignment)? onOpenAssignment;
+  final Future<void> Function(DateTime date)? onAddAssignment;
   final Future<void> Function()? onRecoverCampus;
   final Future<DateTime?> Function(DateTime date)? onOpenWeek;
   final DayScheduleController controller;
@@ -460,7 +462,27 @@ class _DaySchedulePageState extends State<DaySchedulePage>
             ),
           ),
         const SizedBox(height: 20),
-        const _SectionTitle('当日作业截止'),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            const _SectionTitle('当日作业截止'),
+            if (widget.onAddAssignment != null)
+              TextButton.icon(
+                key: const Key('schedule-new-assignment'),
+                onPressed: _opening
+                    ? null
+                    : () => _open(
+                        () => widget.onAddAssignment!(
+                          widget.controller.selectedDate,
+                        ),
+                      ),
+                icon: const Icon(Icons.add),
+                label: const Text('新建作业'),
+              ),
+          ],
+        ),
         if (schedule.assignmentDeadlines.isEmpty)
           _EmptyMessage(
             schedule.errors.containsKey(ScheduleDataSource.assignments)

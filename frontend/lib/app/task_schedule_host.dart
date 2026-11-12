@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/academic/presentation/assignment_exam_page.dart';
 import '../features/schedule/presentation/schedule_page.dart';
 import '../features/schedule/presentation/week_schedule_page.dart';
 import '../features/schedule/repositories/file_task_repository.dart';
@@ -56,6 +57,66 @@ class _TaskScheduleHostState extends State<TaskScheduleHost> {
     }
   }
 
+  Future<void> _addAssignment(CampusData data, DateTime date) async {
+    final courses = await data.courses.list();
+    if (!mounted) return;
+    if (courses.isEmpty) {
+      final openAcademic = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('先创建一门课程'),
+          content: const Text('作业需要关联课程。请先新建或导入课程，再回来添加作业。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('去学期与课程'),
+            ),
+          ],
+        ),
+      );
+      if (openAcademic == true && mounted) {
+        await Navigator.of(context).pushNamed<void>('/academic');
+      }
+      return;
+    }
+
+    final semesters = {
+      for (final semester in await data.semesters.list())
+        semester.id: semester.name,
+    };
+    if (!mounted) return;
+    final labels = {
+      for (final course in courses)
+        course.id: [
+          course.name,
+          if (semesters[course.semesterId] case final term?) term,
+          if (course.teacher case final teacher?) teacher,
+        ].join(' · '),
+    };
+    final counts = <String, int>{};
+    for (final label in labels.values) {
+      counts.update(label, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final seen = <String, int>{};
+    final options = labels.map((id, label) {
+      final index = seen.update(label, (count) => count + 1, ifAbsent: () => 1);
+      return MapEntry(id, counts[label] == 1 ? label : '$label · $index');
+    });
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AssignmentEditor.chooseCourse(
+        repository: data.assignments,
+        courseOptions: options,
+        initialDueAt: DateTime(date.year, date.month, date.day, 23, 59),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<TaskRepository>(
     future: _repository,
@@ -104,6 +165,7 @@ class _TaskScheduleHostState extends State<TaskScheduleHost> {
                   builder: (_) => ScheduleRecordPage(data: data, item: item),
                 ),
               ),
+              onAddAssignment: (date) => _addAssignment(data, date),
               onOpenAssignment: (assignment) =>
                   Navigator.of(context).push<void>(
                     MaterialPageRoute(

@@ -396,11 +396,22 @@ class AssignmentEditor extends StatefulWidget {
   const AssignmentEditor({
     super.key,
     required this.repository,
-    required this.courseId,
+    required String this.courseId,
     this.assignment,
-  });
+  }) : courseOptions = const {},
+       initialDueAt = null;
+
+  const AssignmentEditor.chooseCourse({
+    super.key,
+    required this.repository,
+    required this.courseOptions,
+    required DateTime this.initialDueAt,
+  }) : courseId = null,
+       assignment = null;
   final AssignmentRepository repository;
-  final String courseId;
+  final String? courseId;
+  final Map<String, String> courseOptions;
+  final DateTime? initialDueAt;
   final Assignment? assignment;
   @override
   State<AssignmentEditor> createState() => _AssignmentEditorState();
@@ -415,8 +426,15 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   );
   late AssignmentStatus _status =
       widget.assignment?.status ?? AssignmentStatus.notStarted;
+  late String? _courseId =
+      widget.courseId ??
+      (widget.courseOptions.length == 1
+          ? widget.courseOptions.keys.single
+          : null);
   late DateTime _dueAt =
-      widget.assignment?.dueAt ?? DateTime.now().add(const Duration(days: 1));
+      widget.assignment?.dueAt ??
+      widget.initialDueAt ??
+      DateTime.now().add(const Duration(days: 1));
   late final _id =
       widget.assignment?.id ??
       'assignment-${DateTime.now().microsecondsSinceEpoch}';
@@ -429,13 +447,15 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   }
 
   Future<void> _save() async {
+    final courseId = _courseId;
+    if (courseId == null) throw const FormatException('请选择所属课程');
     final title = _title.text.trim();
     if (title.isEmpty) throw const FormatException('作业标题不能为空');
     if (_dueAt.isUtc) throw const FormatException('截止时间必须是本地时间');
     final description = _description.text.trim();
     final value = Assignment(
       id: _id,
-      courseId: widget.courseId,
+      courseId: courseId,
       title: title,
       dueAt: _dueAt,
       status: _status,
@@ -456,6 +476,21 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.courseOptions.isNotEmpty)
+          DropdownButtonFormField<String>(
+            key: const Key('assignment-course'),
+            initialValue: _courseId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '所属课程'),
+            items: [
+              for (final option in widget.courseOptions.entries)
+                DropdownMenuItem(
+                  value: option.key,
+                  child: Text(option.value, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (value) => setState(() => _courseId = value),
+          ),
         TextField(
           key: const Key('assignment-title'),
           controller: _title,
