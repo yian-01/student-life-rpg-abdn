@@ -70,7 +70,7 @@ class CampusStore {
     return result;
   }
 
-  Map<String, dynamic> _fresh() => {
+  static Map<String, dynamic> emptyDocument() => {
     'schemaVersion': schemaVersion,
     'entityType': 'CampusData',
     'scoreScaleMax': scoreScaleMax,
@@ -264,7 +264,7 @@ class CampusStore {
           'Main file missing; explicit recovery required',
         );
       }
-      return _state = _fresh();
+      return _state = emptyDocument();
     }
     final decoded = _decode(raw);
     if (decoded.migrated) {

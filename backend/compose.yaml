@@ -1,0 +1,28 @@
+services:
+  api:
+    build: .
+    environment:
+      SYNC_DATABASE: /app/data/sync.sqlite3
+      SYNC_SIGNUP_CODE: "${SYNC_SIGNUP_CODE:?Set a registration code in backend/.env}"
+      SYNC_TRUST_PROXY: "1"
+    volumes:
+      - sync_data:/app/data
+    restart: unless-stopped
+  https:
+    image: caddy:2-alpine
+    environment:
+      SYNC_DOMAIN: "${SYNC_DOMAIN:?Set your DNS hostname in backend/.env}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+volumes:
+  sync_data:
+  caddy_data:
+  caddy_config:

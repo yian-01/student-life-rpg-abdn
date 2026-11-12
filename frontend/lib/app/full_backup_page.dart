@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../features/academic/presentation/assignment_exam_page.dart';
 import '../features/finance/presentation/receipt_fields.dart';
 import 'app_data.dart';
+import 'cloud/cloud_scope.dart';
 import 'data/full_backup.dart';
 import 'module_body.dart';
 
@@ -97,6 +98,8 @@ class _FullBackupPageState extends State<FullBackupPage> {
               Text('${item.value} · ${backup.counts[item.key] ?? 0}'),
             const SizedBox(height: 12),
             const Text('确认后将整体替换本机记录，替换前的数据会另存到应用目录。'),
+            if (CloudScope.maybeOf(context)?.session != null)
+              const Text('这些更改也会在下次同步时发送给同一账号的其他设备。'),
           ],
         ),
         actions: [

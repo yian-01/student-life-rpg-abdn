@@ -106,6 +106,8 @@ class FileTaskRepository implements TaskRepository {
     return tasks;
   }
 
+  static String emptyDocument() => _encodeTasks(const []);
+
   static String _encodeTasks(List<Task> tasks) => jsonEncode({
     'schemaVersion': _schemaVersion,
     'entityType': _entityType,

@@ -12,19 +12,47 @@ import '../shared/storage/json_document_store.dart';
 
 abstract final class AppData {
   static final focusTimer = FocusTimer();
-  static Future<Directory>? _directory;
+  static Future<Directory>? _root;
+  static Future<Directory>? _guest;
+  static Directory? _accountDirectory;
 
-  static Future<Directory> directory() =>
-      _directory ??= _openDirectory().catchError((Object error) {
-        _directory = null;
+  static Future<Directory> rootDirectory() =>
+      _root ??= _openDirectory().catchError((Object error) {
+        _root = null;
         throw error;
       });
+
+  static void switchDirectory(Directory? accountDirectory) {
+    _accountDirectory = accountDirectory;
+    _campus = null;
+    _tasks = null;
+    focusTimer.configure(const Duration(minutes: 25));
+  }
+
+  static Future<Directory> directory() async =>
+      _accountDirectory ?? await _guestDirectory();
+
+  static Future<Directory> _guestDirectory() =>
+      _guest ??= _recoverGuest().catchError((Object error) {
+        _guest = null;
+        throw error;
+      });
+
+  static Future<Directory> _recoverGuest() async {
+    final path = await rootDirectory();
+    await FullBackupService.recoverInterrupted(path);
+    return path;
+  }
 
   static Future<Directory> _openDirectory() async {
     final path = await getApplicationSupportDirectory();
     await path.create(recursive: true);
-    await FullBackupService.recoverInterrupted(path);
     return path;
+  }
+
+  static Future<FullBackupService> guestBackup() async {
+    final path = await _guestDirectory();
+    return FullBackupService(path, _campusAt(path).store, _tasksAt(path));
   }
 
   static Future<FullBackupService> backup() async {
@@ -48,12 +76,11 @@ abstract final class AppData {
     });
   }
 
-  static Future<CampusData> _openCampus() async {
-    final path = await directory();
-    return CampusData(
-      CampusStore(const FileJsonDocumentStore(), '${path.path}/campus.json'),
-    );
-  }
+  static Future<CampusData> _openCampus() async => _campusAt(await directory());
+
+  static CampusData _campusAt(Directory path) => CampusData(
+    CampusStore(const FileJsonDocumentStore(), '${path.path}/campus.json'),
+  );
 
   static void useCampusData(CampusData data) {
     _injectedCampus = data;
@@ -72,13 +99,13 @@ abstract final class AppData {
     });
   }
 
-  static Future<TaskRepository> _openTasks() async {
-    final path = await directory();
-    return FileTaskRepository(
-      const FileJsonDocumentStore(),
-      '${path.path}/tasks.json',
-    );
-  }
+  static Future<TaskRepository> _openTasks() async =>
+      _tasksAt(await directory());
+
+  static FileTaskRepository _tasksAt(Directory path) => FileTaskRepository(
+    const FileJsonDocumentStore(),
+    '${path.path}/tasks.json',
+  );
 
   // Tests inject an isolated repository without invoking platform channels.
   static void useTaskRepository(TaskRepository repository) {
