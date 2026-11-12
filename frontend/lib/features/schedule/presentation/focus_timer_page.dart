@@ -70,6 +70,48 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
     );
   }
 
+  Future<void> _customDuration() async {
+    final form = GlobalKey<FormState>();
+    var input = _timer.duration.inMinutes.toString();
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('自定义专注时长'),
+        scrollable: true,
+        content: Form(
+          key: form,
+          child: TextFormField(
+            initialValue: input,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: '分钟（1–180）'),
+            onChanged: (value) => input = value,
+            validator: (value) {
+              final amount = int.tryParse(value?.trim() ?? '');
+              return amount == null || amount < 1 || amount > 180
+                  ? '请输入 1 到 180 的整数。'
+                  : null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (form.currentState?.validate() == true) {
+                Navigator.pop(context, int.parse(input.trim()));
+              }
+            },
+            child: const Text('应用'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && minutes != null) _configure(minutes);
+  }
+
   @override
   void dispose() {
     _ticker?.cancel();
@@ -124,6 +166,12 @@ class _FocusTimerPageState extends State<FocusTimerPage> {
                         ? null
                         : (_) => _configure(minutes),
                   ),
+                TextButton(
+                  onPressed: _timer.started && !_timer.finished
+                      ? null
+                      : _customDuration,
+                  child: const Text('自定义'),
+                ),
               ],
             ),
             const SizedBox(height: 12),

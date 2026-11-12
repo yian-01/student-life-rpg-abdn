@@ -20,8 +20,9 @@ class FocusTimer {
   }
 
   void configure(Duration duration, {String? label}) {
-    if (duration <= Duration.zero)
+    if (duration <= Duration.zero) {
       throw ArgumentError.value(duration, 'duration');
+    }
     reset();
     _duration = duration;
     _label = label;
