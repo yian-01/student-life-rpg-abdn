@@ -13,6 +13,7 @@ import '../shared/storage/json_document_store.dart';
 abstract final class AppData {
   static final focusTimer = FocusTimer();
   static Future<Directory>? _root;
+  static Future<Directory>? _guest;
   static Directory? _accountDirectory;
 
   static Future<Directory> rootDirectory() =>
@@ -29,17 +30,28 @@ abstract final class AppData {
   }
 
   static Future<Directory> directory() async =>
-      _accountDirectory ?? await rootDirectory();
+      _accountDirectory ?? await _guestDirectory();
 
-  static Future<Directory> _openDirectory() async {
-    final path = await getApplicationSupportDirectory();
-    await path.create(recursive: true);
+  static Future<Directory> _guestDirectory() =>
+      _guest ??= _recoverGuest().catchError((Object error) {
+        _guest = null;
+        throw error;
+      });
+
+  static Future<Directory> _recoverGuest() async {
+    final path = await rootDirectory();
     await FullBackupService.recoverInterrupted(path);
     return path;
   }
 
+  static Future<Directory> _openDirectory() async {
+    final path = await getApplicationSupportDirectory();
+    await path.create(recursive: true);
+    return path;
+  }
+
   static Future<FullBackupService> guestBackup() async {
-    final path = await rootDirectory();
+    final path = await _guestDirectory();
     return FullBackupService(path, _campusAt(path).store, _tasksAt(path));
   }
 

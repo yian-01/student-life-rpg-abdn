@@ -96,6 +96,10 @@ def checked_snapshot(raw):
         raise ApiError("400 Bad Request", "invalid_snapshot") from error
     if digest != checksum:
         raise ApiError("400 Bad Request", "invalid_snapshot")
+    snapshot = json_object(payload.encode())
+    if (set(snapshot) != {"createdAt", "campus", "tasks"}
+            or not all(isinstance(item, str) and item for item in snapshot.values())):
+        raise ApiError("400 Bad Request", "invalid_snapshot")
 
 
 def encoded(value):

@@ -57,13 +57,13 @@ class CloudConflict {
 class CloudSyncController extends ChangeNotifier {
   CloudSyncController({
     CloudSyncApi? api,
-    CloudSessionStore sessions = const SecureCloudSessionStore(),
+    CloudSessionStore? sessions,
     Future<Directory> Function()? rootDirectory,
     Future<FullBackupService> Function()? activeBackup,
     Future<FullBackupService> Function()? guestBackup,
     void Function(Directory?)? switchDirectory,
   }) : _api = api ?? HttpCloudSyncApi(),
-       _sessions = sessions,
+       _sessions = sessions ?? const SecureCloudSessionStore(),
        _rootDirectory = rootDirectory ?? AppData.rootDirectory,
        _activeBackup = activeBackup ?? AppData.backup,
        _guestBackup = guestBackup ?? AppData.guestBackup,

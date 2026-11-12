@@ -111,8 +111,9 @@ class SyncJournal {
     final staged = File('${file.path}.tmp');
     final output = await staged.open(mode: FileMode.write);
     try {
-      if (header != null)
+      if (header != null) {
         await output.writeString('$header\n', encoding: ascii);
+      }
       await output.writeFrom(bytes);
       await output.flush();
     } finally {

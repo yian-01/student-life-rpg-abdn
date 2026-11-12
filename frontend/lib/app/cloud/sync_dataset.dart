@@ -65,11 +65,11 @@ class SyncDataset {
           );
     }
     if (left is List && right is List) {
-      return left.length == right.length &&
-          List.generate(
-            left.length,
-            (i) => i,
-          ).every((i) => _same(left[i], right[i]));
+      if (left.length != right.length) return false;
+      for (var i = 0; i < left.length; i++) {
+        if (!_same(left[i], right[i])) return false;
+      }
+      return true;
     }
     return left == right;
   }

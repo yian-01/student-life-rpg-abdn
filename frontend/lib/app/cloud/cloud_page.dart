@@ -172,8 +172,9 @@ class _CloudPageState extends State<CloudPage> {
                                         '退出后返回本机模式。当前账号的离线修改会保存在独立目录，下次登录同一账号可以继续同步。',
                                         '退出账号',
                                       );
-                                      if (confirmed && mounted)
+                                      if (confirmed && mounted) {
                                         await cloud.signOut();
+                                      }
                                     },
                               child: const Text('退出账号'),
                             ),
@@ -344,7 +345,8 @@ class _CloudPageState extends State<CloudPage> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(_tableNames[row.table] ?? row.table),
                 subtitle: Text(
-                  '本机：${row.label(row.local)}\n$other：${row.label(row.other)}',
+                  '本机：${_preview(row, row.local)}\n'
+                  '$other：${_preview(row, row.other)}',
                 ),
               ),
             if (rows.length > 8) Text('另有 ${rows.length - 8} 条冲突记录'),
@@ -390,6 +392,54 @@ class _CloudPageState extends State<CloudPage> {
       ),
     );
   }
+
+  String _preview(SyncConflict row, SyncRow? value) {
+    final name = row.label(value);
+    if (value == null || row.fields.isEmpty) return name;
+    final changes = <String>[
+      for (final field in row.fields.take(5))
+        '${_fieldNames[field] ?? field} ${_displayValue(field, value[field])}',
+    ];
+    return '$name · ${changes.join('，')}';
+  }
+
+  String _displayValue(String field, Object? value) {
+    if (value == null) return '空';
+    if (field == 'receipt') return '有票据';
+    if (field == 'amountMinor' && value is num) {
+      return '¥${(value / 100).toStringAsFixed(2)}';
+    }
+    if (value is Map &&
+        value.containsKey('start') &&
+        value.containsKey('end')) {
+      return '${value['start']} – ${value['end']}';
+    }
+    if (value is List) return '${value.length} 项';
+    final text = value.toString();
+    return text.runes.length > 72
+        ? '${String.fromCharCodes(text.runes.take(72))}…'
+        : text;
+  }
+
+  static const _fieldNames = {
+    'title': '标题',
+    'name': '名称',
+    'dueAt': '截止',
+    'gradePoint': '绩点',
+    'credits': '学分',
+    'amountMinor': '金额',
+    'reimbursement': '报销状态',
+    'receipt': '票据',
+    'isCompleted': '完成状态',
+    'scheduledRange': '排程',
+    'range': '时段',
+    'steps': '子任务',
+    'slots': '课表时段',
+    'adjustments': '调停课',
+    'status': '状态',
+    'note': '备注',
+    'description': '说明',
+  };
 
   static const _tableNames = {
     'tasks': '任务',

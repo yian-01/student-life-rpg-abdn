@@ -47,9 +47,12 @@ class SyncServerTest(unittest.TestCase):
 
     @staticmethod
     def snapshot(value):
+        payload = json.dumps({
+            "createdAt": "2026-11-12T00:00:00Z", "campus": "{}", "tasks": value,
+        })
         return json.dumps({
             "format": "student-life-backup", "version": 1,
-            "payload": value, "sha256": hashlib.sha256(value.encode()).hexdigest(),
+            "payload": payload, "sha256": hashlib.sha256(payload.encode()).hexdigest(),
         }).encode()
 
     @classmethod

@@ -93,7 +93,7 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
       title: 'Student Life RPG',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      navigatorObservers: [if (observer != null) observer],
+      navigatorObservers: [?observer],
       builder: (context, child) => AppViewport(
         child: cloud == null
             ? child ?? const SizedBox.shrink()
@@ -145,8 +145,9 @@ class _CloudRouteObserver extends NavigatorObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (navigator?.mounted != true ||
           _top != topRoute ||
-          cloud.scope != scope)
+          cloud.scope != scope) {
         return;
+      }
       unawaited(cloud.autoSync());
     });
   }
