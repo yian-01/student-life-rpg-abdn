@@ -2,7 +2,7 @@ name: Native acceptance builds
 on:
   workflow_dispatch:
   push:
-    branches: [fix/v1-base-regression, fix/v1-feature-delivery]
+    branches: [fix/v1-base-regression, fix/v1-feature-delivery, feat/v1.1-cloud-sync]
 
 permissions:
   contents: read

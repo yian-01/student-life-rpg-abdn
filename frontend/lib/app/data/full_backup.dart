@@ -140,7 +140,11 @@ class FullBackupService {
     ),
   );
 
-  Future<void> restore(FullBackup incoming) => campus.withBackupLock(
+  Future<void> restore(
+    FullBackup incoming, {
+    FullBackup? expected,
+    File? committedMarker,
+  }) => campus.withBackupLock(
     (campusRaw, replaceCampus) => tasks.withBackupLock((
       taskRaw,
       replaceTasks,
@@ -148,6 +152,19 @@ class FullBackupService {
       final journal = _journal(directory);
       if (await journal.exists()) throw StateError('请重启应用，完成上一次恢复。');
       final previous = FullBackup.validate(DateTime.now(), campusRaw, taskRaw);
+      if (expected != null &&
+          (previous.campus != expected.campus ||
+              previous.tasks != expected.tasks)) {
+        throw const LocalBackupChanged();
+      }
+      if (committedMarker != null &&
+          previous.campus == incoming.campus &&
+          previous.tasks == incoming.tasks) {
+        final stagedMarker = File('${committedMarker.path}.tmp');
+        await stagedMarker.writeAsString('', flush: true);
+        await stagedMarker.rename(committedMarker.path);
+        return;
+      }
       final staged = File('${journal.path}.tmp');
       await staged.writeAsBytes(previous.encode(), flush: true);
       await staged.rename(journal.path);
@@ -157,7 +174,7 @@ class FullBackupService {
       try {
         await replaceCampus(incoming.campus);
         await replaceTasks(incoming.tasks);
-        await journal.rename(safetyPath);
+        await journal.rename(committedMarker?.path ?? safetyPath);
       } catch (_) {
         try {
           await replaceCampus(previous.campus);
@@ -182,4 +199,8 @@ class FullBackupService {
     await files.writeDocument('${directory.path}/tasks.json', previous.tasks);
     await journal.delete();
   }
+}
+
+class LocalBackupChanged implements Exception {
+  const LocalBackupChanged();
 }

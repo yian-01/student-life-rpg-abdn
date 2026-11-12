@@ -3,6 +3,7 @@ import '../features/schedule/models/task.dart';
 import '../features/schedule/presentation/focus_timer_page.dart';
 import '../features/schedule/presentation/today_planner_page.dart';
 import 'app_data.dart';
+import 'cloud/cloud_page.dart';
 import '../features/local_records/local_records_page.dart';
 
 import '../features/bedroom/presentation/bedroom_page.dart';
@@ -80,6 +81,7 @@ abstract final class AppRoutes {
       todo => const LocalRecordsPage(),
       search => const LocalRecordsPage(search: true),
       backup => const FullBackupPage(),
+      CloudPage.route => const CloudPage(),
       today => const TodayPlannerPage(),
       focus => FocusTimerPage(
         timer: AppData.focusTimer,
