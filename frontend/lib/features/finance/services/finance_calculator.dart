@@ -10,6 +10,7 @@ class FinanceCalculator {
   MonthlyFinanceTotals calculate(
     List<FinanceRecord> records, {
     int? budgetMinor,
+    bool limitTotals = true,
   }) {
     if (budgetMinor != null &&
         (budgetMinor < 0 || budgetMinor > maxAmountMinor)) {
@@ -20,14 +21,16 @@ class FinanceCalculator {
       );
     }
 
+    int add(int total, int amount) =>
+        limitTotals ? addAmountMinor(total, amount) : total + amount;
     var incomeMinor = 0;
     var expenseMinor = 0;
     for (final record in records) {
       switch (record.type) {
         case FinanceType.income:
-          incomeMinor = addAmountMinor(incomeMinor, record.amountMinor);
+          incomeMinor = add(incomeMinor, record.amountMinor);
         case FinanceType.expense:
-          expenseMinor = addAmountMinor(expenseMinor, record.amountMinor);
+          expenseMinor = add(expenseMinor, record.amountMinor);
       }
     }
 

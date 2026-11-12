@@ -1,6 +1,23 @@
 import 'academic_json.dart';
 import 'local_date.dart';
 
+enum AssignmentStatus {
+  notStarted('未开始'),
+  inProgress('进行中'),
+  submitted('已提交');
+
+  const AssignmentStatus(this.label);
+  final String label;
+}
+
+AssignmentStatus _readStatus(Object? value) {
+  if (value == null) return AssignmentStatus.notStarted;
+  for (final status in AssignmentStatus.values) {
+    if (status.name == value) return status;
+  }
+  throw const FormatException('Unknown assignment status');
+}
+
 /// 作业。
 ///
 /// 契约第 5 节字段：`String id、courseId、title；DateTime dueAt；String? description`。
@@ -14,6 +31,7 @@ class Assignment {
     required this.title,
     required this.dueAt,
     this.description,
+    this.status = AssignmentStatus.notStarted,
   }) {
     validateNotBlank(id, 'id');
     validateNotBlank(courseId, 'courseId');
@@ -29,6 +47,7 @@ class Assignment {
     'title',
     'dueAt',
     'description',
+    'status',
   };
 
   final String id;
@@ -36,6 +55,7 @@ class Assignment {
   final String title;
   final DateTime dueAt;
   final String? description;
+  final AssignmentStatus status;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -44,6 +64,7 @@ class Assignment {
     'dueAt': dueAt.toIso8601String(),
     // 可空字段 toJson 必须写入 null。
     'description': description,
+    if (status != AssignmentStatus.notStarted) 'status': status.name,
   };
 
   factory Assignment.fromJson(Map<String, dynamic> json) {
@@ -65,6 +86,7 @@ class Assignment {
         title: title,
         dueAt: dueAt,
         description: description,
+        status: _readStatus(json['status']),
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../../../app/data/campus_store.dart';
 import '../../../shared/presentation/civil_datetime_field.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import '../models/course.dart';
+import '../services/course_occurrence_service.dart';
 import '../models/course_slot.dart';
 import '../models/semester.dart';
 import '../services/semester_week_guard.dart';
@@ -174,13 +175,14 @@ class _SlotDraft {
     : weekday = slot?.weekday ?? 1,
       start = TextEditingController(text: _time(slot?.startMinute ?? 540)),
       end = TextEditingController(text: _time(slot?.endMinute ?? 600)),
+      location = TextEditingController(text: slot?.location ?? ''),
       weeks = TextEditingController(
         text: slot != null
             ? slot.weeks.join(',')
             : (defaultWeeksText ?? '1-16'),
       );
   int weekday;
-  final TextEditingController start, end, weeks;
+  final TextEditingController start, end, weeks, location;
   CourseSlot build({int? maxWeek}) {
     final a = parseCourseMinute(start.text);
     final b = parseCourseMinute(end.text, allowMidnight: true);
@@ -190,6 +192,7 @@ class _SlotDraft {
       startMinute: a,
       endMinute: b,
       weeks: parseCourseWeeks(weeks.text, maxWeek: maxWeek),
+      location: location.text.trim().isEmpty ? null : location.text.trim(),
     );
   }
 
@@ -197,6 +200,7 @@ class _SlotDraft {
     start.dispose();
     end.dispose();
     weeks.dispose();
+    location.dispose();
   }
 }
 
@@ -219,6 +223,9 @@ class CourseEditor extends StatefulWidget {
 
 class _CourseEditorState extends State<CourseEditor> {
   late final _name = TextEditingController(text: widget.course?.name ?? '');
+  late final _teacher = TextEditingController(
+    text: widget.course?.teacher ?? '',
+  );
   late final _credits = TextEditingController(
     text: '${widget.course?.credits ?? 3}',
   );
@@ -236,6 +243,7 @@ class _CourseEditorState extends State<CourseEditor> {
   void dispose() {
     _name.dispose();
     _credits.dispose();
+    _teacher.dispose();
     _point.dispose();
     for (final s in _slots) {
       s.dispose();
@@ -272,7 +280,7 @@ class _CourseEditorState extends State<CourseEditor> {
             !point.isFinite ||
             point < 0 ||
             point > CampusStore.scoreScaleMax)) {
-      throw const FormatException('绩点填写 0–4，未评分请留空');
+      throw const FormatException('绩点填写 0–5，未评分请留空');
     }
     // 周次上界跟随所选学期；学期没有可用周次时不允许保存任何时段。
     // 逐个时段构建，报错时指明是第几个时段，便于定位。
@@ -291,9 +299,13 @@ class _CourseEditorState extends State<CourseEditor> {
       name: _name.text.trim(),
       credits: credits,
       gradePoint: point,
+      teacher: _teacher.text.trim().isEmpty ? null : _teacher.text.trim(),
+      adjustments: widget.course?.adjustments ?? const [],
       slots: slots,
       scoreScaleMax: CampusStore.scoreScaleMax,
     );
+    final semester = _selectedSemester;
+    if (semester != null) validateCourseAdjustments(course, semester);
     await widget.data.academic.saveCourse(
       course,
       creating: widget.course == null,
@@ -339,12 +351,18 @@ class _CourseEditorState extends State<CourseEditor> {
           key: const Key('course-point'),
           controller: _point,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: '绩点（0–4，未评分留空）'),
+          decoration: const InputDecoration(labelText: '绩点（0–5，未评分留空）'),
         ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
           child: Text('每周上课时间 · 可添加多个时段；无固定课时可全部移除'),
         ),
+        TextField(
+          controller: _teacher,
+          decoration: const InputDecoration(labelText: '教师（可选）'),
+        ),
+        if (widget.course?.adjustments.isNotEmpty == true)
+          const Text('此课程有单次调课或停课。影响原课次的更改会被拒绝，请先在详情处理。'),
         for (var i = 0; i < _slots.length; i++)
           Card(
             key: ObjectKey(_slots[i]),
@@ -393,6 +411,10 @@ class _CourseEditorState extends State<CourseEditor> {
                     decoration: const InputDecoration(
                       labelText: '结束（HH:mm，可填 24:00）',
                     ),
+                  ),
+                  TextField(
+                    controller: _slots[i].location,
+                    decoration: const InputDecoration(labelText: '教室（可选）'),
                   ),
                   TextField(
                     key: Key('course-weeks-$i'),

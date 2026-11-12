@@ -25,6 +25,7 @@ class ImportPlanItem {
     required this.action,
     this.existing,
     this.reason,
+    this.protectedAdjustment = false,
     bool? selected,
   }) : selected = selected ?? _defaultSelected(action);
 
@@ -35,6 +36,7 @@ class ImportPlanItem {
 
   /// 不能导入或被保留的原因，用于界面直接展示。
   final String? reason;
+  final bool protectedAdjustment;
 
   /// 是否勾选参与导入；默认只勾选新增课程。
   bool selected;
@@ -46,7 +48,7 @@ class ImportPlanItem {
   ///
   /// 缺学分的条目补填合法学分后即可导入；`unchanged` 永远不写入。
   bool isWritable(Map<String, double> creditsOverrides) {
-    if (action == ImportAction.unchanged) return false;
+    if (action == ImportAction.unchanged || protectedAdjustment) return false;
     if (action == ImportAction.updateSlots) return true;
     final credits = creditsOverrides[id] ?? parsed.credits;
     return credits != null && credits.isFinite && credits > 0;
@@ -149,6 +151,7 @@ ImportPlan buildImportPlan({
           startMinute: slot.startMinute,
           endMinute: slot.endMinute,
           weeks: slot.weeks,
+          location: slot.location,
         ),
     ];
 
@@ -158,9 +161,18 @@ ImportPlan buildImportPlan({
         ImportPlanItem(
           id: id,
           parsed: course,
-          action: same ? ImportAction.unchanged : ImportAction.updateSlots,
+          action: same
+              ? ImportAction.unchanged
+              : existing.adjustments.isEmpty
+              ? ImportAction.updateSlots
+              : ImportAction.blocked,
+          protectedAdjustment: !same && existing.adjustments.isNotEmpty,
           existing: existing,
-          reason: same ? '时段与已有课程一致' : '将替换为 ${newSlots.length} 个时段，保留原学分与成绩',
+          reason: same
+              ? '时段与已有课程一致'
+              : existing.adjustments.isNotEmpty
+              ? '时段变化会影响现有调停课，请先在课程详情处理'
+              : '将替换为 ${newSlots.length} 个时段，保留原学分与成绩',
         ),
       );
       continue;
@@ -216,6 +228,17 @@ List<Course> coursesFromPlan(
           startMinute: slot.startMinute,
           endMinute: slot.endMinute,
           weeks: slot.weeks,
+          location:
+              base?.slots
+                  .where(
+                    (existing) =>
+                        existing.weekday == slot.weekday &&
+                        existing.startMinute == slot.startMinute &&
+                        existing.endMinute == slot.endMinute,
+                  )
+                  .firstOrNull
+                  ?.location ??
+              slot.location,
         ),
     ];
     result.add(
@@ -227,6 +250,12 @@ List<Course> coursesFromPlan(
         credits: credits,
         // 已有成绩与手动改动不被导入覆盖。
         gradePoint: base?.gradePoint,
+        teacher:
+            base?.teacher ??
+            (item.parsed.teacher?.trim().isNotEmpty == true
+                ? item.parsed.teacher
+                : null),
+        adjustments: base?.adjustments ?? const [],
         slots: slots,
         scoreScaleMax: scoreScaleMax,
       ),

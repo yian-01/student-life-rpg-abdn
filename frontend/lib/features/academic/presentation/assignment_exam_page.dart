@@ -3,6 +3,7 @@ import '../../../app/data/campus_data.dart';
 import '../../../shared/models/time_range.dart';
 import '../../../shared/presentation/civil_datetime_field.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
+import '../../../shared/presentation/undo_removal.dart';
 import '../models/assignment.dart';
 import '../models/course.dart';
 import '../models/exam.dart';
@@ -28,6 +29,7 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
   List<Assignment> _assignments = const [];
   List<Exam> _exams = const [];
   bool _busy = false;
+  AssignmentStatus? _statusFilter;
   String? _error;
 
   AssignmentRepository get _assignmentRepo => widget.data.assignments;
@@ -92,20 +94,40 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
   }
 
   Future<void> _removeAssignment(Assignment assignment) async {
-    if (!await confirmRemoval(context, assignment.title) || !mounted) return;
+    if (!await confirmRemoval(context, assignment.title, undoable: true) ||
+        !mounted) {
+      return;
+    }
     try {
-      await _assignmentRepo.remove(assignment.id);
-      if (mounted) await _load();
+      final repository = _assignmentRepo;
+      if (!await repository.remove(assignment.id)) {
+        throw StateError('Missing assignment');
+      }
+      if (!mounted) return;
+      offerRemovalUndo(context, assignment.title, () async {
+        await repository.insert(assignment);
+        if (mounted) await _load();
+      });
+      await _load();
     } catch (_) {
       if (mounted) setState(() => _error = '删除失败，请检查存储后重试。');
     }
   }
 
   Future<void> _removeExam(Exam exam) async {
-    if (!await confirmRemoval(context, exam.title) || !mounted) return;
+    if (!await confirmRemoval(context, exam.title, undoable: true) ||
+        !mounted) {
+      return;
+    }
     try {
-      await _examRepo.remove(exam.id);
-      if (mounted) await _load();
+      final repository = _examRepo;
+      if (!await repository.remove(exam.id)) throw StateError('Missing exam');
+      if (!mounted) return;
+      offerRemovalUndo(context, exam.title, () async {
+        await repository.insert(exam);
+        if (mounted) await _load();
+      });
+      await _load();
     } catch (_) {
       if (mounted) setState(() => _error = '删除失败，请检查存储后重试。');
     }
@@ -120,6 +142,7 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
       rows: [
         ('所属课程', widget.course.name),
         ('截止时间', formatLocalDateTime(row.dueAt)),
+        ('提交状态', row.status.label),
         (
           '描述',
           row.description?.trim().isNotEmpty == true
@@ -179,7 +202,16 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
                 : TabBarView(
                     children: [
                       _AssignmentList(
-                        rows: _assignments,
+                        rows: _assignments
+                            .where(
+                              (row) =>
+                                  _statusFilter == null ||
+                                  row.status == _statusFilter,
+                            )
+                            .toList(),
+                        filter: _statusFilter,
+                        onFilter: (status) =>
+                            setState(() => _statusFilter = status),
                         onCreate: () => _editAssignment(),
                         onEdit: (row) => _editAssignment(assignment: row),
                         onDelete: _removeAssignment,
@@ -204,12 +236,16 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
 class _AssignmentList extends StatelessWidget {
   const _AssignmentList({
     required this.rows,
+    required this.filter,
+    required this.onFilter,
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
     required this.onOpen,
   });
   final List<Assignment> rows;
+  final AssignmentStatus? filter;
+  final ValueChanged<AssignmentStatus?> onFilter;
   final VoidCallback onCreate;
   final ValueChanged<Assignment> onEdit;
   final ValueChanged<Assignment> onDelete;
@@ -226,6 +262,16 @@ class _AssignmentList extends StatelessWidget {
         label: const Text('新建作业'),
       ),
       const SizedBox(height: 12),
+      DropdownButton<AssignmentStatus?>(
+        value: filter,
+        isExpanded: true,
+        items: [
+          const DropdownMenuItem(value: null, child: Text('全部状态')),
+          for (final status in AssignmentStatus.values)
+            DropdownMenuItem(value: status, child: Text(status.label)),
+        ],
+        onChanged: onFilter,
+      ),
       if (rows.isEmpty)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
@@ -242,7 +288,7 @@ class _AssignmentList extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             subtitle: Text(
-              '截止 ${formatLocalDateTime(row.dueAt)}'
+              '${row.status.label} · 截止 ${formatLocalDateTime(row.dueAt)}'
               '${row.description == null || row.description!.isEmpty ? '' : '\n${row.description}'}',
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -350,11 +396,22 @@ class AssignmentEditor extends StatefulWidget {
   const AssignmentEditor({
     super.key,
     required this.repository,
-    required this.courseId,
+    required String this.courseId,
     this.assignment,
-  });
+  }) : courseOptions = const {},
+       initialDueAt = null;
+
+  const AssignmentEditor.chooseCourse({
+    super.key,
+    required this.repository,
+    required this.courseOptions,
+    required DateTime this.initialDueAt,
+  }) : courseId = null,
+       assignment = null;
   final AssignmentRepository repository;
-  final String courseId;
+  final String? courseId;
+  final Map<String, String> courseOptions;
+  final DateTime? initialDueAt;
   final Assignment? assignment;
   @override
   State<AssignmentEditor> createState() => _AssignmentEditorState();
@@ -367,8 +424,17 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   late final _description = TextEditingController(
     text: widget.assignment?.description ?? '',
   );
+  late AssignmentStatus _status =
+      widget.assignment?.status ?? AssignmentStatus.notStarted;
+  late String? _courseId =
+      widget.courseId ??
+      (widget.courseOptions.length == 1
+          ? widget.courseOptions.keys.single
+          : null);
   late DateTime _dueAt =
-      widget.assignment?.dueAt ?? DateTime.now().add(const Duration(days: 1));
+      widget.assignment?.dueAt ??
+      widget.initialDueAt ??
+      DateTime.now().add(const Duration(days: 1));
   late final _id =
       widget.assignment?.id ??
       'assignment-${DateTime.now().microsecondsSinceEpoch}';
@@ -381,15 +447,18 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   }
 
   Future<void> _save() async {
+    final courseId = _courseId;
+    if (courseId == null) throw const FormatException('请选择所属课程');
     final title = _title.text.trim();
     if (title.isEmpty) throw const FormatException('作业标题不能为空');
     if (_dueAt.isUtc) throw const FormatException('截止时间必须是本地时间');
     final description = _description.text.trim();
     final value = Assignment(
       id: _id,
-      courseId: widget.courseId,
+      courseId: courseId,
       title: title,
       dueAt: _dueAt,
+      status: _status,
       description: description.isEmpty ? null : description,
     );
     if (widget.assignment == null) {
@@ -407,6 +476,21 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.courseOptions.isNotEmpty)
+          DropdownButtonFormField<String>(
+            key: const Key('assignment-course'),
+            initialValue: _courseId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: '所属课程'),
+            items: [
+              for (final option in widget.courseOptions.entries)
+                DropdownMenuItem(
+                  value: option.key,
+                  child: Text(option.value, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (value) => setState(() => _courseId = value),
+          ),
         TextField(
           key: const Key('assignment-title'),
           controller: _title,
@@ -419,6 +503,17 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           value: _dueAt,
           enabled: true,
           onChanged: (value) => setState(() => _dueAt = value),
+        ),
+        DropdownButtonFormField<AssignmentStatus>(
+          initialValue: _status,
+          decoration: const InputDecoration(labelText: '提交状态'),
+          items: [
+            for (final status in AssignmentStatus.values)
+              DropdownMenuItem(value: status, child: Text(status.label)),
+          ],
+          onChanged: (value) {
+            if (value != null) setState(() => _status = value);
+          },
         ),
         TextField(
           key: const Key('assignment-description'),

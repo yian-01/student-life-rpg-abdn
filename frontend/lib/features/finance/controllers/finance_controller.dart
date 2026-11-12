@@ -69,6 +69,14 @@ class FinanceController extends ChangeNotifier {
 
   Future<void> refresh() => _loadCurrent();
 
+  Future<List<FinanceRecord>> listRecords() => _records.list();
+  Future<List<FinanceCategory>> listCategories() => _categories.list();
+
+  Future<void> restoreRecord(FinanceRecord record) async {
+    await _records.insert(record);
+    await _loadCurrent();
+  }
+
   Future<void> retry() => _loadCurrent();
 
   /// 新增收支记录。
@@ -80,6 +88,8 @@ class FinanceController extends ChangeNotifier {
     required String amountText,
     DateTime? occurredAt,
     String? note,
+    ReimbursementStatus reimbursement = ReimbursementStatus.none,
+    String? receipt,
   }) => _write(() async {
     final category = await _categories.getById(categoryId);
     if (category == null) throw StateError('Unknown finance category');
@@ -96,6 +106,8 @@ class FinanceController extends ChangeNotifier {
         amountMinor: parseAmountMinor(amountText),
         occurredAt: effective,
         note: note == null || note.trim().isEmpty ? null : note.trim(),
+        reimbursement: reimbursement,
+        receipt: receipt,
       ),
     );
     _month = DateTime(effective.year, effective.month);
@@ -107,6 +119,9 @@ class FinanceController extends ChangeNotifier {
     required String amountText,
     required DateTime occurredAt,
     String? note,
+    ReimbursementStatus? reimbursement,
+    String? receipt,
+    bool replaceReceipt = false,
   }) => _write(() async {
     final existing = await _records.getById(id);
     final category = await _categories.getById(categoryId);
@@ -119,6 +134,8 @@ class FinanceController extends ChangeNotifier {
         type: category.type,
         amountMinor: parseAmountMinor(amountText),
         occurredAt: occurredAt,
+        reimbursement: reimbursement,
+        receipt: replaceReceipt ? receipt : existing.receipt,
         note: note == null || note.trim().isEmpty ? null : note.trim(),
       ),
     );
@@ -128,20 +145,31 @@ class FinanceController extends ChangeNotifier {
     if (!await _records.remove(id)) throw StateError('Unknown record');
   });
 
-  /// 新增分类。空白名称由模型抛出 ArgumentError；同类型下同名分类被拒绝。
-  Future<bool> addCategory({required String name, required FinanceType type}) =>
-      _write(() async {
-        final now = _clock();
-        requireLocalDateTime(now, 'now');
-        _categorySeq++;
-        await _categories.insert(
-          FinanceCategory(
-            id: 'cat-${now.microsecondsSinceEpoch}-$_categorySeq',
-            name: name,
-            type: type,
-          ),
-        );
-      });
+  Future<bool> addCategory({
+    required String name,
+    required FinanceType type,
+  }) async => await createCategory(name: name, type: type) != null;
+
+  /// Returns the committed category so the entry form can select its exact ID.
+  Future<FinanceCategory?> createCategory({
+    required String name,
+    required FinanceType type,
+  }) async {
+    FinanceCategory? created;
+    final saved = await _write(() async {
+      final now = _clock();
+      requireLocalDateTime(now, 'now');
+      final category = FinanceCategory(
+        id: 'cat-${now.microsecondsSinceEpoch}-${++_categorySeq}',
+        name: name.trim(),
+        type: type,
+      );
+      await _ensureCategoryNameAvailable(category);
+      await _categories.insert(category);
+      created = category;
+    });
+    return saved ? created : null;
+  }
 
   /// 编辑分类名称/类型。被记录或预算引用时无法修改类型，会抛出带原因的 StateError。
   Future<bool> editCategory(
@@ -151,10 +179,27 @@ class FinanceController extends ChangeNotifier {
   }) => _write(() async {
     final existing = await _categories.getById(id);
     if (existing == null) throw StateError('未知分类。');
-    await _categories.update(
-      FinanceCategory(id: existing.id, name: name, type: type),
+    final category = FinanceCategory(
+      id: existing.id,
+      name: name.trim(),
+      type: type,
     );
+    await _ensureCategoryNameAvailable(category);
+    await _categories.update(category);
   });
+
+  Future<void> _ensureCategoryNameAvailable(FinanceCategory candidate) async {
+    final normalized = candidate.name.trim().toLowerCase();
+    final categories = await _categories.list();
+    if (categories.any(
+      (category) =>
+          category.id != candidate.id &&
+          category.type == candidate.type &&
+          category.name.trim().toLowerCase() == normalized,
+    )) {
+      throw StateError('同类型下已存在同名分类。');
+    }
+  }
 
   /// 删除分类。被记录或预算引用时阻止删除并说明原因。
   Future<bool> deleteCategory(String id) => _write(() async {

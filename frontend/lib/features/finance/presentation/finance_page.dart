@@ -1,5 +1,9 @@
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
+import '../../../shared/presentation/undo_removal.dart';
+import 'finance_filter_page.dart';
+import 'weekly_finance_page.dart';
+import 'receipt_fields.dart';
 
 import '../controllers/finance_controller.dart';
 import '../controllers/budget_controller.dart';
@@ -22,11 +26,13 @@ class FinancePage extends StatefulWidget {
     this.budgetController,
     this.isPersistent = false,
     this.onRecover,
+    this.initialMonth,
   });
 
   final FinanceController? controller;
   final BudgetController? budgetController;
   final bool isPersistent;
+  final DateTime? initialMonth;
   final Future<void> Function()? onRecover;
 
   @override
@@ -43,6 +49,9 @@ class _FinancePageState extends State<FinancePage> {
   String? _selectedCategoryId;
   late DateTime _recordDate;
   bool _budgetWasSaving = false;
+  ReimbursementStatus _reimbursement = ReimbursementStatus.none;
+  String? _receipt;
+  int _recordFormRevision = 0;
 
   @override
   void initState() {
@@ -62,7 +71,7 @@ class _FinancePageState extends State<FinancePage> {
     _controller.addListener(_onChanged);
     _budgetController?.addListener(_onBudgetChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _controller.load();
+      if (mounted) _controller.load(month: widget.initialMonth);
     });
   }
 
@@ -102,6 +111,20 @@ class _FinancePageState extends State<FinancePage> {
     });
   }
 
+  Future<void> _addCategory() async {
+    final category = await showNewFinanceCategory(
+      context,
+      controller: _controller,
+      type: _selectedType,
+    );
+    if (!mounted || category == null) return;
+    if (_controller
+        .categoriesFor(category.type)
+        .any((row) => row.id == category.id)) {
+      setState(() => _selectedCategoryId = category.id);
+    }
+  }
+
   void _changeMonth(int delta) {
     final target = DateTime(
       _controller.month.year,
@@ -128,6 +151,15 @@ class _FinancePageState extends State<FinancePage> {
       appBar: AppBar(
         title: const Text('生活账本'),
         actions: [
+          IconButton(
+            tooltip: '筛选账目',
+            icon: const Icon(Icons.filter_list),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => FinanceFilterPage(controller: _controller),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: '分类管理',
             onPressed: () =>
@@ -198,6 +230,19 @@ class _FinancePageState extends State<FinancePage> {
                       ),
                     ],
                     _SummaryCard(summary: _controller.summary),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.show_chart),
+                        label: const Text('每周收支趋势'),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                WeeklyFinancePage(controller: _controller),
+                          ),
+                        ),
+                      ),
+                    ),
                     if (_budgetController != null) ...[
                       const SizedBox(height: 12),
                       BudgetSection(
@@ -207,6 +252,21 @@ class _FinancePageState extends State<FinancePage> {
                       ),
                     ],
                     const SizedBox(height: 16),
+                    if (_selectedType == FinanceType.expense)
+                      ExpansionTile(
+                        key: ValueKey(_recordFormRevision),
+                        title: const Text('新支出的报销与票据'),
+                        children: [
+                          ReceiptFields(
+                            status: _reimbursement,
+                            receipt: _receipt,
+                            onChanged: (status, receipt) => setState(() {
+                              _reimbursement = status;
+                              _receipt = receipt;
+                            }),
+                          ),
+                        ],
+                      ),
                     _AddRecordForm(
                       categories: _controller.categoriesFor(_selectedType),
                       selectedType: _selectedType,
@@ -226,6 +286,10 @@ class _FinancePageState extends State<FinancePage> {
                               : matching.first.id;
                         });
                       },
+                      onAddCategory:
+                          _controller.isSaving || _controller.isLoading
+                          ? null
+                          : _addCategory,
                       onCategoryChanged: (id) {
                         setState(() => _selectedCategoryId = id);
                       },
@@ -240,11 +304,23 @@ class _FinancePageState extends State<FinancePage> {
                                 amountText: _amountController.text,
                                 occurredAt: _recordDate,
                                 note: _noteController.text,
+                                reimbursement:
+                                    _selectedType == FinanceType.expense
+                                    ? _reimbursement
+                                    : ReimbursementStatus.none,
+                                receipt: _selectedType == FinanceType.expense
+                                    ? _receipt
+                                    : null,
                               );
                               if (!mounted) return;
                               if (saved) {
                                 _amountController.clear();
                                 _noteController.clear();
+                                setState(() {
+                                  _reimbursement = ReimbursementStatus.none;
+                                  _receipt = null;
+                                  _recordFormRevision++;
+                                });
                               }
                             },
                     ),
@@ -273,21 +349,32 @@ class _FinancePageState extends State<FinancePage> {
                           onAction: _controller.isSaving
                               ? null
                               : (action) async {
-                                  if (action == 'edit') {
+                                  if (action == 'edit' || action == 'copy') {
                                     await showDialog<bool>(
                                       context: context,
                                       barrierDismissible: false,
                                       builder: (_) => FinanceRecordEditor(
                                         controller: _controller,
                                         record: record,
+                                        duplicate: action == 'copy',
                                       ),
                                     );
                                   } else if (await confirmRemoval(
                                         context,
                                         '这笔收支记录',
+                                        undoable: true,
                                       ) &&
                                       mounted) {
-                                    await _controller.removeRecord(record.id);
+                                    final controller = _controller;
+                                    final removed = await controller
+                                        .removeRecord(record.id);
+                                    if (removed && context.mounted) {
+                                      offerRemovalUndo(
+                                        context,
+                                        '收支记录',
+                                        () => controller.restoreRecord(record),
+                                      );
+                                    }
                                   }
                                 },
                         ),
@@ -370,6 +457,7 @@ class _AddRecordForm extends StatelessWidget {
     required this.onDateChanged,
     required this.onTypeChanged,
     required this.onCategoryChanged,
+    required this.onAddCategory,
     required this.onSubmit,
   });
 
@@ -383,6 +471,7 @@ class _AddRecordForm extends StatelessWidget {
   final ValueChanged<DateTime> onDateChanged;
   final ValueChanged<FinanceType> onTypeChanged;
   final ValueChanged<String?> onCategoryChanged;
+  final VoidCallback? onAddCategory;
   final VoidCallback? onSubmit;
 
   @override
@@ -411,6 +500,7 @@ class _AddRecordForm extends StatelessWidget {
         DropdownButtonFormField<String>(
           // ignore: deprecated_member_use
           value: selectedCategoryId,
+          isExpanded: true,
           decoration: const InputDecoration(labelText: '分类'),
           items: categories
               .map(
@@ -421,6 +511,14 @@ class _AddRecordForm extends StatelessWidget {
               )
               .toList(),
           onChanged: onCategoryChanged,
+        ),
+        TextButton.icon(
+          key: const Key('finance-add-category-inline'),
+          onPressed: onAddCategory,
+          icon: const Icon(Icons.add),
+          label: Text(
+            '新建${selectedType == FinanceType.expense ? '支出' : '收入'}分类',
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -483,6 +581,7 @@ class _RecordTile extends StatelessWidget {
                 onSelected: onAction,
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'edit', child: Text('编辑')),
+                  PopupMenuItem(value: 'copy', child: Text('复制记账')),
                   PopupMenuItem(value: 'delete', child: Text('删除')),
                 ],
               ),
@@ -490,6 +589,10 @@ class _RecordTile extends StatelessWidget {
           [
             categoryName,
             record.occurredAt.toIso8601String(),
+            if (record.type == FinanceType.expense &&
+                record.reimbursement != ReimbursementStatus.none)
+              record.reimbursement.label,
+            if (record.receipt != null) '含票据',
             if (note != null && note.isNotEmpty) note,
           ].join(' · '),
           maxLines: 3,

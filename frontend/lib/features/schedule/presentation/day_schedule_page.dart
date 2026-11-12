@@ -1,5 +1,7 @@
 import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
+import '../../../shared/presentation/undo_removal.dart';
+import '../services/copy_schedule_item.dart';
 
 import '../../../shared/models/schedule_item.dart';
 import '../../academic/models/assignment.dart';
@@ -18,7 +20,9 @@ class DaySchedulePage extends StatefulWidget {
     this.onManageAcademic,
     this.onOpenItem,
     this.onOpenAssignment,
+    this.onAddAssignment,
     this.onRecoverCampus,
+    this.onOpenWeek,
   });
 
   final Future<void> Function()? onRecover;
@@ -26,7 +30,9 @@ class DaySchedulePage extends StatefulWidget {
   final Future<void> Function()? onManageAcademic;
   final Future<void> Function(ScheduleItem item)? onOpenItem;
   final Future<void> Function(Assignment assignment)? onOpenAssignment;
+  final Future<void> Function(DateTime date)? onAddAssignment;
   final Future<void> Function()? onRecoverCampus;
+  final Future<DateTime?> Function(DateTime date)? onOpenWeek;
   final DayScheduleController controller;
 
   @override
@@ -125,24 +131,39 @@ class _DaySchedulePageState extends State<DaySchedulePage>
 
   Future<void> _showAddTaskDialog() => _showEditor();
 
-  Future<void> _showEditor([String? id]) async {
+  Future<void> _showEditor([String? id, bool copy = false]) async {
     if (_adding || (id != null && _savingTasks.contains(id))) return;
     setState(() => _adding = true);
     try {
-      final task = id == null ? null : await widget.controller.taskById(id);
+      var task = id == null ? null : await widget.controller.taskById(id);
       if (!mounted) return;
-      await showDialog<bool>(
+      var date = widget.controller.selectedDate;
+      final copyAnchor = copy
+          ? task?.scheduledRange?.start ?? task?.dueAt
+          : null;
+      if (copy && task != null) {
+        final target = await chooseCopyDate(context, date);
+        if (target == null || !mounted) return;
+        date = target;
+        task = taskCopyDraft(task, target);
+      }
+      final saved = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (_) => TaskEditorDialog(
           task: task,
-          selectedDate: widget.controller.selectedDate,
-          onSave: (value) => id == null
+          selectedDate: date,
+          copying: copy,
+          copyAnchor: copyAnchor,
+          onSave: (value) => id == null || copy
               ? widget.controller.addTask(
                   title: value.title,
                   estimatedMinutes: value.estimatedMinutes,
                   dueAt: value.dueAt,
                   scheduledRange: value.scheduledRange,
+                  note: value.note,
+                  priority: value.priority,
+                  steps: value.steps,
                 )
               : widget.controller.updateTask(
                   id,
@@ -150,9 +171,15 @@ class _DaySchedulePageState extends State<DaySchedulePage>
                   estimatedMinutes: value.estimatedMinutes,
                   dueAt: value.dueAt,
                   scheduledRange: value.scheduledRange,
+                  note: value.note,
+                  priority: value.priority,
+                  steps: value.steps,
                 ),
         ),
       );
+      if (copy && saved == true && mounted) {
+        await widget.controller.loadDay(date);
+      }
     } catch (_) {
       _showMessage('任务读取失败，请重试。');
     } finally {
@@ -168,7 +195,7 @@ class _DaySchedulePageState extends State<DaySchedulePage>
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('删除任务？'),
-          content: const Text('删除后无法撤销。'),
+          content: const Text('删除后可在本次会话内短时撤销。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -182,7 +209,16 @@ class _DaySchedulePageState extends State<DaySchedulePage>
         ),
       );
       if (confirmed != true || !mounted) return;
-      await widget.controller.removeTask(id);
+      final controller = widget.controller;
+      final repository = controller.taskRepository!;
+      final task = await controller.taskById(id);
+      await controller.removeTask(id);
+      if (mounted) {
+        offerRemovalUndo(context, task.title, () async {
+          await repository.insert(task);
+          if (mounted) await widget.controller.loadDay();
+        });
+      }
     } catch (_) {
       _showMessage('删除失败，任务已保留，请重试。');
     } finally {
@@ -197,6 +233,7 @@ class _DaySchedulePageState extends State<DaySchedulePage>
           if (action == 'edit') {
             _showEditor(id);
           }
+          if (action == 'copy') _showEditor(id, true);
           if (action == 'delete') {
             _removeTask(id);
           }
@@ -315,6 +352,20 @@ class _DaySchedulePageState extends State<DaySchedulePage>
             children: [
               if (widget.controller.demoData) const _DemoDataBanner(),
               _DateNavigator(controller: widget.controller),
+              if (widget.onOpenWeek != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.view_week_outlined),
+                    label: const Text('周课表'),
+                    onPressed: () async {
+                      final target = await widget.onOpenWeek!(
+                        widget.controller.selectedDate,
+                      );
+                      if (mounted) await widget.controller.loadDay(target);
+                    },
+                  ),
+                ),
               const Divider(height: 1),
               Expanded(child: _buildBody(schedule)),
             ],
@@ -411,7 +462,28 @@ class _DaySchedulePageState extends State<DaySchedulePage>
             ),
           ),
         const SizedBox(height: 20),
-        const _SectionTitle('当日作业截止'),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            const _SectionTitle('当日作业截止'),
+            if (widget.onAddAssignment != null &&
+                !schedule.errors.containsKey(ScheduleDataSource.assignments))
+              TextButton.icon(
+                key: const Key('schedule-new-assignment'),
+                onPressed: _opening
+                    ? null
+                    : () => _open(
+                        () => widget.onAddAssignment!(
+                          widget.controller.selectedDate,
+                        ),
+                      ),
+                icon: const Icon(Icons.add),
+                label: const Text('新建作业'),
+              ),
+          ],
+        ),
         if (schedule.assignmentDeadlines.isEmpty)
           _EmptyMessage(
             schedule.errors.containsKey(ScheduleDataSource.assignments)
@@ -959,6 +1031,7 @@ class _TaskActions extends StatelessWidget {
           onSelected: onAction,
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'edit', child: Text('编辑 / 安排时间')),
+            PopupMenuItem(value: 'copy', child: Text('复制任务')),
             PopupMenuItem(value: 'delete', child: Text('删除任务')),
           ],
         ),

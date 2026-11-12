@@ -1,4 +1,5 @@
 import 'academic_json.dart';
+import 'course_adjustment.dart';
 import 'course_slot.dart';
 
 /// 课程。
@@ -22,9 +23,16 @@ class Course {
     required this.name,
     required this.credits,
     this.gradePoint,
+    this.teacher,
+    List<CourseAdjustment> adjustments = const [],
     required List<CourseSlot> slots,
     required double scoreScaleMax,
-  }) : slots = List<CourseSlot>.unmodifiable(slots) {
+  }) : slots = List<CourseSlot>.unmodifiable(slots),
+       adjustments = List.unmodifiable(adjustments) {
+    if (this.adjustments.map((row) => row.occurrenceId).toSet().length !=
+        this.adjustments.length) {
+      throw ArgumentError('Duplicate course adjustment');
+    }
     validateNotBlank(id, 'id');
     validateNotBlank(semesterId, 'semesterId');
     validateNotBlank(name, 'name');
@@ -65,6 +73,8 @@ class Course {
     'credits',
     'gradePoint',
     'slots',
+    'teacher',
+    'adjustments',
   };
 
   final String id;
@@ -72,6 +82,8 @@ class Course {
   final String name;
   final double credits;
   final double? gradePoint;
+  final String? teacher;
+  final List<CourseAdjustment> adjustments;
 
   /// 上课时间段，构造时已复制为不可变列表。
   final List<CourseSlot> slots;
@@ -83,6 +95,9 @@ class Course {
     'credits': credits,
     // 可空字段 toJson 必须写入 null。
     'gradePoint': gradePoint,
+    if (teacher != null) 'teacher': teacher,
+    if (adjustments.isNotEmpty)
+      'adjustments': adjustments.map((row) => row.toJson()).toList(),
     'slots': List<Object?>.unmodifiable(
       slots.map((slot) => slot.toJson()).toList(growable: false),
     ),
@@ -98,6 +113,13 @@ class Course {
     final name = readRequiredString(json, 'name');
     final credits = readRequiredDouble(json, 'credits');
     final gradePoint = readNullableDouble(json, 'gradePoint');
+    final teacher = readNullableString(json, 'teacher');
+    final adjustments = json.containsKey('adjustments')
+        ? readRequiredObjectList(
+            json,
+            'adjustments',
+          ).map(CourseAdjustment.fromJson).toList()
+        : const <CourseAdjustment>[];
     final slotJson = readRequiredObjectList(json, 'slots');
 
     // 嵌套对象同样拒绝未知键，并由各自模型完成校验。
@@ -110,6 +132,8 @@ class Course {
         name: name,
         credits: credits,
         gradePoint: gradePoint,
+        teacher: teacher,
+        adjustments: adjustments,
         slots: slots,
         scoreScaleMax: scoreScaleMax,
       ),

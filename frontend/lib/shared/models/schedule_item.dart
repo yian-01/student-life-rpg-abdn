@@ -10,6 +10,7 @@ class ScheduleItem {
     required this.sourceType,
     required this.title,
     required this.range,
+    this.location,
   }) {
     if (id.trim().isEmpty) {
       throw ArgumentError.value(id, 'id', 'Must not be blank.');
@@ -27,4 +28,5 @@ class ScheduleItem {
   final ScheduleSourceType sourceType;
   final String title;
   final TimeRange range;
+  final String? location;
 }

@@ -88,6 +88,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 assignments
                     .where(
                       (item) =>
+                          item.status != AssignmentStatus.submitted &&
                           !item.dueAt.isBefore(today) &&
                           item.dueAt.isBefore(tomorrow),
                     )
@@ -203,6 +204,37 @@ class _DashboardPageState extends State<DashboardPage> {
               Text('生活总览', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 8),
               const Text('任务、学业与账本保存在本机。'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.today_outlined),
+                    label: const Text('今日规划'),
+                    onPressed: () => _open(AppRoutes.today),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.timer_outlined),
+                    label: const Text('专注计时'),
+                    onPressed: () => _open(AppRoutes.focus),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.checklist),
+                    label: const Text('待办'),
+                    onPressed: () => _open('/todo'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.search),
+                    label: const Text('本地搜索'),
+                    onPressed: () => _open('/search'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.folder_copy_outlined),
+                    label: const Text('备份与恢复'),
+                    onPressed: () => _open('/backup'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -273,14 +305,14 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(
                   data.value == null
                       ? '暂无已评分课程'
-                      : 'GPA ${data.value!.toStringAsFixed(2)} / 4.0',
+                      : 'GPA ${data.value!.toStringAsFixed(2)} / 5.0',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '已评分 ${data.gradedCourseCount} 门 · 待评分 ${data.missingCount} 门',
                 ),
-                const Text('全部学期 · 自定义 4.0 规则，非学校官方换算'),
+                const Text('全部学期 · 自定义 5.0 规则，非学校官方换算'),
                 _link(AppRoutes.gpa),
               ],
             ),

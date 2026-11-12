@@ -37,6 +37,7 @@ class FileTaskRepository implements TaskRepository {
 
   List<Task>? _tasks;
   Future<void> _last = Future.value();
+  bool _restoreInterrupted = false;
 
   /// 最近一次从磁盘读到（或成功写入）的原始内容，用于检测外部变更。
   /// 主文件被其他写入方改动后，用它拒绝以旧内存状态覆盖新数据。
@@ -53,14 +54,17 @@ class FileTaskRepository implements TaskRepository {
   bool _lastWriteFailed = false;
 
   Future<T> _queued<T>(Future<T> Function() action) {
-    final result = _last.then((_) => action());
+    final result = _last.then((_) {
+      if (_restoreInterrupted) throw StateError('请重启应用以恢复替换前的数据。');
+      return action();
+    });
     _last = result.then((_) {}, onError: (_) {});
     return result;
   }
 
   /// 解析并校验完整 Task 文档：JSON 结构、schemaVersion、entityType、records、
   /// Task 字段及重复 ID。失败抛出 [FormatException]。
-  List<Task> _decodeTasks(String raw) {
+  static List<Task> validateBackupDocument(String raw) {
     final Object? decoded;
     try {
       decoded = jsonDecode(raw);
@@ -102,6 +106,33 @@ class FileTaskRepository implements TaskRepository {
     return tasks;
   }
 
+  static String _encodeTasks(List<Task> tasks) => jsonEncode({
+    'schemaVersion': _schemaVersion,
+    'entityType': _entityType,
+    'records': [for (final task in tasks) task.toJson()],
+  });
+
+  void suspendAfterFailedRestore() => _restoreInterrupted = true;
+
+  Future<T> withBackupLock<T>(
+    Future<T> Function(String snapshot, Future<void> Function(String) replace)
+    action,
+  ) => _queued(() async {
+    final current = _encodeTasks(await _load());
+    if (await _store.readDocument(_path) != _lastDiskRaw) {
+      throw StateError('任务文件已变化，请先重新读取。');
+    }
+    return action(current, (raw) async {
+      final tasks = validateBackupDocument(raw);
+      final content = _encodeTasks(tasks);
+      await _store.writeDocument(_path, content);
+      _tasks = tasks;
+      _lastDiskRaw = content;
+      _loadedFromDisk = true;
+      _lastWriteFailed = false;
+    });
+  });
+
   /// 将损坏的主文件归档为 `.corrupt`，避免常规覆盖时顶掉有效 `.bak`。
   /// 已有归档保留，后续使用递增后缀。
   Future<void> _archiveCorruptMain() async {
@@ -132,7 +163,7 @@ class FileTaskRepository implements TaskRepository {
     }
 
     // 主文件损坏时直接报错，不做任何静默恢复或磁盘写入。
-    _tasks = _decodeTasks(raw);
+    _tasks = validateBackupDocument(raw);
     _lastDiskRaw = raw;
     _loadedFromDisk = true;
     return _tasks!;
@@ -152,17 +183,13 @@ class FileTaskRepository implements TaskRepository {
       // 真实首次运行：允许创建主文件。
     } else {
       // 主文件损坏时不覆盖（保留原件与有效 .bak）。
-      _decodeTasks(diskRaw);
+      validateBackupDocument(diskRaw);
       // 主文件在缓存之后被其他写入方创建或改动：拒绝用旧内存状态覆盖。
       if (diskRaw != _lastDiskRaw) {
         throw StateError('主文件已被外部修改，拒绝以旧内存状态覆盖: $_path');
       }
     }
-    final content = jsonEncode({
-      'schemaVersion': _schemaVersion,
-      'entityType': _entityType,
-      'records': [for (final task in next) task.toJson()],
-    });
+    final content = _encodeTasks(next);
     // 先成功写盘，再更新内存；写盘失败时内存保持旧值
     try {
       await _store.writeDocument(_path, content);
@@ -196,7 +223,7 @@ class FileTaskRepository implements TaskRepository {
         final raw = await _store.readDocument(_path);
         if (raw != null) {
           try {
-            _tasks = _decodeTasks(raw);
+            _tasks = validateBackupDocument(raw);
             _lastDiskRaw = raw;
             _loadedFromDisk = true;
             _lastWriteFailed = false;
@@ -222,7 +249,7 @@ class FileTaskRepository implements TaskRepository {
     if (backupRaw == null) {
       throw FormatException('主文件损坏或缺失，且无备份可恢复: $_path');
     }
-    final backupTasks = _decodeTasks(backupRaw);
+    final backupTasks = validateBackupDocument(backupRaw);
     await _archiveCorruptMain();
     await _store.writeDocument(_path, backupRaw);
     _lastDiskRaw = backupRaw;

@@ -5,7 +5,8 @@ import '../../../shared/models/schedule_item.dart';
 import '../../../shared/presentation/record_editor_dialog.dart';
 import '../../../shared/repositories/entity_repository.dart';
 import '../../academic/models/assignment.dart';
-import '../../academic/models/course.dart';
+import '../../academic/presentation/course_detail_page.dart';
+import '../../../shared/presentation/undo_removal.dart';
 import '../../academic/models/exam.dart';
 import '../../academic/presentation/assignment_exam_page.dart';
 import '../controllers/schedule_record_controller.dart';
@@ -41,6 +42,7 @@ class ScheduleRecordPage extends StatelessWidget {
         describe: (row) => [
           row.title,
           '截止 ${formatLocalDateTime(row.dueAt)}',
+          row.status.label,
           if (row.description != null) row.description!,
         ],
         edit: (row) => AssignmentEditor(
@@ -83,18 +85,10 @@ class ScheduleRecordPage extends StatelessWidget {
           edit: (row) => EventEditor(data: data, event: row),
         );
       case ScheduleSourceType.course:
-        return _RecordBody<Course>(
+        return CourseDetailPage(
+          data: data,
           id: entry.sourceId,
-          repository: data.courses,
-          label: '课程详情',
-          describe: (row) => [
-            row.name,
-            '学分 ${row.credits}',
-            '本次开始 ${formatLocalDateTime(entry.range.start)}',
-            '本次结束 ${formatLocalDateTime(entry.range.end)}',
-            '课程修改请通过学期与课程管理。',
-          ],
-          manage: () => Navigator.of(context).pushNamed<void>('/academic'),
+          occurrence: entry,
         );
       case ScheduleSourceType.task:
         throw StateError('Tasks use TaskEditorDialog.');
@@ -158,9 +152,23 @@ class _RecordBodyState<T> extends State<_RecordBody<T>> {
     if (_acting) return;
     setState(() => _acting = true);
     try {
-      if (!await confirmRemoval(context, widget.label) || !mounted) return;
+      if (!await confirmRemoval(context, widget.label, undoable: true) ||
+          !mounted) {
+        return;
+      }
+      final entity = _controller.record;
+      final repository = widget.repository;
       final removed = await _controller.remove();
-      if (removed && mounted) Navigator.pop(context);
+      if (removed && mounted) {
+        if (entity != null) {
+          offerRemovalUndo(
+            context,
+            widget.label,
+            () => repository.insert(entity),
+          );
+        }
+        Navigator.pop(context);
+      }
     } finally {
       if (mounted) setState(() => _acting = false);
     }

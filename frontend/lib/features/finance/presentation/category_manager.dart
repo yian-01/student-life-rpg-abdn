@@ -21,6 +21,37 @@ Future<void> showCategoryManager(
   );
 }
 
+Future<FinanceCategory?> showNewFinanceCategory(
+  BuildContext context, {
+  required FinanceController controller,
+  required FinanceType type,
+  String initialName = '',
+  bool chooseType = false,
+}) async {
+  FinanceCategory? category;
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => _CategoryFormDialog(
+      title: chooseType
+          ? '新增分类'
+          : '新建${type == FinanceType.expense ? '支出' : '收入'}分类',
+      initialName: initialName,
+      initialType: type,
+      typeEnabled: chooseType,
+      onSave: (name, type) async {
+        category = await controller.createCategory(name: name, type: type);
+        if (category == null) {
+          throw FormatException(
+            _errorMessage(controller.error, '保存失败，请检查分类名称后重试。'),
+          );
+        }
+      },
+    ),
+  );
+  return confirmed == true ? category : null;
+}
+
 class CategoryManagerDialog extends StatefulWidget {
   const CategoryManagerDialog({super.key, required this.controller});
 
@@ -56,31 +87,14 @@ class _CategoryManagerDialogState extends State<CategoryManagerDialog> {
   FinanceType _newType = FinanceType.expense;
 
   Future<void> _add() async {
-    final name = _nameController.text;
-    final type = _newType;
-    final dialogContext = context;
-    await showDialog<bool>(
-      context: dialogContext,
-      barrierDismissible: false,
-      builder: (_) => _CategoryFormDialog(
-        title: '新增分类',
-        initialName: name,
-        initialType: type,
-        typeEnabled: true,
-        onSave: (newName, newType) async {
-          final saved = await widget.controller.addCategory(
-            name: newName,
-            type: newType,
-          );
-          if (!saved) {
-            throw FormatException(
-              _errorMessage(widget.controller.error, '保存失败，请检查分类名称与引用后重试。'),
-            );
-          }
-        },
-      ),
+    final saved = await showNewFinanceCategory(
+      context,
+      controller: widget.controller,
+      type: _newType,
+      initialName: _nameController.text,
+      chooseType: true,
     );
-    _nameController.clear();
+    if (mounted && saved != null) _nameController.clear();
   }
 
   Future<void> _edit(FinanceCategory category) async {
