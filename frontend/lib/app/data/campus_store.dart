@@ -32,10 +32,11 @@ class CampusStore {
   Map<String, dynamic>? _state;
   Future<void>? _tail;
   bool _restoreInterrupted = false;
-  static const scoreScaleMax = 4.0;
+  static const scoreScaleMax = 5.0;
+  static const _previousScoreScaleMax = 4.0;
 
-  /// 持久化契约 v2：新增 assignments / exams / budgets 三张表。
-  static const schemaVersion = 2;
+  /// v3 stores course grades on the 5.0 scale.
+  static const schemaVersion = 3;
   static const tables = [
     'semesters',
     'courses',
@@ -103,36 +104,31 @@ class CampusStore {
     ],
   };
 
-  /// 解码并校验 CampusData 文档。
-  ///
-  /// schemaVersion 1 的旧文档自动补齐 v2 新增空表（assignments/exams/budgets），
-  /// 原记录保持不变，返回规范 v2 结构并标记 `migrated`；schemaVersion > 2
-  /// 或顶层键不匹配的未知未来文档一律拒绝。
+  /// Migrate the two former 4.0 formats before validating the current document.
   static ({Map<String, dynamic> doc, bool migrated}) _decode(String raw) {
     final value = jsonDecode(raw);
-    if (value is! Map<String, dynamic> ||
-        value['entityType'] != 'CampusData' ||
-        value['scoreScaleMax'] != scoreScaleMax) {
+    if (value is! Map<String, dynamic> || value['entityType'] != 'CampusData') {
       throw const FormatException('Unsupported CampusData document');
     }
-    var migrated = false;
+    final version = value['schemaVersion'];
+    final legacy = version == 1 || version == 2;
+    final expectedScale = legacy ? _previousScoreScaleMax : scoreScaleMax;
+    final documentTables = version == 1 ? _v1Tables : tables;
     final keys = value.keys.toSet();
-    final isV1 =
-        value['schemaVersion'] == 1 &&
-        keys.length == _v1Tables.length + _baseKeys.length &&
-        keys.containsAll({..._baseKeys, ..._v1Tables});
-    final isV2 =
-        value['schemaVersion'] == schemaVersion &&
-        keys.length == tables.length + _baseKeys.length &&
-        keys.containsAll({..._baseKeys, ...tables});
-    if (isV1) {
-      value['schemaVersion'] = schemaVersion;
+    if ((!legacy && version != schemaVersion) ||
+        value['scoreScaleMax'] != expectedScale ||
+        keys.length != documentTables.length + _baseKeys.length ||
+        !keys.containsAll({..._baseKeys, ...documentTables})) {
+      throw const FormatException('Unsupported CampusData document');
+    }
+    if (version == 1) {
       value['assignments'] = <dynamic>[];
       value['exams'] = <dynamic>[];
       value['budgets'] = <dynamic>[];
-      migrated = true;
-    } else if (!isV2) {
-      throw const FormatException('Unsupported CampusData document');
+    }
+    if (legacy) {
+      value['schemaVersion'] = schemaVersion;
+      value['scoreScaleMax'] = scoreScaleMax;
     }
     for (final table in tables) {
       final rows = value[table];
@@ -147,7 +143,12 @@ class CampusStore {
           case 'semesters':
             Semester.fromJson(row);
           case 'courses':
-            Course.fromJson(row, scoreScaleMax: scoreScaleMax);
+            final course = Course.fromJson(row, scoreScaleMax: expectedScale);
+            final point = course.gradePoint;
+            if (legacy && point != null) {
+              row['gradePoint'] =
+                  point * (scoreScaleMax / _previousScoreScaleMax);
+            }
           case 'assignments':
             Assignment.fromJson(row);
           case 'exams':
@@ -229,7 +230,7 @@ class CampusStore {
         throw const FormatException('Duplicate budget for category/month');
       }
     }
-    return (doc: value, migrated: migrated);
+    return (doc: value, migrated: legacy);
   }
 
   static Map<String, dynamic> validateBackupDocument(String raw) =>
@@ -267,7 +268,7 @@ class CampusStore {
     }
     final decoded = _decode(raw);
     if (decoded.migrated) {
-      // v1 → v2：先写回升级后的文档（旧版自动留存为 .bak），再提交内存。
+      // 先写回升级后的文档（旧版自动留存为 .bak），再提交内存。
       await store.writeDocument(path, jsonEncode(decoded.doc));
     }
     _hasWritten = true;
@@ -405,8 +406,10 @@ class CampusStore {
     final raw = await store.readDocument(path);
     if (raw != null) {
       try {
-        final valid = _decode(raw).doc;
-        _state = valid;
+        final decoded = _decode(raw);
+        if (decoded.migrated)
+          await store.writeDocument(path, jsonEncode(decoded.doc));
+        _state = decoded.doc;
         _hasWritten = true;
         return;
       } on FormatException {
@@ -415,7 +418,7 @@ class CampusStore {
     }
     final backup = await store.readDocument('$path.bak');
     if (backup == null) throw const FormatException('No valid backup');
-    final valid = _decode(backup).doc;
+    final decoded = _decode(backup);
     final main = File(path);
     if (await main.exists()) {
       var archive = '$path.corrupt';
@@ -426,8 +429,11 @@ class CampusStore {
       }
       await main.rename(archive);
     }
-    await store.writeDocument(path, backup);
-    _state = valid;
+    await store.writeDocument(
+      path,
+      decoded.migrated ? jsonEncode(decoded.doc) : backup,
+    );
+    _state = decoded.doc;
     _hasWritten = true;
   });
 }

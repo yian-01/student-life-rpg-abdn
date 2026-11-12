@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../academic/models/course.dart';
 import '../composition/gpa_composition.dart';
 import '../controllers/gpa_controller.dart';
+import 'gpa_forecast_dialog.dart';
 
 class GpaPage extends StatefulWidget {
   const GpaPage({super.key, required this.composition, this.onManage});
@@ -17,6 +18,7 @@ class GpaPage extends StatefulWidget {
 class _GpaPageState extends State<GpaPage> {
   GpaController? _controller;
   Object? _setupError;
+  bool _ungradedOnly = false;
 
   @override
   void initState() {
@@ -86,12 +88,12 @@ class _GpaPageState extends State<GpaPage> {
                       ),
                       const SizedBox(height: 12),
                       if (widget.composition.isDemo)
-                        const ModuleNotice(
-                          '合成演示课程 · 4.0 评分规则，非学校官方制度。仅存内存，重启不保留。',
+                        ModuleNotice(
+                          '合成演示课程 · ${controller.scoreScaleMax.toStringAsFixed(1)} 评分规则，非学校官方制度。仅存内存，重启不保留。',
                         ),
                       if (!widget.composition.isDemo)
-                        const ModuleNotice(
-                          '课程与成绩保存在本机。采用自定义 4.0 绩点规则，不代表学校官方换算。',
+                        ModuleNotice(
+                          '课程与成绩保存在本机。采用自定义 ${controller.scoreScaleMax.toStringAsFixed(1)} 绩点规则，不代表学校官方换算。',
                         ),
                       if (widget.onManage != null)
                         TextButton.icon(
@@ -159,42 +161,89 @@ class _GpaPageState extends State<GpaPage> {
                         Text(
                           '已评分学分：${result.gradedCredits} · 已评分课程：${result.gradedCourseCount} · 未评分：${result.missingCount}',
                         ),
+                        if (controller.courses.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                            value:
+                                result.gradedCredits /
+                                controller.courses.fold<double>(
+                                  0,
+                                  (sum, course) => sum + course.credits,
+                                ),
+                            semanticsLabel: '成绩录入进度（按学分）',
+                          ),
+                          Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.calculate_outlined),
+                                label: const Text('目标 GPA 试算'),
+                                onPressed: () => showDialog<void>(
+                                  context: context,
+                                  builder: (_) => GpaForecastDialog(
+                                    current: result,
+                                    scaleMax: controller.scoreScaleMax,
+                                    scope: controller.scopeTitle,
+                                    suggestedCredits: controller.courses
+                                        .where(
+                                          (course) => course.gradePoint == null,
+                                        )
+                                        .fold<double>(
+                                          0,
+                                          (sum, course) => sum + course.credits,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                              FilterChip(
+                                label: const Text('只看未评分'),
+                                selected: _ungradedOnly,
+                                onSelected: (value) =>
+                                    setState(() => _ungradedOnly = value),
+                              ),
+                            ],
+                          ),
+                          if (_ungradedOnly && result.missingCount == 0)
+                            const Text('所选学期的课程已全部评分。'),
+                        ],
                         if (controller.courses.isEmpty) const Text('暂无课程'),
                       ],
                       const SizedBox(height: 12),
                       for (final course in controller.courses)
-                        Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  course.name,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                Text(
-                                  '学期：${controller.semesterNames[course.semesterId] ?? course.semesterId} · 学分：${course.credits}',
-                                ),
-                                Text(
-                                  course.gradePoint == null
-                                      ? '绩点：未评分'
-                                      : '绩点：${course.gradePoint}',
-                                ),
-                                TextButton(
-                                  key: ValueKey('edit-${course.id}'),
-                                  onPressed: controller.isLoading
-                                      ? null
-                                      : () => _edit(course, controller),
-                                  child: const Text('编辑成绩'),
-                                ),
-                              ],
+                        if (!_ungradedOnly || course.gradePoint == null)
+                          Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    course.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                  Text(
+                                    '学期：${controller.semesterNames[course.semesterId] ?? course.semesterId} · 学分：${course.credits}',
+                                  ),
+                                  Text(
+                                    course.gradePoint == null
+                                        ? '绩点：未评分'
+                                        : '绩点：${course.gradePoint}',
+                                  ),
+                                  TextButton(
+                                    key: ValueKey('edit-${course.id}'),
+                                    onPressed: controller.isLoading
+                                        ? null
+                                        : () => _edit(course, controller),
+                                    child: const Text('编辑成绩'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       TextButton(
                         onPressed: controller.isLoading
                             ? null

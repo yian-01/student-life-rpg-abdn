@@ -9,6 +9,7 @@ import '../repositories/task_repository.dart';
 import '../services/day_schedule_service.dart';
 import 'schedule_record_page.dart';
 import 'task_editor_dialog.dart';
+import 'week_timetable_grid.dart';
 
 DateTime _dayAt(DateTime date, int offset) =>
     DateTime(date.year, date.month, date.day + offset);
@@ -37,6 +38,7 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
   );
   late Future<_Week> _week = _load(_monday);
   bool _opening = false;
+  ScheduleSourceType? _filter;
 
   Future<_Week> _load(DateTime monday) async {
     final service = widget.data.schedule(widget.tasks);
@@ -87,18 +89,37 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
     }
   }
 
+  Future<void> _jumpToWeek() async {
+    final target = await showDatePicker(
+      context: context,
+      initialDate: _monday,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2200, 12, 31),
+      helpText: '选择一周中的任意日期',
+    );
+    if (mounted && target != null) _select(target);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('周课表')),
+    appBar: AppBar(
+      title: const Text('周课表'),
+      actions: [
+        IconButton(
+          tooltip: '跳到指定周',
+          onPressed: _jumpToWeek,
+          icon: const Icon(Icons.calendar_month_outlined),
+        ),
+      ],
+    ),
     body: Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: ListView(
-          padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(maxWidth: 1500),
+        child: Column(
           children: [
             Wrap(
+              alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
               children: [
                 IconButton(
                   tooltip: '上一周',
@@ -117,106 +138,111 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
                 ),
               ],
             ),
-            FutureBuilder<_Week>(
-              future: _week,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const LinearProgressIndicator();
-                }
-                final result = snapshot.data;
-                if (result == null) {
-                  return TextButton(
-                    onPressed: () => _select(_monday),
-                    child: const Text('读取失败，重试'),
-                  );
-                }
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns = constraints.maxWidth >= 960
-                        ? 7
-                        : constraints.maxWidth >= 600
-                        ? 3
-                        : 1;
-                    final width =
-                        (constraints.maxWidth - (columns - 1) * 8) / columns;
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final (i, day) in result.days.indexed)
-                          SizedBox(
-                            width: width,
-                            child: _section(
-                              context,
-                              _dayAt(_monday, i),
-                              day,
-                              result.semesters,
-                            ),
-                          ),
-                      ],
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                children: [
+                  for (final type in <ScheduleSourceType?>[
+                    null,
+                    ...ScheduleSourceType.values,
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(type == null ? '全部事项' : weekItemType(type)),
+                        selected: _filter == type,
+                        onSelected: (_) => setState(() => _filter = type),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<_Week>(
+                future: _week,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Align(
+                      alignment: Alignment.topCenter,
+                      child: LinearProgressIndicator(),
                     );
-                  },
-                );
-              },
+                  }
+                  final result = snapshot.data;
+                  if (result == null) {
+                    return Center(
+                      child: TextButton(
+                        onPressed: () => _select(_monday),
+                        child: const Text('读取失败，重试'),
+                      ),
+                    );
+                  }
+                  final dates = [
+                    for (var i = 0; i < 7; i++) _dayAt(_monday, i),
+                  ];
+                  final items = [
+                    for (final day in result.days)
+                      day.items
+                          .where(
+                            (item) =>
+                                _filter == null || item.sourceType == _filter,
+                          )
+                          .toList(),
+                  ];
+                  final termWeeks = {
+                    for (final term in result.semesters ?? const <Semester>[])
+                      for (final date in dates)
+                        if (term.containsDate(date))
+                          if (academicWeekNumber(term.week1Monday, date)
+                              case final week?)
+                            '${term.name} · 第 $week 周',
+                  };
+                  final count = items
+                      .expand((day) => day)
+                      .map((item) => item.id)
+                      .toSet()
+                      .length;
+                  return Column(
+                    children: [
+                      if (result.days.any((day) => day.errors.isNotEmpty))
+                        TextButton(
+                          onPressed: () => _select(_monday),
+                          child: const Text('部分数据读取失败 · 重试'),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          [
+                            ...termWeeks,
+                            count == 0 ? '本周无匹配事项' : '$count 项安排',
+                          ].join('  ·  '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Expanded(
+                        child: WeekTimetableGrid(
+                          key: ValueKey(_monday),
+                          dates: dates,
+                          items: items,
+                          onSelectDate: (date) => Navigator.pop(context, date),
+                          onOpen: _open,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),
       ),
     ),
   );
-
-  Widget _section(
-    BuildContext context,
-    DateTime date,
-    DaySchedule day,
-    List<Semester>? semesters,
-  ) {
-    final next = _dayAt(date, 1);
-    final label = [
-      for (final term in semesters ?? const <Semester>[])
-        if (term.containsDate(date))
-          if (academicWeekNumber(term.week1Monday, date) case final week?)
-            '${term.name} · 第 $week 周',
-    ].join('\n');
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, date),
-              child: Text(
-                '周${'一二三四五六日'[date.weekday - 1]} · ${date.month}/${date.day}',
-              ),
-            ),
-            if (label.isNotEmpty) Text(label),
-            if (day.errors.isNotEmpty)
-              TextButton(
-                onPressed: () => _select(_monday),
-                child: const Text('部分数据读取失败 · 重试'),
-              ),
-            if (day.items.isEmpty && day.errors.isEmpty) const Text('无安排'),
-            for (final item in day.items)
-              InkWell(
-                onTap: () => _open(item),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    '${_time(item.range.start.isBefore(date) ? date : item.range.start)}–'
-                    '${item.range.end.isBefore(next) ? _time(item.range.end) : '24:00'}\n'
-                    '${item.title}${item.location == null ? '' : '\n${item.location}'}',
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 String _date(DateTime date) => formatLocalDateTime(date).split(' ').first;
-
-String _time(DateTime date) => formatLocalDateTime(date).split(' ').last;

@@ -17,7 +17,7 @@ import 'package:student_life_rpg/features/schedule/models/event.dart';
 import 'package:student_life_rpg/shared/models/time_range.dart';
 import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
-/// CampusData v1 → v2 迁移测试。
+/// CampusData 旧文件迁移测试。
 ///
 /// fixture 固定为 fcab531 基线时代的 v1 文档结构（8 个顶层键、5 张表），
 /// 迁移后原记录必须逐表逐值完整保留，新增 3 张表为空。
@@ -79,7 +79,7 @@ void main() {
     amountMinor: amountMinor,
   );
 
-  test('v1 文档自动升级为 v2，原记录逐表完整保留', () async {
+  test('v1 文档自动升级为当前版本，原记录逐表完整保留', () async {
     await File(path).writeAsString(fixture);
 
     final data = open();
@@ -100,17 +100,17 @@ void main() {
     expect(await data.exams.list(), isEmpty);
     expect(await data.budgets.list(), isEmpty);
 
-    // 磁盘文件已写回 v2；旧版 v1 自动留存为 .bak
+    // 磁盘文件已写回当前版本；旧版 v1 自动留存为 .bak
     final upgraded =
         jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
-    expect(upgraded['schemaVersion'], 2);
+    expect(upgraded['schemaVersion'], CampusStore.schemaVersion);
     expect(upgraded['assignments'], isEmpty);
     expect(upgraded['exams'], isEmpty);
     expect(upgraded['budgets'], isEmpty);
     expect(await File('$path.bak').readAsString(), fixture);
   });
 
-  test('有效空 records：空数组可正常读取并升级为 v2', () async {
+  test('有效空 records：空数组可正常读取并升级', () async {
     final doc = jsonDecode(fixture) as Map<String, dynamic>;
     doc['records'] = <dynamic>[];
     doc['events'] = <dynamic>[];
@@ -125,7 +125,7 @@ void main() {
 
     final upgraded =
         jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
-    expect(upgraded['schemaVersion'], 2);
+    expect(upgraded['schemaVersion'], CampusStore.schemaVersion);
     expect(upgraded['records'], isEmpty);
   });
 
@@ -154,6 +154,25 @@ void main() {
     // 金额以最小货币单位按整数保留，迁移不得退化为浮点
     final record = (await data.records.list()).single;
     expect(record.amountMinor, 1250);
+  });
+
+  test('legacy 4.0 grades migrate once and retain relative GPA', () async {
+    final doc = jsonDecode(v2Doc()) as Map<String, dynamic>;
+    final course = (doc['courses'] as List).single as Map<String, dynamic>;
+    course['gradePoint'] = 3.2;
+    final legacy = jsonEncode(doc);
+    await File(path).writeAsString(legacy);
+    final data = open();
+    addTearDown(data.dispose);
+    final reopened = open();
+    addTearDown(reopened.dispose);
+
+    expect((await data.courses.list()).single.gradePoint, 4.0);
+    final disk = jsonDecode(await File(path).readAsString()) as Map;
+    expect(disk['scoreScaleMax'], 5.0);
+    expect(await File('$path.bak').readAsString(), legacy);
+    expect((await reopened.courses.list()).single.gradePoint, 4.0);
+    expect(CampusStore.validateBackupDocument(legacy)['scoreScaleMax'], 5.0);
   });
 
   test('跨日考试的时间范围在重开后完整保留', () async {
@@ -511,7 +530,10 @@ void main() {
     expect(File('$path.corrupt').existsSync(), isFalse);
 
     await store.recoverFromBackup();
-    expect(await File(path).readAsString(), valid);
+    expect(
+      jsonDecode(await File(path).readAsString()),
+      CampusStore.validateBackupDocument(valid),
+    );
     expect(await File('$path.corrupt').readAsString(), broken);
     expect((await store.rows('courses')).length, 1);
   });
@@ -560,7 +582,7 @@ void main() {
     expect((await reopened.rows('courses')).length, 1);
     final upgraded =
         jsonDecode(await File(path).readAsString()) as Map<String, dynamic>;
-    expect(upgraded['schemaVersion'], 2);
+    expect(upgraded['schemaVersion'], CampusStore.schemaVersion);
     expect(await File('$path.bak').readAsString(), fixture);
   });
 
@@ -618,7 +640,10 @@ void main() {
     final store = CampusStore(const FileJsonDocumentStore(), path);
 
     await store.recoverFromBackup();
-    expect(await File(path).readAsString(), valid);
+    expect(
+      jsonDecode(await File(path).readAsString()),
+      CampusStore.validateBackupDocument(valid),
+    );
     expect(await File('$path.corrupt').readAsString(), 'previous archive');
     expect(await File('$path.corrupt.1').readAsString(), broken);
   });

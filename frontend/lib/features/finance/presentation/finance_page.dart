@@ -2,6 +2,7 @@ import '../../../app/module_body.dart';
 import 'package:flutter/material.dart';
 import '../../../shared/presentation/undo_removal.dart';
 import 'finance_filter_page.dart';
+import 'weekly_finance_page.dart';
 import 'receipt_fields.dart';
 
 import '../controllers/finance_controller.dart';
@@ -110,6 +111,20 @@ class _FinancePageState extends State<FinancePage> {
     });
   }
 
+  Future<void> _addCategory() async {
+    final category = await showNewFinanceCategory(
+      context,
+      controller: _controller,
+      type: _selectedType,
+    );
+    if (!mounted || category == null) return;
+    if (_controller
+        .categoriesFor(category.type)
+        .any((row) => row.id == category.id)) {
+      setState(() => _selectedCategoryId = category.id);
+    }
+  }
+
   void _changeMonth(int delta) {
     final target = DateTime(
       _controller.month.year,
@@ -215,6 +230,19 @@ class _FinancePageState extends State<FinancePage> {
                       ),
                     ],
                     _SummaryCard(summary: _controller.summary),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.show_chart),
+                        label: const Text('每周收支趋势'),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                WeeklyFinancePage(controller: _controller),
+                          ),
+                        ),
+                      ),
+                    ),
                     if (_budgetController != null) ...[
                       const SizedBox(height: 12),
                       BudgetSection(
@@ -258,6 +286,10 @@ class _FinancePageState extends State<FinancePage> {
                               : matching.first.id;
                         });
                       },
+                      onAddCategory:
+                          _controller.isSaving || _controller.isLoading
+                          ? null
+                          : _addCategory,
                       onCategoryChanged: (id) {
                         setState(() => _selectedCategoryId = id);
                       },
@@ -424,6 +456,7 @@ class _AddRecordForm extends StatelessWidget {
     required this.onDateChanged,
     required this.onTypeChanged,
     required this.onCategoryChanged,
+    required this.onAddCategory,
     required this.onSubmit,
   });
 
@@ -437,6 +470,7 @@ class _AddRecordForm extends StatelessWidget {
   final ValueChanged<DateTime> onDateChanged;
   final ValueChanged<FinanceType> onTypeChanged;
   final ValueChanged<String?> onCategoryChanged;
+  final VoidCallback? onAddCategory;
   final VoidCallback? onSubmit;
 
   @override
@@ -465,6 +499,7 @@ class _AddRecordForm extends StatelessWidget {
         DropdownButtonFormField<String>(
           // ignore: deprecated_member_use
           value: selectedCategoryId,
+          isExpanded: true,
           decoration: const InputDecoration(labelText: '分类'),
           items: categories
               .map(
@@ -475,6 +510,14 @@ class _AddRecordForm extends StatelessWidget {
               )
               .toList(),
           onChanged: onCategoryChanged,
+        ),
+        TextButton.icon(
+          key: const Key('finance-add-category-inline'),
+          onPressed: onAddCategory,
+          icon: const Icon(Icons.add),
+          label: Text(
+            '新建${selectedType == FinanceType.expense ? '支出' : '收入'}分类',
+          ),
         ),
         const SizedBox(height: 12),
         TextField(

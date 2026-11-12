@@ -280,7 +280,7 @@ class _CourseEditorState extends State<CourseEditor> {
             !point.isFinite ||
             point < 0 ||
             point > CampusStore.scoreScaleMax)) {
-      throw const FormatException('绩点填写 0–4，未评分请留空');
+      throw const FormatException('绩点填写 0–5，未评分请留空');
     }
     // 周次上界跟随所选学期；学期没有可用周次时不允许保存任何时段。
     // 逐个时段构建，报错时指明是第几个时段，便于定位。
@@ -351,7 +351,7 @@ class _CourseEditorState extends State<CourseEditor> {
           key: const Key('course-point'),
           controller: _point,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: '绩点（0–4，未评分留空）'),
+          decoration: const InputDecoration(labelText: '绩点（0–5，未评分留空）'),
         ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 12),

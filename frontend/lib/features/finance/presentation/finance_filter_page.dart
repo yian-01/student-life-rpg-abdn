@@ -13,8 +13,17 @@ import '../services/finance_calculator.dart';
 import 'finance_record_editor.dart';
 
 class FinanceFilterPage extends StatefulWidget {
-  const FinanceFilterPage({super.key, required this.controller});
+  const FinanceFilterPage({
+    super.key,
+    required this.controller,
+    this.initialRange,
+    this.initialType,
+    this.initialCategoryId,
+  });
   final FinanceController controller;
+  final DateTimeRange? initialRange;
+  final FinanceType? initialType;
+  final String? initialCategoryId;
 
   @override
   State<FinanceFilterPage> createState() => _FinanceFilterPageState();
@@ -27,9 +36,9 @@ typedef _Ledger = ({
 
 class _FinanceFilterPageState extends State<FinanceFilterPage> {
   late Future<_Ledger> _data = _load();
-  FinanceType? _type;
-  String? _category;
-  DateTimeRange? _range;
+  late FinanceType? _type = widget.initialType;
+  late String? _category = widget.initialCategoryId;
+  late DateTimeRange? _range = widget.initialRange;
   bool _pending = false;
   bool _acting = false;
 

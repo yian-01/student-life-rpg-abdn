@@ -36,6 +36,38 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets(
+    'inline income and expense categories are selected for new records',
+    (tester) async {
+      await pumpPage(tester);
+      final create = find.byKey(const Key('finance-add-category-inline'));
+      for (final (type, name) in [('支出', '打印装订'), ('收入', '助教津贴')]) {
+        await tester.ensureVisible(find.widgetWithText(ChoiceChip, type));
+        await tester.tap(find.widgetWithText(ChoiceChip, type));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(create);
+        await tester.tap(create);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(const Key('category-name')), name);
+        await tester.tap(find.widgetWithText(FilledButton, '保存'));
+        await tester.pumpAndSettle();
+        final category = (await scope.controller.listCategories()).singleWhere(
+          (row) => row.name == name,
+        );
+        await tester.enterText(find.byType(TextField).first, '12.50');
+        await tester.ensureVisible(find.text('添加记录'));
+        await tester.tap(find.text('添加记录'));
+        await tester.pumpAndSettle();
+        expect(
+          (await scope.records.list()).any(
+            (row) => row.categoryId == category.id && row.type == category.type,
+          ),
+          isTrue,
+        );
+      }
+    },
+  );
+
   testWidgets('adding a valid expense refreshes the list and summary', (
     tester,
   ) async {

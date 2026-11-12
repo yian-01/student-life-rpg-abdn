@@ -145,20 +145,30 @@ class FinanceController extends ChangeNotifier {
     if (!await _records.remove(id)) throw StateError('Unknown record');
   });
 
-  /// 新增分类。空白名称由模型抛出 ArgumentError；同类型下同名分类被拒绝。
-  Future<bool> addCategory({required String name, required FinanceType type}) =>
-      _write(() async {
-        final now = _clock();
-        requireLocalDateTime(now, 'now');
-        _categorySeq++;
-        await _categories.insert(
-          FinanceCategory(
-            id: 'cat-${now.microsecondsSinceEpoch}-$_categorySeq',
-            name: name,
-            type: type,
-          ),
-        );
-      });
+  Future<bool> addCategory({
+    required String name,
+    required FinanceType type,
+  }) async => await createCategory(name: name, type: type) != null;
+
+  /// Returns the committed category so the entry form can select its exact ID.
+  Future<FinanceCategory?> createCategory({
+    required String name,
+    required FinanceType type,
+  }) async {
+    FinanceCategory? created;
+    final saved = await _write(() async {
+      final now = _clock();
+      requireLocalDateTime(now, 'now');
+      final category = FinanceCategory(
+        id: 'cat-${now.microsecondsSinceEpoch}-${++_categorySeq}',
+        name: name.trim(),
+        type: type,
+      );
+      await _categories.insert(category);
+      created = category;
+    });
+    return saved ? created : null;
+  }
 
   /// 编辑分类名称/类型。被记录或预算引用时无法修改类型，会抛出带原因的 StateError。
   Future<bool> editCategory(

@@ -263,7 +263,7 @@ class _AcademicManagementPageState extends State<AcademicManagementPage> {
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        '课程按所属学期、周次和星期进入日程。绩点采用自定义 4.0 规则，不代表学校官方换算。',
+                        '课程按所属学期、周次和星期进入日程。绩点采用自定义 5.0 规则，不代表学校官方换算。',
                       ),
                     ),
                     if (_courses.isEmpty && !_busy) const Text('暂无课程'),
