@@ -77,10 +77,11 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
         );
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('无法打开该事项，请刷新。')));
+      }
     } finally {
       _opening = false;
       if (mounted) _select(_monday);
@@ -118,14 +119,16 @@ class _WeekSchedulePageState extends State<WeekSchedulePage> {
           FutureBuilder<_Week>(
             future: _week,
             builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done)
+              if (snapshot.connectionState != ConnectionState.done) {
                 return const LinearProgressIndicator();
+              }
               final result = snapshot.data;
-              if (result == null)
+              if (result == null) {
                 return TextButton(
                   onPressed: () => _select(_monday),
                   child: const Text('读取失败，重试'),
                 );
+              }
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final columns = constraints.maxWidth >= 960

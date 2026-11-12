@@ -70,8 +70,9 @@ class FullBackup {
   }
 
   factory FullBackup.decode(Uint8List bytes) {
-    if (bytes.length > maxBackupBytes)
+    if (bytes.length > maxBackupBytes) {
       throw const FormatException('备份超过 64 MB。');
+    }
     final envelope = jsonDecode(utf8.decode(bytes));
     if (envelope is! Map<String, dynamic> ||
         envelope.length != 4 ||
@@ -107,8 +108,9 @@ Future<Uint8List> readBackupFile(File file) async {
   final fileHandle = await file.open();
   try {
     final bytes = await fileHandle.read(maxBackupBytes + 1);
-    if (bytes.length > maxBackupBytes)
+    if (bytes.length > maxBackupBytes) {
       throw const FormatException('备份超过 64 MB。');
+    }
     return bytes;
   } finally {
     await fileHandle.close();

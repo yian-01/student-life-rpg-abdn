@@ -56,8 +56,9 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
     try {
       await widget.controller.refresh();
       if (!mounted) return;
-      if (widget.controller.error != null)
+      if (widget.controller.error != null) {
         throw StateError('Unable to load finance');
+      }
       await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -66,10 +67,11 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
       );
       if (mounted) _refresh();
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('打开账目失败，请刷新。')));
+      }
     } finally {
       if (mounted) setState(() => _acting = false);
     }
@@ -79,10 +81,12 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
     if (_acting) return;
     setState(() => _acting = true);
     try {
-      if (!await confirmRemoval(context, title, undoable: true) || !mounted)
+      if (!await confirmRemoval(context, title, undoable: true) || !mounted) {
         return;
-      if (!await widget.controller.removeRecord(row.id))
+      }
+      if (!await widget.controller.removeRecord(row.id)) {
         throw StateError('Delete failed');
+      }
       if (!mounted) return;
       final controller = widget.controller;
       offerRemovalUndo(context, title, () async {
@@ -91,10 +95,11 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
       });
       _refresh();
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('删除失败，请重试。')));
+      }
     } finally {
       if (mounted) setState(() => _acting = false);
     }
@@ -115,16 +120,18 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
     body: FutureBuilder<_Ledger>(
       future: _data,
       builder: (context, snapshot) {
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return Center(
             child: TextButton(
               onPressed: _refresh,
               child: const Text('读取账本失败，点击重试'),
             ),
           );
+        }
         final data = snapshot.data;
-        if (data == null)
+        if (data == null) {
           return const Center(child: CircularProgressIndicator());
+        }
         final byId = {
           for (final category in data.categories) category.id: category,
         };
@@ -178,8 +185,9 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
                 ],
                 onChanged: (value) => setState(() {
                   _type = value;
-                  if (value != null && byId[_category]?.type != value)
+                  if (value != null && byId[_category]?.type != value) {
                     _category = null;
+                  }
                 }),
               ),
               DropdownButton<String?>(

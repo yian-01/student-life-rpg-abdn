@@ -95,12 +95,14 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
 
   Future<void> _removeAssignment(Assignment assignment) async {
     if (!await confirmRemoval(context, assignment.title, undoable: true) ||
-        !mounted)
+        !mounted) {
       return;
+    }
     try {
       final repository = _assignmentRepo;
-      if (!await repository.remove(assignment.id))
+      if (!await repository.remove(assignment.id)) {
         throw StateError('Missing assignment');
+      }
       if (!mounted) return;
       offerRemovalUndo(context, assignment.title, () async {
         await repository.insert(assignment);
@@ -113,8 +115,10 @@ class _AssignmentExamPageState extends State<AssignmentExamPage> {
   }
 
   Future<void> _removeExam(Exam exam) async {
-    if (!await confirmRemoval(context, exam.title, undoable: true) || !mounted)
+    if (!await confirmRemoval(context, exam.title, undoable: true) ||
+        !mounted) {
       return;
+    }
     try {
       final repository = _examRepo;
       if (!await repository.remove(exam.id)) throw StateError('Missing exam');

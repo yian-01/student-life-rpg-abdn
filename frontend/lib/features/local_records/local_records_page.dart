@@ -71,8 +71,9 @@ bool matchesTodoPeriod(Object record, TodoPeriod period, DateTime now) {
     case Task():
       if (record.isCompleted) return false;
       if (period == TodoPeriod.all) return true;
-      if (period == TodoPeriod.overdue)
+      if (period == TodoPeriod.overdue) {
         return record.dueAt?.isBefore(now) ?? false;
+      }
       final range = record.scheduledRange;
       return inWindow(record.dueAt) ||
           (range != null &&
@@ -84,8 +85,9 @@ bool matchesTodoPeriod(Object record, TodoPeriod period, DateTime now) {
       if (period == TodoPeriod.overdue) return record.dueAt.isBefore(now);
       return inWindow(record.dueAt);
     case Exam():
-      if (period == TodoPeriod.overdue || !record.range.end.isAfter(now))
+      if (period == TodoPeriod.overdue || !record.range.end.isAfter(now)) {
         return false;
+      }
       return record.range.start.isBefore(
         period == TodoPeriod.today ? end : _day(now, 7),
       );
@@ -185,7 +187,7 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
       await read(_Kind.course, () async {
         for (final course in await campus.courses.list()) {
           courses[course.id] = course.name;
-          if (widget.search)
+          if (widget.search) {
             entries.add((
               kind: _Kind.course,
               id: course.id,
@@ -195,6 +197,7 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
               record: course,
               extra: course.teacher ?? '',
             ));
+          }
         }
       });
       await read(_Kind.assignment, () async {
@@ -308,10 +311,11 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
           );
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('无法打开该记录，已重新读取。')));
+      }
     } finally {
       _opening = false;
       if (mounted) _refresh();
@@ -332,8 +336,9 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
     final bPriority = b.record is Task
         ? (b.record as Task).priority.index
         : TaskPriority.normal.index;
-    if (!widget.search && aPriority != bPriority)
+    if (!widget.search && aPriority != bPriority) {
       return bPriority.compareTo(aPriority);
+    }
     final aDate = a.date;
     final bDate = b.date;
     if (aDate != bDate) {
@@ -414,13 +419,14 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
               future: _future,
               builder: (context, snapshot) {
                 final data = snapshot.data;
-                if (data == null)
+                if (data == null) {
                   return snapshot.hasError
                       ? TextButton(
                           onPressed: _refresh,
                           child: const Text('读取失败，点击重试'),
                         )
                       : const LinearProgressIndicator();
+                }
                 final course = data.courses.containsKey(_course)
                     ? _course
                     : null;

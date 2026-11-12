@@ -28,8 +28,9 @@ abstract final class AppData {
   static Future<FullBackupService> backup() async {
     final path = await directory();
     final repository = await tasks();
-    if (repository is! FileTaskRepository)
+    if (repository is! FileTaskRepository) {
       throw StateError('File-backed task repository required');
+    }
     return FullBackupService(path, (await campus()).store, repository);
   }
 

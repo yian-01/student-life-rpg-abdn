@@ -55,7 +55,6 @@ class CourseSlot {
         throw ArgumentError.value(
           weeks,
           'weeks',
-          'location',
           'Must be strictly increasing without duplicates.',
         );
       }
@@ -67,6 +66,7 @@ class CourseSlot {
     'startMinute',
     'endMinute',
     'weeks',
+    'location',
   };
 
   final int weekday;

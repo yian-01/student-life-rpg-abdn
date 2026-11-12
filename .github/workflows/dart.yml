@@ -22,9 +22,6 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Resolve lockfile for delivery branch
-        if: github.ref == 'refs/heads/fix/v1-feature-delivery'
-        run: git diff -- pubspec.lock
       - name: Analyze code
         run: flutter analyze
       - name: Check formatting

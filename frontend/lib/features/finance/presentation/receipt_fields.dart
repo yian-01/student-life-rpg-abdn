@@ -90,12 +90,13 @@ class _ReceiptFieldsState extends State<ReceiptFields> {
       await validateReceiptImage(image);
       if (mounted) widget.onChanged(widget.status, base64Encode(image));
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = error is FormatException
               ? error.message
               : '读取图片失败，请重新选择。',
         );
+      }
     } finally {
       if (mounted) setState(() => _picking = false);
     }

@@ -153,8 +153,9 @@ class _RecordBodyState<T> extends State<_RecordBody<T>> {
     setState(() => _acting = true);
     try {
       if (!await confirmRemoval(context, widget.label, undoable: true) ||
-          !mounted)
+          !mounted) {
         return;
+      }
       final entity = _controller.record;
       final repository = widget.repository;
       final removed = await _controller.remove();

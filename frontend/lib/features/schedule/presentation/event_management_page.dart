@@ -78,8 +78,9 @@ class _EventManagementPageState extends State<EventManagementPage> {
     setState(() => _confirming = true);
     try {
       if (!await confirmRemoval(context, event.title, undoable: true) ||
-          !mounted)
+          !mounted) {
         return;
+      }
       setState(() => _busy = true);
       final repository = widget.data.events;
       if (!await repository.remove(event.id)) throw StateError('Missing event');
