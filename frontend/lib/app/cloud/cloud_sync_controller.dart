@@ -152,7 +152,9 @@ class CloudSyncController extends ChangeNotifier {
       final origin = parseSyncOrigin(server);
       final address = email.trim().toLowerCase();
       if (previous != null &&
-          (origin != previous.origin || address != previous.email || register)) {
+          (origin != previous.origin ||
+              address != previous.email ||
+              register)) {
         throw const FormatException('请先退出当前账号，再切换账号。');
       }
       final authenticated = await _api.authenticate(

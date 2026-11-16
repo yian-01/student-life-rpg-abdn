@@ -207,7 +207,9 @@ void main() {
     await tester.pump();
     expect(find.text('sync@example.test'), findsOneWidget);
     expect(find.text('导入本机 V1.0 数据'), findsOneWidget);
-    final accountNavigator = tester.state<NavigatorState>(find.byType(Navigator));
+    final accountNavigator = tester.state<NavigatorState>(
+      find.byType(Navigator),
+    );
     expect(accountNavigator.canPop(), isTrue);
     await tester.runAsync(device.cloud.signOut);
     await tester.pumpAndSettle();
