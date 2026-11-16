@@ -79,6 +79,7 @@ class CloudSyncController extends ChangeNotifier {
   final void Function(Directory?) _switchDirectory;
 
   CloudSession? _session;
+  Uri? _lastOrigin;
   SyncJournal? _journal;
   int _scope = 0;
   bool _working = false;
@@ -92,6 +93,7 @@ class CloudSyncController extends ChangeNotifier {
   CloudConflict? _conflict;
 
   CloudSession? get session => _session;
+  Uri? get lastOrigin => _lastOrigin;
   int get scope => _scope;
   bool get working => _working;
   bool get applying => _applying;
@@ -131,6 +133,7 @@ class CloudSyncController extends ChangeNotifier {
       _conflict = null;
     }
     _session = session;
+    _lastOrigin = session.origin;
     _journal = journal;
     _expired = false;
     _guestImported = imported;
@@ -142,28 +145,43 @@ class CloudSyncController extends ChangeNotifier {
     required String password,
     required bool register,
     String code = '',
-  }) => _perform(() async {
-    final previous = _session;
-    final origin = parseSyncOrigin(server);
-    if (previous != null &&
-        (origin != previous.origin ||
-            email.trim().toLowerCase() != previous.email ||
-            register)) {
-      throw const FormatException('请先退出当前账号，再切换账号。');
-    }
-    final authenticated = await _api.authenticate(
-      origin,
-      email: email.trim(),
-      password: password,
-      register: register,
-      code: code,
-    );
-    if (previous != null && previous.id != authenticated.id) {
-      throw const FormatException('服务器上的账号身份已变化，请退出后重新登录。');
-    }
-    await _open(authenticated, remember: true);
-    _notice = '已登录。可在账号页导入本机 V1.0 数据。';
-  });
+  }) async {
+    var resumed = false;
+    await _perform(() async {
+      final previous = _session;
+      final origin = parseSyncOrigin(server);
+      final address = email.trim().toLowerCase();
+      if (previous != null &&
+          (origin != previous.origin || address != previous.email || register)) {
+        throw const FormatException('请先退出当前账号，再切换账号。');
+      }
+      final authenticated = await _api.authenticate(
+        origin,
+        email: address,
+        password: password,
+        register: register,
+        code: code,
+      );
+      try {
+        if (authenticated.email != address ||
+            (previous != null && previous.id != authenticated.id)) {
+          throw const FormatException('服务器返回的账号身份与登录信息不一致。');
+        }
+        await _open(authenticated, remember: true);
+      } catch (_) {
+        if (previous?.token != authenticated.token) {
+          unawaited(_revokeQuietly(authenticated));
+        }
+        rethrow;
+      }
+      if (previous != null && previous.token != authenticated.token) {
+        unawaited(_revokeQuietly(previous));
+      }
+      resumed = previous != null;
+      _notice = resumed ? '已重新登录。' : '已登录。可在账号页导入本机 V1.0 数据。';
+    });
+    if (resumed) await autoSync();
+  }
 
   Future<void> signOut() => _perform(() async {
     final session = _session;
@@ -185,7 +203,7 @@ class CloudSyncController extends ChangeNotifier {
     try {
       await _api.revoke(session);
     } catch (_) {
-      // An offline sign-out must still remove the device's stored credential.
+      // Local sign-out and token replacement must work while offline.
     }
   }
 

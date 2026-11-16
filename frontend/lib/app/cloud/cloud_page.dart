@@ -19,17 +19,24 @@ class CloudPage extends StatefulWidget {
 
 class _CloudPageState extends State<CloudPage> {
   final _form = GlobalKey<FormState>();
-  final _server = TextEditingController(
-    text: CloudSyncController.configuredOrigin,
-  );
+  TextEditingController? _server;
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _code = TextEditingController();
   bool _register = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final origin = CloudScope.maybeOf(context)?.lastOrigin;
+    _server ??= TextEditingController(
+      text: origin?.toString() ?? CloudSyncController.configuredOrigin,
+    );
+  }
+
+  @override
   void dispose() {
-    _server.dispose();
+    _server?.dispose();
     _email.dispose();
     _password.dispose();
     _code.dispose();
@@ -42,7 +49,7 @@ class _CloudPageState extends State<CloudPage> {
     _password.clear();
     FocusScope.of(context).unfocus();
     await cloud.signIn(
-      server: cloud.session?.origin.toString() ?? _server.text,
+      server: cloud.session?.origin.toString() ?? _server!.text,
       email: cloud.session?.email ?? _email.text,
       password: password,
       register: cloud.session == null && _register,

@@ -26,6 +26,7 @@ class StudentLifeApp extends StatefulWidget {
 class _StudentLifeAppState extends State<StudentLifeApp> {
   int? _scope;
   _CloudRouteObserver? _observer;
+  bool _reopenAccountPage = false;
   Timer? _poll;
   AppLifecycleListener? _lifecycle;
 
@@ -65,6 +66,7 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
     final cloud = widget.cloud!;
     if (_scope == cloud.scope) return;
     setState(() {
+      _reopenAccountPage = _observer?.isAccountPage ?? false;
       _scope = cloud.scope;
       _observer = _CloudRouteObserver(cloud);
     });
@@ -76,6 +78,7 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
     _lifecycle?.dispose();
     _scope = null;
     _observer = null;
+    _reopenAccountPage = false;
   }
 
   @override
@@ -114,9 +117,11 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
               ),
       ),
       initialRoute: widget.initialRoute,
-      // Start with one root page, without an implicit '/' underneath.
+      // Rebuild the route stack so pages cannot retain another account's data.
       onGenerateInitialRoutes: (name) => [
         AppRoutes.generateRoute(RouteSettings(name: name)),
+        if (_reopenAccountPage && name != CloudPage.route)
+          AppRoutes.generateRoute(const RouteSettings(name: CloudPage.route)),
       ],
       onGenerateRoute: AppRoutes.generateRoute,
     );
@@ -128,6 +133,8 @@ class _CloudRouteObserver extends NavigatorObserver {
   _CloudRouteObserver(this.cloud);
   final CloudSyncController cloud;
   Route<dynamic>? _top;
+
+  bool get isAccountPage => _top?.settings.name == CloudPage.route;
 
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
