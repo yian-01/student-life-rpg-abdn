@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 
+import '../../../shared/storage/app_files.dart';
 import '../../../shared/storage/json_document_store.dart';
 import '../models/local_datetime_json.dart';
 import '../models/task.dart';
@@ -105,6 +105,8 @@ class FileTaskRepository implements TaskRepository {
     }
     return tasks;
   }
+
+  static String emptyDocument() => _encodeTasks(const []);
 
   static String _encodeTasks(List<Task> tasks) => jsonEncode({
     'schemaVersion': _schemaVersion,

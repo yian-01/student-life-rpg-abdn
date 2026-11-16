@@ -1,8 +1,8 @@
-name: Native acceptance builds
+name: Acceptance builds
 on:
   workflow_dispatch:
   push:
-    branches: [fix/v1-base-regression, fix/v1-feature-delivery]
+    branches: [fix/v1-base-regression, fix/v1-feature-delivery, feat/v1.1-cloud-sync]
 
 permissions:
   contents: read
@@ -23,7 +23,10 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build windows --release
+      - name: Build Windows application
+        env:
+          CAMPUS_SYNC_URL: ${{ vars.CAMPUS_SYNC_URL }}
+        run: flutter build windows --release "--dart-define=CAMPUS_SYNC_URL=$env:CAMPUS_SYNC_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: student-life-windows
@@ -45,8 +48,45 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build apk --release
+      - name: Build Android APK
+        env:
+          CAMPUS_SYNC_URL: ${{ vars.CAMPUS_SYNC_URL }}
+        run: flutter build apk --release "--dart-define=CAMPUS_SYNC_URL=$CAMPUS_SYNC_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: student-life-android-acceptance
           path: frontend/build/app/outputs/flutter-apk/app-release.apk
+  web:
+    if: github.ref == 'refs/heads/feat/v1.1-cloud-sync' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none
+      - name: Verify browser account login, local purge and cloud recovery
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/student-life-browser" --no-save --no-package-lock playwright@1.59.0
+          export NODE_PATH="$RUNNER_TEMP/student-life-browser/node_modules"
+          export CHROMIUM="$(command -v google-chrome)"
+          PYTHONPATH=../backend python3 test_web/serve_fixture.py build/web > "$RUNNER_TEMP/student-life-fixture.log" &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            test ! -s "$RUNNER_TEMP/student-life-fixture.log" || break
+            sleep 1
+          done
+          test -s "$RUNNER_TEMP/student-life-fixture.log"
+          node test_web/account_sync.cjs "$(head -n 1 "$RUNNER_TEMP/student-life-fixture.log")"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: student-life-web
+          path: frontend/build/web/

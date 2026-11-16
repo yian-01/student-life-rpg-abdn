@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import '../../../app/cloud/cloud_page.dart';
+import '../../../app/cloud/cloud_scope.dart';
 import '../../bedroom/controllers/player_movement_controller.dart';
 import '../../bedroom/models/scene_geometry.dart';
 import '../../bedroom/presentation/movement_joystick.dart';
@@ -243,6 +245,7 @@ class RoomScenePageState extends State<RoomScenePage>
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
     final active = _active;
+    final cloud = CloudScope.maybeOf(context);
     return Scaffold(
       backgroundColor: const Color(0xFF171612),
       body: Focus(
@@ -337,6 +340,34 @@ class RoomScenePageState extends State<RoomScenePage>
                           },
                         ),
                       ),
+                      if (cloud != null)
+                        Positioned(
+                          right: 12,
+                          top: 12,
+                          child: ListenableBuilder(
+                            listenable: cloud,
+                            builder: (context, _) => IconButton.filledTonal(
+                              tooltip: '账号与同步',
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFF34291E),
+                                foregroundColor: const Color(0xFFFFE6A6),
+                                minimumSize: const Size.square(48),
+                              ),
+                              onPressed: () async {
+                                _clearInput();
+                                await Navigator.of(
+                                  context,
+                                ).pushNamed<void>(CloudPage.route);
+                                if (mounted) _restoreRoomFocus();
+                              },
+                              icon: Icon(
+                                cloud.conflict != null || cloud.expired
+                                    ? Icons.cloud_off_outlined
+                                    : Icons.cloud_outlined,
+                              ),
+                            ),
+                          ),
+                        ),
                       if (touch)
                         Positioned(
                           left: 16,

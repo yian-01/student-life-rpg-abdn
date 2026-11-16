@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import '../../shared/storage/app_files.dart';
 import '../../features/schedule/repositories/file_task_repository.dart';
 import '../../shared/storage/json_document_store.dart';
 import 'campus_store.dart';
@@ -106,19 +106,17 @@ Future<Uint8List> readBackupFile(File file) async {
   if (length > maxBackupBytes) {
     throw const FormatException('备份超过 64 MB。');
   }
-  final fileHandle = await file.open();
-  try {
-    final bytes = await fileHandle.read(length + 1);
-    if (bytes.length > maxBackupBytes) {
-      throw const FormatException('备份超过 64 MB。');
-    }
-    if (bytes.length != length || (await fileHandle.read(1)).isNotEmpty) {
-      throw const FormatException('读取时备份文件发生变化，请重新选择。');
-    }
-    return bytes;
-  } finally {
-    await fileHandle.close();
+  final buffer = BytesBuilder(copy: false);
+  await for (final chunk in file.openRead(0, length + 1)) {
+    buffer.add(chunk);
   }
+  if (buffer.length > maxBackupBytes) {
+    throw const FormatException('备份超过 64 MB。');
+  }
+  if (buffer.length != length) {
+    throw const FormatException('读取时备份文件发生变化，请重新选择。');
+  }
+  return buffer.takeBytes();
 }
 
 /// The journal holds the complete previous dataset before either live document
@@ -140,7 +138,11 @@ class FullBackupService {
     ),
   );
 
-  Future<void> restore(FullBackup incoming) => campus.withBackupLock(
+  Future<void> restore(
+    FullBackup incoming, {
+    FullBackup? expected,
+    File? committedMarker,
+  }) => campus.withBackupLock(
     (campusRaw, replaceCampus) => tasks.withBackupLock((
       taskRaw,
       replaceTasks,
@@ -148,6 +150,19 @@ class FullBackupService {
       final journal = _journal(directory);
       if (await journal.exists()) throw StateError('请重启应用，完成上一次恢复。');
       final previous = FullBackup.validate(DateTime.now(), campusRaw, taskRaw);
+      if (expected != null &&
+          (previous.campus != expected.campus ||
+              previous.tasks != expected.tasks)) {
+        throw const LocalBackupChanged();
+      }
+      if (committedMarker != null &&
+          previous.campus == incoming.campus &&
+          previous.tasks == incoming.tasks) {
+        final stagedMarker = File('${committedMarker.path}.tmp');
+        await stagedMarker.writeAsString('', flush: true);
+        await stagedMarker.rename(committedMarker.path);
+        return;
+      }
       final staged = File('${journal.path}.tmp');
       await staged.writeAsBytes(previous.encode(), flush: true);
       await staged.rename(journal.path);
@@ -157,7 +172,7 @@ class FullBackupService {
       try {
         await replaceCampus(incoming.campus);
         await replaceTasks(incoming.tasks);
-        await journal.rename(safetyPath);
+        await journal.rename(committedMarker?.path ?? safetyPath);
       } catch (_) {
         try {
           await replaceCampus(previous.campus);
@@ -182,4 +197,8 @@ class FullBackupService {
     await files.writeDocument('${directory.path}/tasks.json', previous.tasks);
     await journal.delete();
   }
+}
+
+class LocalBackupChanged implements Exception {
+  const LocalBackupChanged();
 }
