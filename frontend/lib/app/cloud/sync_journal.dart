@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import '../../shared/storage/app_files.dart';
 import '../data/full_backup.dart';
 import 'sync_dataset.dart';
 
@@ -114,16 +114,10 @@ class SyncJournal {
     String? header,
   ]) async {
     final staged = File('${file.path}.tmp');
-    final output = await staged.open(mode: FileMode.write);
-    try {
-      if (header != null) {
-        await output.writeString('$header\n', encoding: ascii);
-      }
-      await output.writeFrom(bytes);
-      await output.flush();
-    } finally {
-      await output.close();
-    }
+    final data = BytesBuilder(copy: false);
+    if (header != null) data.add(ascii.encode('$header\n'));
+    data.add(bytes);
+    await staged.writeAsBytes(data.takeBytes(), flush: true);
     await staged.rename(file.path);
   }
 

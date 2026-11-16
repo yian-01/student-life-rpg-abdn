@@ -49,7 +49,7 @@ class _DropResponseApi extends HttpCloudSyncApi {
   @override
   Future<RemoteSnapshot> fetch(CloudSession session, {int? knownRevision}) =>
       offline
-      ? Future.error(const SocketException('fixture is offline'))
+      ? Future.error(const SyncConnectionException())
       : super.fetch(session, knownRevision: knownRevision);
 
   @override
@@ -67,7 +67,7 @@ class _DropResponseApi extends HttpCloudSyncApi {
     );
     if (dropNextUpload) {
       dropNextUpload = false;
-      throw const SocketException('connection dropped after server committed');
+      throw const SyncConnectionException();
     }
     return revision;
   }

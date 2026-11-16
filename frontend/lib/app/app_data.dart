@@ -1,14 +1,11 @@
-import 'dart:io';
-
-import 'package:path_provider/path_provider.dart';
-import 'data/full_backup.dart';
-import 'data/campus_data.dart';
-import 'data/campus_store.dart';
-
 import '../features/schedule/repositories/file_task_repository.dart';
 import '../features/schedule/repositories/task_repository.dart';
 import '../features/schedule/services/focus_timer.dart';
+import '../shared/storage/app_files.dart';
 import '../shared/storage/json_document_store.dart';
+import 'data/campus_data.dart';
+import 'data/campus_store.dart';
+import 'data/full_backup.dart';
 
 abstract final class AppData {
   static final focusTimer = FocusTimer();
@@ -45,7 +42,7 @@ abstract final class AppData {
   }
 
   static Future<Directory> _openDirectory() async {
-    final path = await getApplicationSupportDirectory();
+    final path = await applicationSupportDirectory();
     await path.create(recursive: true);
     return path;
   }

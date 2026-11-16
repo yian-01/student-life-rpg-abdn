@@ -1,11 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/storage/app_files.dart';
 import '../models/finance_record.dart';
 
 Future<void> validateReceiptImage(Uint8List bytes) async {
@@ -71,22 +72,14 @@ class _ReceiptFieldsState extends State<ReceiptFields> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png'],
-        withData: false,
+        withData: kIsWeb,
       );
       if (result == null || !mounted) return;
       final file = result.files.single;
       if (file.size > maxReceiptBytes) {
         throw const FormatException('图片不能超过 1 MB。');
       }
-      final path = file.path;
-      if (path == null) throw const FormatException('无法读取所选图片。');
-      final bytes = await File(path)
-          .openRead(0, maxReceiptBytes + 1)
-          .fold<BytesBuilder>(
-            BytesBuilder(),
-            (buffer, chunk) => buffer..add(chunk),
-          );
-      final image = bytes.takeBytes();
+      final image = file.bytes ?? await _readImage(kIsWeb ? null : file.path);
       await validateReceiptImage(image);
       if (mounted) widget.onChanged(widget.status, base64Encode(image));
     } catch (error) {
@@ -100,6 +93,17 @@ class _ReceiptFieldsState extends State<ReceiptFields> {
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+  }
+
+  Future<Uint8List> _readImage(String? path) async {
+    if (path == null) throw const FormatException('无法读取所选图片。');
+    final bytes = await File(path)
+        .openRead(0, maxReceiptBytes + 1)
+        .fold<BytesBuilder>(
+          BytesBuilder(),
+          (buffer, chunk) => buffer..add(chunk),
+        );
+    return bytes.takeBytes();
   }
 
   @override

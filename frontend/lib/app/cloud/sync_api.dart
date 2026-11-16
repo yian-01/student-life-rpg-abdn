@@ -1,10 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
 import '../data/full_backup.dart';
+import 'sync_transport.dart';
+
+export 'sync_response.dart' show SyncConnectionException;
 
 class CloudSession {
   const CloudSession(this.origin, this.id, this.email, this.token);
@@ -116,8 +118,6 @@ abstract interface class CloudSyncApi {
 }
 
 class HttpCloudSyncApi implements CloudSyncApi {
-  static const _timeout = Duration(seconds: 45);
-
   @override
   Future<CloudSession> authenticate(
     Uri origin, {
@@ -133,12 +133,15 @@ class HttpCloudSyncApi implements CloudSyncApi {
       jsonEncode({'email': email, 'password': password, 'code': code}),
     ),
     json: true,
-    read: (response) async {
+    limit: 4096,
+    read: (response) {
       if (response.statusCode != (register ? 201 : 200)) {
-        await _throwResponse(response);
+        _throwResponse(response);
       }
-      final raw = await _readBytes(response, 4096);
-      return CloudSession.decode(origin, jsonDecode(utf8.decode(raw)));
+      return CloudSession.decode(
+        origin,
+        jsonDecode(utf8.decode(response.bytes)),
+      );
     },
   );
 
@@ -150,10 +153,10 @@ class HttpCloudSyncApi implements CloudSyncApi {
         '/v1/snapshot',
         session: session,
         headers: {
-          if (knownRevision != null)
-            HttpHeaders.ifNoneMatchHeader: '"$knownRevision"',
+          if (knownRevision != null) 'If-None-Match': '"$knownRevision"',
         },
-        read: (response) async {
+        limit: maxBackupBytes,
+        read: (response) {
           switch (response.statusCode) {
             case 304 when knownRevision != null:
               if (_revision(response) != knownRevision) {
@@ -170,8 +173,7 @@ class HttpCloudSyncApi implements CloudSyncApi {
               if (revision == 0) {
                 throw const FormatException('云端快照版本无效。');
               }
-              final bytes = await _readBytes(response, maxBackupBytes);
-              return RemoteSnapshot(revision, bytes);
+              return RemoteSnapshot(revision, response.bytes);
             default:
               return _throwResponse(response);
           }
@@ -190,13 +192,13 @@ class HttpCloudSyncApi implements CloudSyncApi {
     '/v1/snapshot',
     session: session,
     headers: {
-      HttpHeaders.ifMatchHeader: '"$expectedRevision"',
+      'If-Match': '"$expectedRevision"',
       'X-Upload-Id': uploadId,
     },
     body: bytes,
-    read: (response) async {
+    read: (response) {
       if (response.statusCode == 409) return null;
-      if (response.statusCode != 204) await _throwResponse(response);
+      if (response.statusCode != 204) _throwResponse(response);
       final revision = _revision(response);
       if (revision != expectedRevision + 1) {
         throw const FormatException('云端保存确认版本无效。');
@@ -211,9 +213,9 @@ class HttpCloudSyncApi implements CloudSyncApi {
     'DELETE',
     '/v1/session',
     session: session,
-    read: (response) async {
+    read: (response) {
       if (response.statusCode != 204 && response.statusCode != 401) {
-        await _throwResponse(response);
+        _throwResponse(response);
       }
     },
   );
@@ -226,62 +228,28 @@ class HttpCloudSyncApi implements CloudSyncApi {
     Map<String, String> headers = const {},
     List<int>? body,
     bool json = false,
-    required Future<T> Function(HttpClientResponse response) read,
-  }) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
-    try {
-      return await (() async {
-        final request = await client.openUrl(method, origin.resolve(path));
-        request.followRedirects = false;
-        if (session != null) {
-          request.headers.set(
-            HttpHeaders.authorizationHeader,
-            'Bearer ${session.token}',
-          );
-        }
-        headers.forEach(request.headers.set);
-        if (body != null) {
-          request.headers.contentType = json
-              ? ContentType.json
-              : ContentType.binary;
-          request.contentLength = body.length;
-          request.add(body);
-        }
-        return read(await request.close());
-      })().timeout(_timeout);
-    } finally {
-      client.close(force: true);
-    }
-  }
+    int limit = 0,
+    required T Function(SyncResponse response) read,
+  }) async => read(
+    await requestSync(origin.resolve(path), method, {
+      if (session != null) 'Authorization': 'Bearer ${session.token}',
+      ...headers,
+      if (body != null)
+        'Content-Type': json ? 'application/json' : 'application/octet-stream',
+    }, body, limit),
+  );
 
-  static int _revision(HttpClientResponse response) {
-    final header = response.headers.value(HttpHeaders.etagHeader) ?? '';
+  static int _revision(SyncResponse response) {
+    final header = response.etag ?? '';
     final match = RegExp(r'^"(0|[1-9][0-9]{0,14})"$').firstMatch(header);
     if (match == null) throw const FormatException('服务器版本标记无效。');
     return int.parse(match[1]!);
   }
 
-  static Future<Uint8List> _readBytes(
-    HttpClientResponse response,
-    int limit,
-  ) async {
-    if (response.contentLength > limit) {
-      throw const FormatException('服务器返回的数据超过大小上限。');
-    }
-    final result = BytesBuilder(copy: false);
-    await for (final part in response) {
-      if (result.length + part.length > limit) {
-        throw const FormatException('服务器返回的数据超过大小上限。');
-      }
-      result.add(part);
-    }
-    return result.takeBytes();
-  }
-
-  static Future<Never> _throwResponse(HttpClientResponse response) async {
+  static Never _throwResponse(SyncResponse response) {
     var code = '';
     try {
-      final data = jsonDecode(utf8.decode(await _readBytes(response, 4096)));
+      final data = jsonDecode(utf8.decode(response.bytes));
       if (data is Map<String, dynamic> && data['error'] is String) {
         code = data['error'] as String;
       }

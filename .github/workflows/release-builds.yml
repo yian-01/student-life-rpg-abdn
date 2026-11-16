@@ -1,4 +1,4 @@
-name: Native acceptance builds
+name: Acceptance builds
 on:
   workflow_dispatch:
   push:
@@ -23,7 +23,10 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build windows --release
+      - name: Build Windows application
+        env:
+          CAMPUS_SYNC_URL: ${{ vars.CAMPUS_SYNC_URL }}
+        run: flutter build windows --release "--dart-define=CAMPUS_SYNC_URL=$env:CAMPUS_SYNC_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: student-life-windows
@@ -45,8 +48,30 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build apk --release
+      - name: Build Android APK
+        env:
+          CAMPUS_SYNC_URL: ${{ vars.CAMPUS_SYNC_URL }}
+        run: flutter build apk --release "--dart-define=CAMPUS_SYNC_URL=$CAMPUS_SYNC_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: student-life-android-acceptance
           path: frontend/build/app/outputs/flutter-apk/app-release.apk
+  web:
+    if: github.ref == 'refs/heads/feat/v1.1-cloud-sync' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none
+      - uses: actions/upload-artifact@v4
+        with:
+          name: student-life-web
+          path: frontend/build/web/

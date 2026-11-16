@@ -14,10 +14,12 @@ class StudentLifeApp extends StatefulWidget {
     super.key,
     this.initialRoute = AppRoutes.bedroom,
     this.cloud,
+    this.openAccountPage = false,
   });
 
   final String initialRoute;
   final CloudSyncController? cloud;
+  final bool openAccountPage;
 
   @override
   State<StudentLifeApp> createState() => _StudentLifeAppState();
@@ -34,6 +36,7 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
   void initState() {
     super.initState();
     _attach();
+    _reopenAccountPage = widget.openAccountPage;
   }
 
   @override

@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../shared/storage/app_files.dart';
 import '../features/academic/presentation/assignment_exam_page.dart';
 import '../features/finance/presentation/receipt_fields.dart';
 import 'app_data.dart';
@@ -61,13 +62,18 @@ class _FullBackupPageState extends State<FullBackupPage> {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      withData: false,
+      withData: kIsWeb,
       lockParentWindow: true,
     );
     if (picked == null || !mounted) return;
-    final path = picked.files.single.path;
-    if (path == null) throw const FormatException('无法读取所选文件。');
-    final backup = FullBackup.decode(await readBackupFile(File(path)));
+    final file = picked.files.single;
+    if (file.size > maxBackupBytes) throw const FormatException('备份超过 64 MB。');
+    final bytes = file.bytes;
+    final path = kIsWeb ? null : file.path;
+    if (bytes == null && path == null) {
+      throw const FormatException('无法读取所选文件。');
+    }
+    final backup = FullBackup.decode(bytes ?? await readBackupFile(File(path!)));
     for (final receipt in backup.receipts) {
       await validateReceiptImage(base64Decode(receipt));
     }

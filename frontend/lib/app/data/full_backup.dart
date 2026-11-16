@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import '../../shared/storage/app_files.dart';
 import '../../features/schedule/repositories/file_task_repository.dart';
 import '../../shared/storage/json_document_store.dart';
 import 'campus_store.dart';
@@ -106,19 +106,17 @@ Future<Uint8List> readBackupFile(File file) async {
   if (length > maxBackupBytes) {
     throw const FormatException('备份超过 64 MB。');
   }
-  final fileHandle = await file.open();
-  try {
-    final bytes = await fileHandle.read(length + 1);
-    if (bytes.length > maxBackupBytes) {
-      throw const FormatException('备份超过 64 MB。');
-    }
-    if (bytes.length != length || (await fileHandle.read(1)).isNotEmpty) {
-      throw const FormatException('读取时备份文件发生变化，请重新选择。');
-    }
-    return bytes;
-  } finally {
-    await fileHandle.close();
+  final buffer = BytesBuilder(copy: false);
+  await for (final chunk in file.openRead(0, length + 1)) {
+    buffer.add(chunk);
   }
+  if (buffer.length > maxBackupBytes) {
+    throw const FormatException('备份超过 64 MB。');
+  }
+  if (buffer.length != length) {
+    throw const FormatException('读取时备份文件发生变化，请重新选择。');
+  }
+  return buffer.takeBytes();
 }
 
 /// The journal holds the complete previous dataset before either live document

@@ -1,8 +1,8 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../shared/storage/app_files.dart';
 import '../data/full_backup.dart';
 import 'cloud_scope.dart';
 import 'cloud_sync_controller.dart';
@@ -146,7 +146,9 @@ class _CloudPageState extends State<CloudPage> {
           ? const Center(child: Text('当前环境未启用云同步。'))
           : ListenableBuilder(
               listenable: cloud,
-              builder: (context, _) => SafeArea(
+              builder: (context, _) => PopScope(
+                canPop: !cloud.working,
+                child: SafeArea(
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
@@ -190,6 +192,7 @@ class _CloudPageState extends State<CloudPage> {
                     ),
                   ),
                 ),
+                ),
               ),
             ),
     );
@@ -204,24 +207,26 @@ class _CloudPageState extends State<CloudPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            active != null ? '重新登录 ${active.email}' : '在两台设备使用同一账号',
+            active != null ? '重新登录 ${active.email}' : '在网站和安装包使用同一账号',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
           if (active == null) ...[
-            TextFormField(
-              controller: _server,
-              enabled: !cloud.working,
-              decoration: const InputDecoration(
-                labelText: '云同步服务',
-                hintText: 'https://sync.example.com',
+            if (!kIsWeb && CloudSyncController.configuredOrigin.isEmpty) ...[
+              TextFormField(
+                controller: _server,
+                enabled: !cloud.working,
+                decoration: const InputDecoration(
+                  labelText: '云同步服务',
+                  hintText: 'https://sync.example.com',
+                ),
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                validator: (value) =>
+                    value?.trim().isEmpty ?? true ? '请输入服务地址' : null,
               ),
-              keyboardType: TextInputType.url,
-              autocorrect: false,
-              validator: (value) =>
-                  value?.trim().isEmpty ?? true ? '请输入服务地址' : null,
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
+            ],
             TextFormField(
               controller: _email,
               enabled: !cloud.working,
@@ -312,24 +317,38 @@ class _CloudPageState extends State<CloudPage> {
           icon: const Icon(Icons.drive_folder_upload_outlined),
           label: const Text('导入本机 V1.0 数据'),
         ),
-      if (beforePull != null && beforePull.existsSync())
-        TextButton.icon(
-          onPressed: cloud.working
-              ? null
-              : () => _downloadSaved(beforePull, 'before-cloud-sync.json'),
-          icon: const Icon(Icons.download),
-          label: const Text('导出上次云端覆盖前的本机备份'),
+      if (beforePull != null)
+        _savedBackupButton(
+          beforePull,
+          'before-cloud-sync.json',
+          '导出上次云端覆盖前的本机备份',
+          busy: cloud.working,
         ),
-      if (otherBackup != null && otherBackup.existsSync())
-        TextButton.icon(
-          onPressed: cloud.working
-              ? null
-              : () => _downloadSaved(otherBackup, 'before-cloud-conflict.json'),
-          icon: const Icon(Icons.download),
-          label: const Text('导出上次保留的云端冲突备份'),
+      if (otherBackup != null)
+        _savedBackupButton(
+          otherBackup,
+          'before-cloud-conflict.json',
+          '导出上次保留的云端冲突备份',
+          busy: cloud.working,
         ),
     ];
   }
+
+  Widget _savedBackupButton(
+    File file,
+    String name,
+    String label, {
+    required bool busy,
+  }) => FutureBuilder<bool>(
+    future: file.exists(),
+    builder: (context, snapshot) => snapshot.data == true
+        ? TextButton.icon(
+            onPressed: busy ? null : () => _downloadSaved(file, name),
+            icon: const Icon(Icons.download),
+            label: Text(label),
+          )
+        : const SizedBox.shrink(),
+  );
 
   Widget _conflictCard(CloudSyncController cloud, CloudConflict conflict) {
     final whole = conflict.merge.invalidReferences;

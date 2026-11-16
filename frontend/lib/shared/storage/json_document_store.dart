@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'app_files.dart';
 
 /// 原始 UTF-8 文档存储接口。
 ///

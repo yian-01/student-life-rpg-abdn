@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../shared/storage/app_files.dart';
 import '../app_data.dart';
 import '../data/full_backup.dart';
 import 'sync_api.dart';
@@ -69,7 +69,9 @@ class CloudSyncController extends ChangeNotifier {
        _guestBackup = guestBackup ?? AppData.guestBackup,
        _switchDirectory = switchDirectory ?? AppData.switchDirectory;
 
-  static const configuredOrigin = String.fromEnvironment('CAMPUS_SYNC_URL');
+  static String get configuredOrigin => kIsWeb
+      ? Uri.base.origin
+      : const String.fromEnvironment('CAMPUS_SYNC_URL');
 
   final CloudSyncApi _api;
   final CloudSessionStore _sessions;
@@ -473,10 +475,8 @@ class CloudSyncController extends ChangeNotifier {
       _notice = '本机数据刚有更新，稍后将按最新内容同步。';
     } on TimeoutException {
       _notice = '同步超时。本机修改已保留，联网后可重试。';
-    } on SocketException {
+    } on SyncConnectionException {
       _notice = '暂时连不上云端。本机修改已保留。';
-    } on HandshakeException {
-      _notice = '无法验证云同步服务的 HTTPS 证书。';
     } on FileSystemException {
       _notice = '无法读写本机同步文件。请检查磁盘空间或重启后再试。';
     } on FormatException catch (error) {
