@@ -176,7 +176,7 @@ class _CloudPageState extends State<CloudPage> {
                                   : () async {
                                       final confirmed = await _confirm(
                                         '退出当前账号？',
-                                        '退出后返回本机模式。当前账号的离线修改会保存在独立目录，下次登录同一账号可以继续同步。',
+                                        '退出前会先保存未同步的修改，然后清除这台设备上的账号数据。重新登录可从云端恢复。',
                                         '退出账号',
                                       );
                                       if (confirmed && mounted) {

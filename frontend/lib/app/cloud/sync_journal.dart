@@ -24,9 +24,14 @@ class SyncJournal {
 
   File _file(String name) => File('${directory.path}/$name');
 
-  Future<bool> get guestImported => _imported.exists();
+  File get _previousGuestImport => File('${directory.path}.guest-imported');
+
+  Future<bool> get guestImported async =>
+      await _imported.exists() || await _previousGuestImport.exists();
 
   Future<void> markGuestImported() => _write(_imported, const []);
+
+  Future<void> preserveGuestImport() => _write(_previousGuestImport, const []);
 
   Future<SyncBase> readBase() async {
     if (!await _base.exists()) return (revision: 0, dataset: SyncDataset.empty);

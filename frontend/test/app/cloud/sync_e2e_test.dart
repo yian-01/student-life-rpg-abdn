@@ -44,6 +44,13 @@ class _MemorySession implements CloudSessionStore {
 
 class _DropResponseApi extends HttpCloudSyncApi {
   bool dropNextUpload = false;
+  bool offline = false;
+
+  @override
+  Future<RemoteSnapshot> fetch(CloudSession session, {int? knownRevision}) =>
+      offline
+      ? Future.error(const SocketException('fixture is offline'))
+      : super.fetch(session, knownRevision: knownRevision);
 
   @override
   Future<int?> upload(
@@ -292,7 +299,7 @@ void main() {
       await mobile.cloud.sync();
       expect(await mobile.files.tasks.remove('lost-response'), isTrue);
       await mobile.cloud.sync();
-      final restarted = _Device(desktop.root, sessions: auth);
+      final restarted = _Device(desktop.root, sessions: auth, api: flaky);
       addTearDown(restarted.cloud.dispose);
       await restarted.cloud.initialize();
       await restarted.cloud.sync();
@@ -304,8 +311,23 @@ void main() {
       expect((await other.files.tasks.list()), isEmpty);
       expect((await other.campus.records.list()), isEmpty);
 
+      final signedInDirectory = restarted.files.directory;
+      await restarted.files.tasks.insert(_task('saved-on-sign-out'));
+      flaky.offline = true;
+      await restarted.cloud.signOut();
+      expect(restarted.cloud.session, isNotNull);
+      expect(await signedInDirectory.exists(), isTrue);
+      expect(await restarted.files.tasks.getById('saved-on-sign-out'), isNotNull);
+
+      flaky.offline = false;
       await restarted.cloud.signOut();
       expect(restarted.cloud.session, isNull);
+      expect(await signedInDirectory.exists(), isFalse);
+      expect(
+        await Directory('${signedInDirectory.path}.signed-out').exists(),
+        isFalse,
+      );
+      expect(await auth.read(), isNull);
       expect(await restarted.files.tasks.getById('first'), isNotNull);
       expect(await restarted.files.tasks.getById('desktop'), isNull);
       await restarted.login(origin, email: 'other@example.test');
@@ -313,8 +335,9 @@ void main() {
       expect(await restarted.files.tasks.list(), isEmpty);
       await restarted.cloud.signOut();
       await restarted.login(origin);
-      await restarted.cloud.sync();
       expect(await restarted.files.tasks.getById('desktop'), isNotNull);
+      expect(await restarted.files.tasks.getById('saved-on-sign-out'), isNotNull);
+      expect(restarted.cloud.guestImported, isTrue);
     },
     skip: Platform.environment['CAMPUS_SYNC_E2E'] != '1',
   );

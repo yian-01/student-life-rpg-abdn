@@ -107,10 +107,27 @@ class CloudSyncController extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
+      await _clearAbandonedSignOutCopies();
       final session = await _sessions.read();
       if (session != null) await _open(session, remember: false);
     } catch (_) {
       _notice = '无法读取本机云账号。可以继续使用本机模式，或重新登录。';
+    }
+  }
+
+  Future<void> _clearAbandonedSignOutCopies() async {
+    try {
+      final root = await _rootDirectory();
+      final accounts = Directory('${root.path}/cloud-accounts');
+      if (!await accounts.exists()) return;
+      final retired = RegExp(r'[0-9a-f]{64}\.signed-out$');
+      await for (final entry in accounts.list(followLinks: false)) {
+        if (entry is Directory && retired.hasMatch(entry.path)) {
+          await entry.delete(recursive: true);
+        }
+      }
+    } on FileSystemException {
+      // A locked cache can be retried the next time the app starts.
     }
   }
 
@@ -146,7 +163,7 @@ class CloudSyncController extends ChangeNotifier {
     required bool register,
     String code = '',
   }) async {
-    var resumed = false;
+    var signedIn = false;
     await _perform(() async {
       final previous = _session;
       final origin = parseSyncOrigin(server);
@@ -179,27 +196,69 @@ class CloudSyncController extends ChangeNotifier {
       if (previous != null && previous.token != authenticated.token) {
         unawaited(_revokeQuietly(previous));
       }
-      resumed = previous != null;
-      _notice = resumed ? '已重新登录。' : '已登录。可在账号页导入本机 V1.0 数据。';
+      signedIn = true;
+      _notice = previous != null ? '已重新登录。' : '已登录，正在检查云端数据。';
     });
-    if (resumed) await autoSync();
+    if (signedIn) await autoSync();
   }
 
   Future<void> signOut() => _perform(() async {
     final session = _session;
-    if (session == null) return;
-    await _sessions.clear();
-    _switchDirectory(null);
-    _session = null;
-    _journal = null;
-    _expired = false;
-    _conflict = null;
-    _lastSync = null;
-    _guestImported = false;
-    _scope++;
-    _notice = '已退出。本机账号副本已隔离，下次登录同一账号可继续同步。';
-    unawaited(_revokeQuietly(session));
+    final journal = _journal;
+    if (session == null || journal == null) return;
+    _setApplying(true);
+    try {
+      await journal.recoverApply();
+      if (!await _localMatchesCloud(journal)) {
+        if (_expired || !_safeRoute || !_foreground || _conflict != null) {
+          _notice = '还有未同步的修改。请先恢复登录或处理同步冲突，再退出。';
+          return;
+        }
+        await _sync(session, journal);
+        if (!await _localMatchesCloud(journal)) {
+          _notice ??= '还有未同步的修改。请先完成同步，再退出。';
+          return;
+        }
+      }
+      if (_guestImported) await journal.preserveGuestImport();
+
+      final directory = journal.directory;
+      final retiredPath = '${directory.path}.signed-out';
+      final earlier = Directory(retiredPath);
+      if (await earlier.exists()) await earlier.delete(recursive: true);
+      final retired = await directory.rename(retiredPath);
+      try {
+        await _sessions.clear();
+      } catch (_) {
+        await retired.rename(directory.path);
+        rethrow;
+      }
+      _switchDirectory(null);
+      _session = null;
+      _journal = null;
+      _expired = false;
+      _conflict = null;
+      _lastSync = null;
+      _guestImported = false;
+      _scope++;
+      unawaited(_revokeQuietly(session));
+      try {
+        await retired.delete(recursive: true);
+        _notice = '已退出并清除本机账号数据。重新登录后可从云端恢复。';
+      } on FileSystemException {
+        _notice = '已退出。部分缓存正被系统占用，重启应用后会重试清除。';
+      }
+    } finally {
+      _setApplying(false);
+    }
   });
+
+  Future<bool> _localMatchesCloud(SyncJournal journal) async {
+    if (await journal.pendingUpload() != null) return false;
+    final base = await journal.readBase();
+    final local = SyncDataset(await (await _activeBackup()).snapshot());
+    return local.sameData(base.dataset);
+  }
 
   Future<void> _revokeQuietly(CloudSession session) async {
     try {
@@ -284,6 +343,7 @@ class CloudSyncController extends ChangeNotifier {
     if (choice == SyncChoice.local) await journal.saveOtherVersion(remote);
     if (!_safeRoute || !_foreground) return;
     if (!incoming.sameData(local) || fetched.revision != base.revision) {
+      final wasApplying = _applying;
       _setApplying(true);
       try {
         await journal.apply(
@@ -293,7 +353,7 @@ class CloudSyncController extends ChangeNotifier {
           fetched: (revision: fetched.revision, dataset: remote),
         );
       } finally {
-        _setApplying(false);
+        _setApplying(wasApplying);
       }
     }
     _conflict = null;

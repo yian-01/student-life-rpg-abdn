@@ -6,7 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:student_life_rpg/app/cloud/cloud_page.dart';
 import 'package:student_life_rpg/app/cloud/cloud_sync_controller.dart';
 import 'package:student_life_rpg/app/cloud/sync_api.dart';
+import 'package:student_life_rpg/app/data/campus_store.dart';
+import 'package:student_life_rpg/app/data/full_backup.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
+import 'package:student_life_rpg/features/schedule/repositories/file_task_repository.dart';
+import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
 class _MemorySession implements CloudSessionStore {
   CloudSession? session;
@@ -42,11 +46,18 @@ class _AccountPageApi extends HttpCloudSyncApi {
 void main() {
   testWidgets('account page survives sign-in and sign-out', (tester) async {
     final root = Directory.systemTemp.createTempSync('campus-account-page-');
+    var active = root;
+    const store = FileJsonDocumentStore();
     final cloud = CloudSyncController(
       api: _AccountPageApi(),
       sessions: _MemorySession(),
       rootDirectory: () async => root,
-      switchDirectory: (_) {},
+      activeBackup: () async => FullBackupService(
+        active,
+        CampusStore(store, '${active.path}/campus.json'),
+        FileTaskRepository(store, '${active.path}/tasks.json'),
+      ),
+      switchDirectory: (directory) => active = directory ?? root,
     )..lifecycleChanged(foreground: false);
     addTearDown(() => root.deleteSync(recursive: true));
     addTearDown(cloud.dispose);
