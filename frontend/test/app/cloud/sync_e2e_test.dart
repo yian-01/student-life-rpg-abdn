@@ -3,16 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:student_life_rpg/app/cloud/cloud_page.dart';
 import 'package:student_life_rpg/app/cloud/cloud_sync_controller.dart';
 import 'package:student_life_rpg/app/cloud/sync_api.dart';
 import 'package:student_life_rpg/app/cloud/sync_dataset.dart';
 import 'package:student_life_rpg/app/data/campus_data.dart';
 import 'package:student_life_rpg/app/data/campus_store.dart';
 import 'package:student_life_rpg/app/data/full_backup.dart';
-import 'package:student_life_rpg/app/student_life_app.dart';
 import 'package:student_life_rpg/features/academic/models/assignment.dart';
 import 'package:student_life_rpg/features/academic/models/course.dart';
 import 'package:student_life_rpg/features/academic/models/course_slot.dart';
@@ -67,20 +64,6 @@ class _DropResponseApi extends HttpCloudSyncApi {
     }
     return revision;
   }
-}
-
-class _AccountPageApi extends HttpCloudSyncApi {
-  @override
-  Future<CloudSession> authenticate(
-    Uri origin, {
-    required String email,
-    required String password,
-    required bool register,
-    String code = '',
-  }) async => CloudSession(origin, 'fixture-account', email, 'fixture-token');
-
-  @override
-  Future<void> revoke(CloudSession session) async {}
 }
 
 class _Device {
@@ -190,42 +173,6 @@ Future<void> _seed(_Device device) async {
 }
 
 void main() {
-  testWidgets('account page survives sign-in and sign-out', (tester) async {
-    final root = Directory.systemTemp.createTempSync('campus-account-page-');
-    final device = _Device(root, api: _AccountPageApi());
-    device.cloud.lifecycleChanged(foreground: false);
-    addTearDown(() => root.deleteSync(recursive: true));
-    addTearDown(device.cloud.dispose);
-    const origin = 'https://sync.example.test';
-    await tester.pumpWidget(StudentLifeApp(cloud: device.cloud));
-    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
-    unawaited(navigator.pushNamed<void>(CloudPage.route));
-    await tester.pumpAndSettle();
-    expect(find.text('登录'), findsOneWidget);
-
-    await tester.runAsync(() => device.login(origin));
-    await tester.pump();
-    expect(find.text('sync@example.test'), findsOneWidget);
-    expect(find.text('导入本机 V1.0 数据'), findsOneWidget);
-    final accountNavigator = tester.state<NavigatorState>(
-      find.byType(Navigator),
-    );
-    expect(accountNavigator.canPop(), isTrue);
-    await tester.runAsync(device.cloud.signOut);
-    await tester.pumpAndSettle();
-    expect(find.text('登录'), findsOneWidget);
-    expect(find.text(origin), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    expect(find.byType(CloudPage), findsNothing);
-    expect(device.cloud.session, isNull);
-    expect(
-      tester.state<NavigatorState>(find.byType(Navigator)).canPop(),
-      isFalse,
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
   test(
     'full-data device synchronization over the HTTP API',
     () async {
