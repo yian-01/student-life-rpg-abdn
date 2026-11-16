@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
@@ -191,10 +190,7 @@ class HttpCloudSyncApi implements CloudSyncApi {
     'PUT',
     '/v1/snapshot',
     session: session,
-    headers: {
-      'If-Match': '"$expectedRevision"',
-      'X-Upload-Id': uploadId,
-    },
+    headers: {'If-Match': '"$expectedRevision"', 'X-Upload-Id': uploadId},
     body: bytes,
     read: (response) {
       if (response.statusCode == 409) return null;
@@ -231,12 +227,20 @@ class HttpCloudSyncApi implements CloudSyncApi {
     int limit = 0,
     required T Function(SyncResponse response) read,
   }) async => read(
-    await requestSync(origin.resolve(path), method, {
-      if (session != null) 'Authorization': 'Bearer ${session.token}',
-      ...headers,
-      if (body != null)
-        'Content-Type': json ? 'application/json' : 'application/octet-stream',
-    }, body, limit),
+    await requestSync(
+      origin.resolve(path),
+      method,
+      {
+        if (session != null) 'Authorization': 'Bearer ${session.token}',
+        ...headers,
+        if (body != null)
+          'Content-Type': json
+              ? 'application/json'
+              : 'application/octet-stream',
+      },
+      body,
+      limit,
+    ),
   );
 
   static int _revision(SyncResponse response) {

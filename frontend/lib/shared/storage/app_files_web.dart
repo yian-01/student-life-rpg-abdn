@@ -26,7 +26,8 @@ Future<String?> initializeAppStorage() async {
   }
 }
 
-Future<Directory> applicationSupportDirectory() async => Directory('/student-life');
+Future<Directory> applicationSupportDirectory() async =>
+    Directory('/student-life');
 
 class FileSystemException implements Exception {
   const FileSystemException(this.message, [this.path]);
@@ -95,7 +96,8 @@ class Directory extends FileSystemEntity {
   }
 
   Stream<FileSystemEntity> list({bool followLinks = true}) async* {
-    final entries = await FileSystemEntity._run('list', path) as JSArray<JSString>;
+    final entries =
+        await FileSystemEntity._run('list', path) as JSArray<JSString>;
     for (final entry in entries.toDart) {
       final child = '$path/${entry.toDart}';
       yield await FileSystemEntity.type(child) == FileSystemEntityType.directory
@@ -134,7 +136,11 @@ class File extends FileSystemEntity {
 
   Stream<List<int>> openRead([int start = 0, int? end]) async* {
     final bytes = await readAsBytes();
-    yield Uint8List.sublistView(bytes, start, math.min(end ?? bytes.length, bytes.length));
+    yield Uint8List.sublistView(
+      bytes,
+      start,
+      math.min(end ?? bytes.length, bytes.length),
+    );
   }
 
   Future<String> readAsString() async => utf8.decode(await readAsBytes());
@@ -143,7 +149,9 @@ class File extends FileSystemEntity {
       writeAsBytes(utf8.encode(contents), flush: flush);
 
   Future<File> writeAsBytes(List<int> contents, {bool flush = false}) async {
-    final bytes = contents is Uint8List ? contents : Uint8List.fromList(contents);
+    final bytes = contents is Uint8List
+        ? contents
+        : Uint8List.fromList(contents);
     await FileSystemEntity._run('write', path, bytes: bytes);
     return this;
   }

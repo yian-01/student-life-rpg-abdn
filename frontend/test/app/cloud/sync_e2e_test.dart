@@ -317,7 +317,10 @@ void main() {
       await restarted.cloud.signOut();
       expect(restarted.cloud.session, isNotNull);
       expect(await signedInDirectory.exists(), isTrue);
-      expect(await restarted.files.tasks.getById('saved-on-sign-out'), isNotNull);
+      expect(
+        await restarted.files.tasks.getById('saved-on-sign-out'),
+        isNotNull,
+      );
 
       flaky.offline = false;
       await restarted.cloud.signOut();
@@ -336,7 +339,10 @@ void main() {
       await restarted.cloud.signOut();
       await restarted.login(origin);
       expect(await restarted.files.tasks.getById('desktop'), isNotNull);
-      expect(await restarted.files.tasks.getById('saved-on-sign-out'), isNotNull);
+      expect(
+        await restarted.files.tasks.getById('saved-on-sign-out'),
+        isNotNull,
+      );
       expect(restarted.cloud.guestImported, isTrue);
     },
     skip: Platform.environment['CAMPUS_SYNC_E2E'] != '1',

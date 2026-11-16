@@ -32,6 +32,9 @@ Future<void> main() async {
   final cloud = CloudSyncController();
   await cloud.initialize();
   runApp(
-    StudentLifeApp(cloud: cloud, openAccountPage: kIsWeb && cloud.session == null),
+    StudentLifeApp(
+      cloud: cloud,
+      openAccountPage: kIsWeb && cloud.session == null,
+    ),
   );
 }

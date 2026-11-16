@@ -73,7 +73,9 @@ class _FullBackupPageState extends State<FullBackupPage> {
     if (bytes == null && path == null) {
       throw const FormatException('无法读取所选文件。');
     }
-    final backup = FullBackup.decode(bytes ?? await readBackupFile(File(path!)));
+    final backup = FullBackup.decode(
+      bytes ?? await readBackupFile(File(path!)),
+    );
     for (final receipt in backup.receipts) {
       await validateReceiptImage(base64Decode(receipt));
     }

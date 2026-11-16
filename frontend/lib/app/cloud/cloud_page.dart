@@ -149,49 +149,49 @@ class _CloudPageState extends State<CloudPage> {
               builder: (context, _) => PopScope(
                 canPop: !cloud.working,
                 child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      children: [
-                        if (cloud.working) const LinearProgressIndicator(),
-                        if (cloud.notice != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Semantics(
-                              liveRegion: true,
-                              child: Text(cloud.notice!),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        children: [
+                          if (cloud.working) const LinearProgressIndicator(),
+                          if (cloud.notice != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Semantics(
+                                liveRegion: true,
+                                child: Text(cloud.notice!),
+                              ),
                             ),
-                          ),
-                        if (cloud.session == null || cloud.expired)
-                          _signInForm(cloud)
-                        else
-                          ..._accountDetails(cloud),
-                        if (cloud.session != null)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton(
-                              onPressed: cloud.working
-                                  ? null
-                                  : () async {
-                                      final confirmed = await _confirm(
-                                        '退出当前账号？',
-                                        '退出前会先保存未同步的修改，然后清除这台设备上的账号数据。重新登录可从云端恢复。',
-                                        '退出账号',
-                                      );
-                                      if (confirmed && mounted) {
-                                        await cloud.signOut();
-                                      }
-                                    },
-                              child: const Text('退出账号'),
+                          if (cloud.session == null || cloud.expired)
+                            _signInForm(cloud)
+                          else
+                            ..._accountDetails(cloud),
+                          if (cloud.session != null)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                onPressed: cloud.working
+                                    ? null
+                                    : () async {
+                                        final confirmed = await _confirm(
+                                          '退出当前账号？',
+                                          '退出前会先保存未同步的修改，然后清除这台设备上的账号数据。重新登录可从云端恢复。',
+                                          '退出账号',
+                                        );
+                                        if (confirmed && mounted) {
+                                          await cloud.signOut();
+                                        }
+                                      },
+                                child: const Text('退出账号'),
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 ),
               ),
             ),
