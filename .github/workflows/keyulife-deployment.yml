@@ -1,0 +1,75 @@
+name: Publish Keyulife deployment bundle
+
+on:
+  push:
+    branches: [feat/keyulife-deployment]
+    paths: [.github/workflows/keyulife-deployment.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: keyulife-deployment-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_COMMIT: cbb6dfb783bc923d2aa87eee8f47c2993c06749a
+      RELEASE_TAG: keyulife-v1.1-deploy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cbb6dfb783bc923d2aa87eee8f47c2993c06749a
+          persist-credentials: false
+      - name: Check the source of the accepted web build
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(gh run view 43810976437 --repo "$GITHUB_REPOSITORY" --json headSha --jq .headSha)
+          test "$actual" = "$SOURCE_COMMIT"
+          gh run download 43810976437 --repo "$GITHUB_REPOSITORY" --name student-life-web --dir backend/site
+      - name: Verify account and synchronization backend
+        working-directory: backend
+        run: python3 -m unittest -v test_sync_server
+      - name: Package the matching web and backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          required = ('index.html', 'main.dart.js', 'flutter_bootstrap.js', 'student_life_browser.js')
+          for name in required:
+              assert (Path('backend/site') / name).is_file(), name
+          with ZipFile('keyulife-deploy.zip', 'w', ZIP_DEFLATED) as bundle:
+              for path in sorted(Path('backend').rglob('*')):
+                  if not path.is_file() or '__pycache__' in path.parts or path.name == '.env':
+                      continue
+                  if path.relative_to('backend').parts[0] == 'data':
+                      continue
+                  bundle.write(path, path.as_posix())
+          with ZipFile('keyulife-deploy.zip') as bundle:
+              assert bundle.testzip() is None
+              assert 'backend/.env' not in bundle.namelist()
+          PY
+          sha256sum keyulife-deploy.zip > keyulife-deploy.zip.sha256
+      - name: Publish a fixed download address
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            actual=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq .targetCommitish)
+            test "$actual" = "$SOURCE_COMMIT"
+            gh release upload "$RELEASE_TAG" keyulife-deploy.zip keyulife-deploy.zip.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" keyulife-deploy.zip keyulife-deploy.zip.sha256 \
+              --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --latest=false --prerelease \
+              --title 'Keyulife V1.1 deployment bundle' \
+              --notes 'Matching web and synchronization backend from cbb6dfb783bc923d2aa87eee8f47c2993c06749a. Configure backend/.env on the server before starting. No credentials or user data are included.'
+          fi
