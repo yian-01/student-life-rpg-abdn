@@ -12,6 +12,7 @@
 | Windows/Android 原验收制品下载 | 已完成 |
 | 制品 SHA-256 与 GitHub Actions digest 比对 | 两份均相符，ZIP CRC 校验通过 |
 | APK 签名验证 | 验签通过，证书为 Android Debug，不能称为正式签名发布包 |
+| 本机 Windows release 重新构建 | 已成功，418.2 秒；修复了本机 NuGet 与路径/生成文件问题 |
 | 旧数据迁移、双文件恢复回滚、票据/调停课重启 | 已在上述自动化中覆盖；不代替真实设备验收 |
 
 制品来自 [Actions run 43169002569](https://github.com/yian-01/student-life-rpg-abdn/actions/runs/43169002569)，Windows artifact `13921134161`、Android artifact `13922145173`。两者构建自同一冻结提交。打包脚本校验原 ZIP 的固定摘要，不重新签名 APK。
@@ -43,7 +44,9 @@ python tool/package_v1_acceptance.py --windows-zip <原Windows-ZIP> --android-zi
 
 输出包括完整 Windows ZIP、APK、来源清单及 SHA256SUMS。脚本拒绝覆盖已有交付物。Windows 须解压整个 ZIP 后运行，不能单独复制 EXE。首次启动可能需要系统现有 WebView2 Runtime。
 
-本机额外尝试构建时遇到 NuGet 缺失（已在工作区补齐）、Windows 中文路径与生成文件问题、Android Gradle 网络超时。交付的原 CI 制品不受这些本机构建问题影响；本机失败日志需保留，不冒充本轮重新构建成功。
+本机 Windows 构建先遇到 NuGet 缺失、中文路径和缺失的 Flutter 生成文件；工作区补齐官方 NuGet、使用临时 ASCII 盘符并从 Flutter SDK 补齐生成文件后，`flutter build windows --release --no-pub` 成功（418.2 秒）。未修改业务代码。交付仍保留已校验的原 CI 制品，便于追溯同一验收版本。
+
+Android 本机构建因 Gradle 下载超时失败，不能冒充本轮重新构建成功；原 CI APK 已独立校验。模拟器启动尝试未得到可连接设备，不计作实机通过。上述失败和最终成功日志均需保留。
 
 ## 发布门槛
 
