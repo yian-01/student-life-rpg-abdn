@@ -3,7 +3,8 @@ const {createHash} = require('node:crypto');
 const {chromium} = require('playwright');
 
 const origin = process.argv[2];
-const email = 'browser-fixture@example.test';
+const apiOrigin = process.argv[3] ?? origin;
+const email = `browser-fixture-${Date.now()}@example.test`;
 const password = 'test password on localhost only';
 const code = 'student-life-fixture';
 const taskTitle = 'Browser and native share this task';
@@ -28,7 +29,7 @@ function sampleSnapshot() {
 async function browserAdapter(context) {
   const page = await context.newPage();
   await page.goto(`${origin}/storage-fixture`);
-  const result = await page.evaluate(async ({email, password, code, snapshot}) => {
+  const result = await page.evaluate(async ({email, password, code, snapshot, apiOrigin}) => {
     const call = window.studentLifeFile;
     const base = '/student-life/cloud-accounts';
     const active = `${base}/test-account`;
@@ -45,7 +46,7 @@ async function browserAdapter(context) {
     const preserved = new TextDecoder().decode(await call('read', `${retired}/tasks.json`, null, null));
     await call('delete', retired, null, null);
     const left = await call('list', base, null, null);
-    const request = window.studentLifeRequest;
+    const request = (method, path, ...rest) => window.studentLifeRequest(method, apiOrigin + path, ...rest);
     const json = {'Content-Type': 'application/json'};
     const credentials = new TextEncoder().encode(JSON.stringify({email, password, code}));
     const create = await request('POST', '/v1/register', JSON.stringify(json), credentials, 4096);
@@ -57,14 +58,19 @@ async function browserAdapter(context) {
     const login = await request('POST', '/v1/login', JSON.stringify(json), credentials, 4096);
     const second = JSON.parse(new TextDecoder().decode(login.bytes));
     const download = await request('GET', '/v1/snapshot', JSON.stringify({Authorization: `Bearer ${second.token}`}), null, 1000000);
+    const unchanged = await request('GET', '/v1/snapshot', JSON.stringify({Authorization: `Bearer ${second.token}`, 'If-None-Match': download.etag}), null, 1000000);
+    const unauthorized = await request('GET', '/v1/snapshot', '{}', null, 1000000);
     return {preserved, left, statuses: [create.status, upload.status, logout.status, login.status, download.status],
-      restored: new TextDecoder().decode(download.bytes), revision: download.etag};
-  }, {email, password, code, snapshot: sampleSnapshot()});
+      restored: new TextDecoder().decode(download.bytes), revision: download.etag,
+      unchanged: [unchanged.status, unchanged.etag], unauthorized: unauthorized.status};
+  }, {email, password, code, snapshot: sampleSnapshot(), apiOrigin});
   assert.equal(result.preserved, 'fixture');
   assert.deepEqual(result.left, []);
   assert.deepEqual(result.statuses, [201, 204, 204, 200, 200]);
   assert.ok(result.restored.includes(taskTitle));
   assert.equal(result.revision, '"1"');
+  assert.deepEqual(result.unchanged, [304, '"1"']);
+  assert.equal(result.unauthorized, 401);
   const secondTab = await context.newPage();
   await secondTab.goto(`${origin}/storage-fixture`);
   assert.equal(await secondTab.evaluate(() => window.studentLifeStart()), 'already-open');
@@ -119,8 +125,13 @@ async function flutterApp(context) {
     const cachePaths = await page.evaluate(() => window.studentLifeFile('list', '/student-life/cloud-accounts', null, null));
     assert.equal(cachePaths.filter(path => /^[a-f0-9]{64}(?:\.signed-out)?$/.test(path)).length, 0);
     await login();
+    // Reload must restore the stored session without typing credentials again.
+    await page.reload();
+    await page.locator('flt-semantics-placeholder').waitFor({state: 'attached', timeout: 30000});
+    await page.locator('flt-semantics-placeholder').dispatchEvent('click');
+    await page.getByRole('button', {name: '退出账号', exact: true}).waitFor();
     assert.deepEqual(errors, []);
-    console.log('Compiled Flutter UI signed in, restored shared cloud data, signed out, erased account cache, and restored again');
+    console.log('Compiled Flutter UI signed in, restored shared cloud data, signed out, erased account cache, restored again, and retained login after reload');
   } catch (error) {
     console.error('Chromium page errors:', errors);
     console.error('Text editor state:', await page.locator('input, textarea').evaluateAll(nodes => nodes.map(n => ({tag:n.tagName, type:n.type, css:n.className, label:n.getAttribute('aria-label'), length:n.value.length}))));
@@ -137,6 +148,10 @@ async function flutterApp(context) {
     const context = await browser.newContext({ignoreHTTPSErrors: true});
     await browserAdapter(context);
     await flutterApp(context);
+    await context.close();
+    const otherDevice = await browser.newContext({ignoreHTTPSErrors: true});
+    await flutterApp(otherDevice);
+    await otherDevice.close();
   } finally {
     await browser.close();
   }

@@ -1,0 +1,40 @@
+name: V1.1 browser account reliability
+on:
+  push:
+    branches: [fix/v1.1-reliability]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cross-origin-account:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build against a separate test API origin
+        run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define=CAMPUS_SYNC_URL=https://127.0.0.1:18444
+      - name: Verify CORS, login persistence, logout, recovery and two browser devices
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/browser" --no-save --no-package-lock playwright@1.59.0
+          export NODE_PATH="$RUNNER_TEMP/browser/node_modules"
+          export CHROMIUM="$(command -v google-chrome)"
+          PYTHONPATH=../backend python3 test_web/serve_fixture.py build/web --web-port 18443 --api-port 18444 > "$RUNNER_TEMP/fixture.log" &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            test "$(wc -l < "$RUNNER_TEMP/fixture.log")" -lt 2 || break
+            kill -0 "$fixture_pid"
+            sleep 1
+          done
+          node test_web/account_sync.cjs https://127.0.0.1:18443 https://127.0.0.1:18444

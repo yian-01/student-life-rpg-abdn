@@ -13,6 +13,9 @@ jobs:
         working-directory: ./frontend
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.6'
@@ -24,4 +27,8 @@ jobs:
           dart format lib test
           git diff --exit-code -- lib test
       - run: flutter analyze
-      - run: flutter test
+      - name: Test Windows behavior and native synchronization
+        env:
+          CAMPUS_SYNC_E2E: '1'
+          PYTHON: python
+        run: flutter test

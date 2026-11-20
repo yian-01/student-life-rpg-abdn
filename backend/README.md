@@ -7,14 +7,24 @@
 1. 准备一台可运行 Docker Compose 的 Linux 主机，让同步域名指向主机，开放 TCP 80 和 443。
 2. 在本目录复制 `.env.example` 为 `.env`。填入真实域名，生成随机注册邀请码。邮箱用作账号标识，服务目前无需发邮件。
 3. 构建或下载网页验收包，把 `build/web/` 下的文件放在 `backend/site/`，确保有 `backend/site/index.html`。只部署 API 时可留空。
-4. 运行 `docker compose up -d --build`。打开网站即可注册或登录，浏览器调用站点的 `/v1/` 接口。通过 `https://你的域名/healthz` 检查服务。安装包发布时设置 GitHub Actions 仓库变量 `CAMPUS_SYNC_URL`，或构建时传入 `--dart-define=CAMPUS_SYNC_URL=https://你的域名`。未预配置的安装包可在账号页填写该地址。
+4. 运行 `docker compose up -d --build`。通过 `https://你的API域名/healthz` 检查服务。各平台构建时可传入 `--dart-define=CAMPUS_SYNC_URL=https://你的API域名`。Web 未设置时调用当前站点的 `/v1/`；未预配置的安装包可在账号页填写该地址。
 5. 定期使用 SQLite 在线备份保存 `sync_data` 中的数据库，或停服后完整备份卷。Compose 停服后保留命名卷。恢复旧数据库后，客户端会在发现云端版本回退时停下并提示人工核对。
 
 服务存储账号的业务数据与票据。每份快照上限为 64 MiB，超限会保留本机数据并提示。HTTPS 保护传输，服务管理员可访问数据库，部署时应限制卷与备份的访问权限。密码在服务端加盐哈希，设备令牌使用平台安全存储。当前没有找回密码或邮箱验证流程。
 
+### 前端与 API 可使用不同来源
+
+网页、Android、Windows 不需要共用一个前端域名。它们连接同一个 API 才能访问同一份账号数据。网页若部署在不同来源，需要在 API 的 `.env` 中设置 `SYNC_ALLOWED_ORIGINS=https://app.example.com,https://preview.example.com`，并为网页构建配置上述 `CAMPUS_SYNC_URL`。仅填写精确来源（协议、主机及非默认端口），不填路径，不支持通配符。HTTP 只允许本机回环测试来源。未列出的跨域网页请求会被拒绝；同源网页无需额外配置。
+
+浏览器通过 CORS 预检发送 `Authorization`、`If-Match`、`If-None-Match`、`X-Upload-Id` 等同步头，并可读取 `ETag`。客户端使用 Bearer Token，网页请求设置 `credentials: omit`，不依赖跨站 Cookie。CORS 只控制网页来源，允许的来源仍需认证；Windows 和 Android 不受浏览器 CORS 限制，也必须提供有效 Token。
+
+凭证由 `flutter_secure_storage` 的各平台实现持久保存；Web 使用浏览器存储和 WebCrypto，必须在 HTTPS 环境使用。浏览器存储可被用户清理，清理后需重新登录从云端恢复。OS 凭证存储和 Android 实机持久化的验收状态见 [V1.1 验收矩阵](../docs/v1.1-reliability.md)。
+
 ## 开发与验收
 
 在本目录运行 `python3 -m unittest -v test_sync_server`。本地开发可运行 `python3 sync_server.py`，Windows Flutter 调试版填 `http://127.0.0.1:8080`。Android 和 Windows 正式验收都使用可访问的 HTTPS 地址。
+
+Windows 可使用 `python -m unittest -v test_sync_server`；原生 HTTP 端到端测试在 `frontend` 中设置 `CAMPUS_SYNC_E2E=1` 后运行 `flutter test test/app/cloud/sync_e2e_test.dart`，可用 `PYTHON` 指定 Python 可执行文件。跨来源浏览器回归由 `.github/workflows/v11-browser-reliability.yml` 运行，测试环境完全独立于正式站点，不发布或部署网站。
 
 - Windows 从 V1.0 升级后，登录并导入含课程、绩点、作业、考试、任务、事件、分类、预算、报销账目与票据的旧数据。
 - 在 Android 登录同一个账号，确认各模块与票据均可打开。

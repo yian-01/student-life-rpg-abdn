@@ -2,15 +2,15 @@ import 'package:flutter/widgets.dart';
 
 import 'cloud_sync_controller.dart';
 
-class CloudScope extends InheritedWidget {
-  const CloudScope({super.key, required this.controller, required super.child});
+class CloudScope extends InheritedNotifier<CloudSyncController> {
+  const CloudScope({
+    super.key,
+    required CloudSyncController controller,
+    required super.child,
+  }) : super(notifier: controller);
 
-  final CloudSyncController controller;
+  CloudSyncController get controller => notifier!;
 
   static CloudSyncController? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<CloudScope>()?.controller;
-
-  @override
-  bool updateShouldNotify(CloudScope oldWidget) =>
-      oldWidget.controller != controller;
 }

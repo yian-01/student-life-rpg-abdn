@@ -86,8 +86,27 @@ void main() {
       find.byType(Navigator),
     );
     expect(accountNavigator.canPop(), isTrue);
+    final receiptKey = Object();
+    final receipt = (await tester.runAsync(
+      () => createTestImage(cache: false),
+    ))!;
+    PaintingBinding.instance.imageCache.putIfAbsent(
+      receiptKey,
+      () =>
+          OneFrameImageStreamCompleter(Future.value(ImageInfo(image: receipt))),
+    );
+    await tester.pump();
+    expect(PaintingBinding.instance.imageCache.containsKey(receiptKey), isTrue);
     await tester.runAsync(cloud.signOut);
     await tester.pumpAndSettle();
+    expect(
+      PaintingBinding.instance.imageCache.containsKey(receiptKey),
+      isFalse,
+    );
+    expect(
+      PaintingBinding.instance.imageCache.statusForKey(receiptKey).live,
+      isFalse,
+    );
     expect(find.text('登录'), findsOneWidget);
     expect(find.text(origin), findsOneWidget);
     await tester.pageBack();

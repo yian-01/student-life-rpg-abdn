@@ -69,9 +69,11 @@ class CloudSyncController extends ChangeNotifier {
        _guestBackup = guestBackup ?? AppData.guestBackup,
        _switchDirectory = switchDirectory ?? AppData.switchDirectory;
 
-  static String get configuredOrigin => kIsWeb
-      ? Uri.base.origin
-      : const String.fromEnvironment('CAMPUS_SYNC_URL');
+  static String get configuredOrigin {
+    const configured = String.fromEnvironment('CAMPUS_SYNC_URL');
+    if (configured.isNotEmpty) return configured;
+    return kIsWeb ? Uri.base.origin : '';
+  }
 
   final CloudSyncApi _api;
   final CloudSessionStore _sessions;
@@ -84,6 +86,7 @@ class CloudSyncController extends ChangeNotifier {
   Uri? _lastOrigin;
   SyncJournal? _journal;
   int _scope = 0;
+  int _dataRevision = 0;
   bool _working = false;
   bool _applying = false;
   bool _expired = false;
@@ -97,6 +100,7 @@ class CloudSyncController extends ChangeNotifier {
   CloudSession? get session => _session;
   Uri? get lastOrigin => _lastOrigin;
   int get scope => _scope;
+  int get dataRevision => _dataRevision;
   bool get working => _working;
   bool get applying => _applying;
   bool get expired => _expired;
@@ -354,6 +358,7 @@ class CloudSyncController extends ChangeNotifier {
           incoming: incoming.sameData(local) ? local : incoming,
           fetched: (revision: fetched.revision, dataset: remote),
         );
+        if (!incoming.sameData(local)) _dataRevision++;
       } finally {
         _setApplying(wasApplying);
       }
@@ -435,6 +440,7 @@ class CloudSyncController extends ChangeNotifier {
             expected: local.backup,
             committedMarker: journal.beforePull,
           );
+          _dataRevision++;
         }
         await journal.markGuestImported();
         _guestImported = true;

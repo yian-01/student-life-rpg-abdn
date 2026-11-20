@@ -27,14 +27,11 @@ Future<SyncResponse> requestSync(
   List<int>? body,
   int limit,
 ) async {
-  if (uri.origin != Uri.base.origin) {
-    throw const FormatException('网页版需要使用当前网站连接的账号服务。');
-  }
   final _WebResponse response;
   try {
     response = await _request(
       method.toJS,
-      uri.path.toJS,
+      uri.toString().toJS,
       jsonEncode(headers).toJS,
       body == null ? null : Uint8List.fromList(body).toJS,
       limit.toJS,
