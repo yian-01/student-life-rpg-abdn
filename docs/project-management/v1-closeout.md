@@ -1,0 +1,55 @@
+# V1.0 收尾记录
+
+2026-11-21，冻结功能提交 `29b1bebb208fc3f2d0fd6cfe684e280eba0f7583`，版本 `1.0.0+1`。本分支仅补充交付和验证材料，不混入 V1.1 账号、云同步或新版首页。
+
+## 已执行
+
+| 检查 | 本轮结果 |
+| --- | --- |
+| Flutter 3.44.6 / Dart 3.12.2，本地 Windows 全量测试 | 739 通过，0 失败 |
+| `dart analyze --format machine` | 退出 0，无诊断 |
+| `dart format --output=none --set-exit-if-changed lib test` | 225 文件，0 改动 |
+| Windows/Android 原验收制品下载 | 已完成 |
+| 制品 SHA-256 与 GitHub Actions digest 比对 | 两份均相符，ZIP CRC 校验通过 |
+| APK 签名验证 | 验签通过，证书为 Android Debug，不能称为正式签名发布包 |
+| 旧数据迁移、双文件恢复回滚、票据/调停课重启 | 已在上述自动化中覆盖；不代替真实设备验收 |
+
+制品来自 [Actions run 43169002569](https://github.com/yian-01/student-life-rpg-abdn/actions/runs/43169002569)，Windows artifact `13921134161`、Android artifact `13922145173`。两者构建自同一冻结提交。打包脚本校验原 ZIP 的固定摘要，不重新签名 APK。
+
+## 当前状态
+
+可交付验收候选，不是正式稳定版。PR #68 仍为 Draft，base 为 `fix/v1-base-regression`；不能只把该 PR 合入其 base 就宣称已进入 main。应审查完整 V1 分支相对 main 的差异，并在获批准后合并。
+
+V1.0 此候选面向 Windows 和 Android 本地使用。Web 的存储与浏览器适配在 V1.1 分支，不能将 V1.1 Web 成果归到本候选。
+
+## 仍需实际验收
+
+按 [功能验收表](v1-feature-acceptance.md) 逐项记录设备、操作、结果和问题。以下项目没有实机证据时不可标为通过：
+
+- Windows 系统文件保存/选择、关闭重开、完整备份往返恢复。
+- Android 真机软键盘、票据选择、重启持久化和文件选择器。
+- Windows ↔ Android 完整备份双向恢复，数量、字段及票据一致。
+- 旧安装升级：先导出完整备份，验证 GPA 迁移一次、未评分与零分保留。
+- 华师教务真实登录及课表抓取；测试不收集用户密码。
+- ICS 被第三方日历正确导入、CSV 在表格软件中可读。
+
+Android 现有包使用 CI 调试签名。不同 CI 运行生成的调试密钥不保证相同；没有比较旧安装证书前，不保证覆盖安装。禁止建议直接卸载旧应用解决冲突，因为卸载可能删除本地数据。正式签名密钥及升级路线需明确后再发布稳定版，不能偷偷更换 applicationId 绕过。
+
+## 打包与核验
+
+```powershell
+python tool/package_v1_acceptance.py --windows-zip <原Windows-ZIP> --android-zip <原Android-ZIP> --test-log <本轮完整测试日志> --output-dir <全新输出目录>
+```
+
+输出包括完整 Windows ZIP、APK、来源清单及 SHA256SUMS。脚本拒绝覆盖已有交付物。Windows 须解压整个 ZIP 后运行，不能单独复制 EXE。首次启动可能需要系统现有 WebView2 Runtime。
+
+本机额外尝试构建时遇到 NuGet 缺失（已在工作区补齐）、Windows 中文路径与生成文件问题、Android Gradle 网络超时。交付的原 CI 制品不受这些本机构建问题影响；本机失败日志需保留，不冒充本轮重新构建成功。
+
+## 发布门槛
+
+1. 实机验收表完成，问题修复后重跑适用检查。
+2. Android 签名及旧版升级策略确认。
+3. 完整 V1 分支审查、必要的 main 集成检查通过。
+4. 用户明确批准重要 PR 合并和正式发布。
+
+本轮不更新正式网站、不合并 PR、不将候选标为 stable。
