@@ -29,7 +29,7 @@ Flutter / Dart 大学生学习与生活管理应用，包含学业、日程、�
 ```sh
 cd frontend
 flutter pub get
-dart format --output=none --set-exit-if-changed lib test
+dart format --output=none --set-exit-if-changed lib test integration_test
 flutter analyze
 flutter test
 flutter run -d windows
@@ -37,6 +37,8 @@ flutter run -d windows
 ```
 
 原生同步端到端测试需要 Python，设置 `CAMPUS_SYNC_E2E=1` 后运行 `flutter test test/app/cloud/sync_e2e_test.dart`。Windows 默认调用 `python`，其他系统默认 `python3`，可通过 `PYTHON` 指定路径。
+
+系统凭证存储回归：`flutter test integration_test/secure_session_test.dart -d windows`，需要 Windows C++ 桌面工具链与 PATH 中的 NuGet。测试使用临时凭证命名空间和临时数据目录，不读写用户的正式登录信息。Android 应使用专用测试设备；确认没有未备份的旧安装数据后，才用设备 ID 替换 `windows` 运行，避免已知的历史签名不兼容影响旧数据。
 
 后端检查：进入 `backend`，运行 `python -m unittest -v test_sync_server`。HTTPS 部署、来源白名单和 API 配置见 [后端说明](backend/README.md)。网页、Windows、Android 可以使用不同入口，连接同一个经过认证的 API；跨域网页需要精确的 CORS 白名单，不依赖跨站 Cookie。
 

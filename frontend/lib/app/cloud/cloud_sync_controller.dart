@@ -19,23 +19,27 @@ abstract interface class CloudSessionStore {
 }
 
 class SecureCloudSessionStore implements CloudSessionStore {
-  const SecureCloudSessionStore();
+  // A separate namespace lets native integration probes use the real vault
+  // without reading or overwriting the user's production login record.
+  const SecureCloudSessionStore({
+    this.storageKey = 'student-life-cloud-session-v1',
+  });
 
   static const _storage = FlutterSecureStorage();
-  static const _key = 'student-life-cloud-session-v1';
+  final String storageKey;
 
   @override
   Future<CloudSession?> read() async {
-    final raw = await _storage.read(key: _key);
+    final raw = await _storage.read(key: storageKey);
     return raw == null ? null : CloudSession.restore(raw);
   }
 
   @override
   Future<void> save(CloudSession session) =>
-      _storage.write(key: _key, value: session.encode());
+      _storage.write(key: storageKey, value: session.encode());
 
   @override
-  Future<void> clear() => _storage.delete(key: _key);
+  Future<void> clear() => _storage.delete(key: storageKey);
 }
 
 class CloudConflict {
