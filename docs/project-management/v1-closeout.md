@@ -13,6 +13,7 @@
 | 制品 SHA-256 与 GitHub Actions digest 比对 | 两份均相符，ZIP CRC 校验通过 |
 | APK 签名验证 | 验签通过，证书为 Android Debug，不能称为正式签名发布包 |
 | 本机 Windows release 重新构建 | 已成功，418.2 秒；修复了本机 NuGet 与路径/生成文件问题 |
+| 本机 Android 显式验收签名完整构建 | 已成功，4m12s、245 tasks；三个 ABI 齐全，APK 验签通过 |
 | 旧数据迁移、双文件恢复回滚、票据/调停课重启 | 已在上述自动化中覆盖；不代替真实设备验收 |
 | 本机旧数据独立副本迁移 | schema 2 → 3 逐字段、GPA 换算、任务不变、原件备份和重开幂等均通过，原目录未修改 |
 
@@ -57,7 +58,9 @@ python tool/package_v1_acceptance.py --windows-zip <原Windows-ZIP> --android-zi
 
 本机 Windows 构建先遇到 NuGet 缺失、中文路径和缺失的 Flutter 生成文件；工作区补齐官方 NuGet、使用临时 ASCII 盘符并从 Flutter SDK 补齐生成文件后，`flutter build windows --release --no-pub` 成功（418.2 秒）。未修改业务代码。交付仍保留已校验的原 CI 制品，便于追溯同一验收版本。
 
-Android 本机构建因 Gradle 下载超时失败，不能冒充本轮重新构建成功；原 CI APK 已独立校验。模拟器启动尝试未得到可连接设备，不计作实机通过。上述失败和最终成功日志均需保留。
+Android 首轮构建遇到 Gradle/Maven 下载、跨盘 Kotlin 增量缓存及 Ninja 中文路径问题；随后在临时 ASCII 盘符下映射项目、Pub 缓存、Android SDK 与隔离的 Gradle 缓存，设置 `PUB_CACHE` 并重新生成依赖路径，使用 SDK 盘符写入被忽略的 `android/local.properties`。显式开启验收签名，并通过 `-Dorg.gradle.project.android.overridePathCheck=true -Dorg.gradle.project.kotlin.incremental=false` 处理本机路径限制后，完整 `:app:assembleRelease` 构建成功（4m12s、245 tasks）。构建包含 android-arm、android-arm64、android-x64；APK 验签通过，仍为本机调试签名。
+
+模拟器启动尝试未得到可连接设备，不计作实机通过。上述失败和最终成功日志均保留；正式签名及真实旧安装升级仍是发布门槛。
 
 ## 发布门槛
 
