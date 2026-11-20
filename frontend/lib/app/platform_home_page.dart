@@ -485,15 +485,13 @@ class _PlatformHomePageState extends State<PlatformHomePage>
   );
 
   Widget _surface({required Widget child, Color color = Colors.white}) =>
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: color,
+      Material(
+        color: color,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE5ECEF)),
+          side: const BorderSide(color: Color(0xFFE5ECEF)),
         ),
-        child: child,
+        child: Padding(padding: const EdgeInsets.all(18), child: child),
       );
 
   Widget _section<T>(Future<T> future, Widget Function(T) render) =>

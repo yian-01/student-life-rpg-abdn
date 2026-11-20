@@ -9,6 +9,7 @@ import 'package:student_life_rpg/app/cloud/sync_api.dart';
 import 'package:student_life_rpg/app/data/campus_store.dart';
 import 'package:student_life_rpg/app/data/full_backup.dart';
 import 'package:student_life_rpg/app/student_life_app.dart';
+import 'package:student_life_rpg/app/app_routes.dart';
 import 'package:student_life_rpg/features/schedule/repositories/file_task_repository.dart';
 import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
@@ -62,7 +63,7 @@ void main() {
     addTearDown(() => root.deleteSync(recursive: true));
     addTearDown(cloud.dispose);
     const origin = 'https://sync.example.test';
-    await tester.pumpWidget(StudentLifeApp(cloud: cloud));
+    await tester.pumpWidget(StudentLifeApp(cloud: cloud, initialRoute: AppRoutes.bedroom));
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     unawaited(navigator.pushNamed<void>(CloudPage.route));
     await tester.pumpAndSettle();

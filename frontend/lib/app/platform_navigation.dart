@@ -27,6 +27,10 @@ class PlatformNavigation extends StatelessWidget {
         border: Border(top: BorderSide(color: Color(0xFFE3EAED))),
       ),
       child: NavigationBar(
+        height: MediaQuery.sizeOf(context).height < 500 ? 64 : null,
+        labelBehavior: MediaQuery.sizeOf(context).height < 500
+            ? NavigationDestinationLabelBehavior.alwaysHide
+            : NavigationDestinationLabelBehavior.alwaysShow,
         selectedIndex: routes.indexOf(route),
         onDestinationSelected: (index) {
           if (routes[index] != route) {
