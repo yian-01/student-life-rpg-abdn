@@ -18,9 +18,13 @@ import 'full_backup_page.dart';
 import '../features/menu/presentation/menu_page.dart';
 import 'unknown_route_page.dart';
 import 'task_schedule_host.dart';
-import 'game_panel_frame.dart';
+import 'platform_navigation.dart';
+import 'platform_home_page.dart';
+import 'platform_profile_page.dart';
 
 abstract final class AppRoutes {
+  static const home = '/';
+  static const profile = '/profile';
   static const bedroom = '/bedroom';
   static const menu = '/menu';
   static const schedule = '/schedule';
@@ -38,6 +42,8 @@ abstract final class AppRoutes {
 
   static Route<void> generateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
+      home => const PlatformHomePage(),
+      profile => const PlatformProfilePage(),
       bedroom => const BedroomPage(),
       menu => const MenuPage(),
       schedule => const TaskScheduleHost(),
@@ -91,9 +97,31 @@ abstract final class AppRoutes {
     };
     return MaterialPageRoute<void>(
       settings: settings,
-      builder: (_) => settings.name == bedroom || settings.name == menu
-          ? page
-          : GamePanelFrame(child: page),
+      builder: (context) => PlatformNavigation.routes.contains(settings.name)
+          ? PlatformNavigation(route: settings.name!, child: page)
+          : settings.name == bedroom
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                page,
+                if (Navigator.of(context).canPop())
+                  Positioned(
+                    top: 12,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      child: Center(
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                          label: const Text('返回'),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          : page,
     );
   }
 }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Tool pages are parchment pages inside the same warm wooden RPG world.
+/// Shared visual language for the campus platform and all its tools.
 abstract final class AppTheme {
-  static const background = Color(0xFFF0E3C8);
-  static const panel = Color(0xFFFFF4DC);
-  static const ink = Color(0xFF392D22);
-  static const accent = Color(0xFF79542D);
+  static const background = Color(0xFFF7F9FA);
+  static const panel = Colors.white;
+  static const ink = Color(0xFF183A45);
+  static const accent = Color(0xFF16697A);
   static final ThemeData light = ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
@@ -20,7 +20,7 @@ abstract final class AppTheme {
       foregroundColor: ink,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      toolbarHeight: 52,
+      toolbarHeight: 60,
       titleTextStyle: TextStyle(
         fontFamily: 'Roboto',
         fontSize: 18,
@@ -50,19 +50,19 @@ abstract final class AppTheme {
         color: ink,
       ),
       bodyMedium: TextStyle(fontSize: 14, height: 1.5, color: ink),
-      bodySmall: TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF79664C)),
+      bodySmall: TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF70838A)),
     ),
     cardTheme: CardThemeData(
       color: panel,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFFCDB88D)),
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: Color(0xFFE3EAED)),
       ),
     ),
     dividerTheme: const DividerThemeData(
-      color: Color(0xFFCEB88D),
+      color: Color(0xFFE3EAED),
       thickness: 1,
     ),
     checkboxTheme: const CheckboxThemeData(shape: CircleBorder()),
@@ -71,24 +71,31 @@ abstract final class AppTheme {
       fillColor: panel,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: Color(0xFFC3AA79)),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD7E1E5)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: Color(0xFFC3AA79)),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD7E1E5)),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: accent,
-      foregroundColor: panel,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
+    ),
+    navigationBarTheme: const NavigationBarThemeData(
+      backgroundColor: Colors.white,
+      indicatorColor: Color(0xFFE1F0F2),
+      elevation: 0,
+      height: 72,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
     ),
   );
 }

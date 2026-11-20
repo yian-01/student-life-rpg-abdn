@@ -83,8 +83,18 @@ async function flutterApp(context) {
   const login = async () => {
     const emailField = page.getByRole('textbox', {name: /邮箱/});
     const passwordField = page.locator('flt-semantics input[type="password"], flt-semantics textarea[aria-label="密码"], flt-semantics [role="textbox"][aria-label="密码"]').first();
-    await emailField.fill(email);
-    await passwordField.fill(password);
+    // A semantics input is ready before Flutter's focus connection and route
+    // animation have painted. Synchronize with frames before sending key input.
+    const enter = async (field, value) => {
+      await field.focus();
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await field.press('ControlOrMeta+A');
+      await field.pressSequentially(value, {delay: 50});
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      assert.equal(await field.inputValue(), value);
+    };
+    await enter(emailField, email);
+    await enter(passwordField, password);
     await page.getByRole('button', {name: '登录', exact: true}).click();
     await page.getByRole('button', {name: '退出账号', exact: true}).waitFor();
     await page.waitForFunction(async title => {
@@ -100,6 +110,8 @@ async function flutterApp(context) {
     }, taskTitle);
   };
   try {
+    await page.getByRole('tab', {name: /我的/}).click();
+    await page.getByRole('button', {name: /登录你的课屿账号/}).click();
     await login();
     await page.getByRole('button', {name: '退出账号', exact: true}).click();
     await page.getByRole('button', {name: '退出账号', exact: true}).last().click();
@@ -111,6 +123,7 @@ async function flutterApp(context) {
     console.log('Compiled Flutter UI signed in, restored shared cloud data, signed out, erased account cache, and restored again');
   } catch (error) {
     console.error('Chromium page errors:', errors);
+    console.error('Text editor state:', await page.locator('input, textarea').evaluateAll(nodes => nodes.map(n => ({tag:n.tagName, type:n.type, css:n.className, label:n.getAttribute('aria-label'), length:n.value.length}))));
     console.error('Flutter accessibility snapshot:', await page.locator('body').ariaSnapshot());
     throw error;
   } finally {

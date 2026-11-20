@@ -12,7 +12,7 @@ Future<void> main() async {
   if (storageError != null) {
     runApp(
       MaterialApp(
-        title: 'Student Life RPG',
+        title: '课屿 · 校园生活',
         home: Scaffold(
           body: Center(
             child: Padding(
@@ -31,10 +31,5 @@ Future<void> main() async {
   }
   final cloud = CloudSyncController();
   await cloud.initialize();
-  runApp(
-    StudentLifeApp(
-      cloud: cloud,
-      openAccountPage: kIsWeb && cloud.session == null,
-    ),
-  );
+  runApp(StudentLifeApp(cloud: cloud));
 }

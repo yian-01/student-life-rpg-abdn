@@ -103,7 +103,9 @@ void main() {
     AppData.useCampusData(emptyCampusData());
   });
   testWidgets('Starts in bedroom and opens Menu', (tester) async {
-    await tester.pumpWidget(const StudentLifeApp());
+    await tester.pumpWidget(
+      const StudentLifeApp(initialRoute: AppRoutes.bedroom),
+    );
     expectTitle('Student Life RPG');
     expect(find.byKey(const Key('bedroom-background')), findsOneWidget);
     expect(find.text('进入校园大厅'), findsNothing);
@@ -120,7 +122,9 @@ void main() {
     testWidgets('$name opens and pops through the existing Menu and bedroom', (
       tester,
     ) async {
-      await tester.pumpWidget(const StudentLifeApp());
+      await tester.pumpWidget(
+        const StudentLifeApp(initialRoute: AppRoutes.bedroom),
+      );
       final bedroom = tester.element(find.byType(BedroomPage));
       final navigator = tester.state<NavigatorState>(find.byType(Navigator));
       await tapText(tester, '进入校园大厅');
@@ -157,7 +161,9 @@ void main() {
   testWidgets('Unknown pushed route shows an error and recovers to bedroom', (
     tester,
   ) async {
-    await tester.pumpWidget(const StudentLifeApp());
+    await tester.pumpWidget(
+      const StudentLifeApp(initialRoute: AppRoutes.bedroom),
+    );
     await tapText(tester, '进入校园大厅');
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.pushNamed('/missing');
@@ -193,7 +199,9 @@ void main() {
     tester.view.physicalSize = const Size(240, 320);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(const StudentLifeApp());
+    await tester.pumpWidget(
+      const StudentLifeApp(initialRoute: AppRoutes.bedroom),
+    );
     expect(tester.takeException(), isNull);
     await tapText(tester, '进入校园大厅');
     expect(tester.takeException(), isNull);

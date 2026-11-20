@@ -67,6 +67,11 @@ void main() {
       const StudentLifeApp(initialRoute: AppRoutes.schedule),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('共享任务'),
+      150,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('共享任务'), findsOneWidget);
     await repository.setCompleted('shared', true);
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
