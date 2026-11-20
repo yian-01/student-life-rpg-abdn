@@ -1,0 +1,72 @@
+name: Verify accepted Keyulife interface
+on:
+  push:
+    branches: [release/keyulife-interface-review]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ACCEPTED_SOURCE: 8cc2f03d64c1c91f5b8a4b52402ef7575260d1d1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify source and accepted build provenance
+        run: |
+          set -euo pipefail
+          git diff --exit-code "$ACCEPTED_SOURCE" HEAD -- frontend/lib frontend/web frontend/pubspec.yaml frontend/pubspec.lock backend
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/44711520533" > /tmp/source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/44711520533/jobs" > /tmp/source-jobs.json
+          python3 - <<'PY'
+          import json, os
+          assert json.load(open('/tmp/source-run.json'))['head_sha'] == os.environ['ACCEPTED_SOURCE']
+          steps = json.load(open('/tmp/source-jobs.json'))['jobs'][0]['steps']
+          for name in ['Analyze', 'Verify behavior and responsive home', 'Build same-origin web application']:
+              assert next(s for s in steps if s['name'] == name)['conclusion'] == 'success', name
+          PY
+          gh run download 44711520533 --repo "$GITHUB_REPOSITORY" --name interface-web-review --dir frontend/build/web
+      - name: Verify account backend
+        working-directory: backend
+        run: python3 -m unittest -v test_sync_server
+      - name: Verify compiled browser account recovery
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/browser" --no-save --no-package-lock playwright@1.59.0
+          export NODE_PATH="$RUNNER_TEMP/browser/node_modules"
+          export CHROMIUM="$(command -v google-chrome)"
+          PYTHONPATH=../backend python3 test_web/serve_fixture.py build/web > "$RUNNER_TEMP/fixture.log" &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            test ! -s "$RUNNER_TEMP/fixture.log" || break
+            sleep 1
+          done
+          node test_web/account_sync.cjs "$(head -n 1 "$RUNNER_TEMP/fixture.log")"
+      - name: Package verified interface
+        run: |
+          cd frontend/build/web
+          zip -qr ../../../keyulife-interface.zip .
+          cd ../../..
+          sha256sum keyulife-interface.zip > keyulife-interface.zip.sha256
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          sha = hashlib.sha256(Path('keyulife-interface.zip').read_bytes()).hexdigest()
+          tag = 'keyulife-interface-' + os.environ['GITHUB_SHA'][:12]
+          script = Path('backend/update-interface.sh').read_text()
+          Path('update-interface.sh').write_text(script.replace('@RELEASE_TAG@', tag).replace('@SHA256@', sha))
+          PY
+      - name: Publish verified review build
+        run: |
+          tag="keyulife-interface-${GITHUB_SHA:0:12}"
+          gh release create "$tag" keyulife-interface.zip keyulife-interface.zip.sha256 update-interface.sh \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title '课屿新版界面 · verified review' \
+            --notes 'Frontend source matches 8cc2f03d64c1c91f5b8a4b52402ef7575260d1d1 exactly. Analyze and all Flutter tests passed on that build; the compiled interface passed the current browser login, logout, cache purge and cloud recovery test. Frontend updater preserves the existing API, account data and server configuration.'
