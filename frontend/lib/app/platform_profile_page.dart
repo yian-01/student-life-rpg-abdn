@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'app_routes.dart';
+import 'app_theme.dart';
+import 'atmosphere.dart';
 import 'cloud/cloud_page.dart';
 import 'cloud/cloud_scope.dart';
 
@@ -22,7 +24,9 @@ class PlatformProfilePage extends StatelessWidget {
           const SizedBox(height: 8),
           Text('记录成长，也给自己留一点空间。', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 24),
-          Card(
+          SurfaceReveal(child: GlassSurface(
+            blur: true, tint: const Color(0xB81B2C2B),
+            padding: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: cloud == null
@@ -44,7 +48,7 @@ class PlatformProfilePage extends StatelessWidget {
                       ),
                     ),
             ),
-          ),
+          )),
           const SizedBox(height: 14),
           Card(
             child: Column(
@@ -108,7 +112,7 @@ class PlatformProfilePage extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               height: 1.9,
-              color: Color(0xFF70838A),
+              color: AppTheme.muted,
             ),
           ),
         ],

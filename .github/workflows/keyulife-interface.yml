@@ -1,7 +1,7 @@
 name: Keyulife interface build
 on:
   push:
-    branches: [feat/keyulife-interface]
+    branches: [feat/keyulife-interface, feat/keyulife-atmosphere]
   workflow_dispatch:
 permissions:
   contents: write
@@ -17,10 +17,23 @@ jobs:
           channel: stable
           cache: true
       - name: Install Chinese fonts for UI evidence
-        run: sudo apt-get update -qq && sudo apt-get install -y fonts-noto-cjk
+        run: |
+          if [ ! -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc ]; then
+            timeout 90s sudo apt-get update -qq || true
+            timeout 90s sudo apt-get install -y fonts-noto-cjk || true
+          fi
       - name: Resolve packages
         working-directory: frontend
         run: flutter pub get
+      - name: Format Dart and retain the exact formatter patch
+        working-directory: frontend
+        run: |
+          dart format lib test
+          git diff -- lib test > build-format.patch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-dart
+          path: frontend/build-format.patch
       - name: Analyze
         working-directory: frontend
         run: flutter analyze

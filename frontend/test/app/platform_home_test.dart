@@ -82,6 +82,29 @@ void main() {
     });
   }
 
+  testWidgets('reduced motion and enlarged text keep home usable', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final campus = emptyCampusData();
+    addTearDown(campus.dispose);
+    AppData.useCampusData(campus);
+    AppData.useTaskRepository(InMemoryTaskRepository());
+    await tester.pumpWidget(MediaQuery(
+      data: const MediaQueryData(size: Size(390, 844),
+        disableAnimations: true, textScaler: TextScaler.linear(1.4)),
+      child: const StudentLifeApp(),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    await tester.scrollUntilVisible(find.text('今天没有课程安排'), 200,
+      scrollable: find.byType(Scrollable).first);
+    expect(find.text('今天没有课程安排'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('home reads tasks and refreshes after returning from task list', (
     tester,
   ) async {

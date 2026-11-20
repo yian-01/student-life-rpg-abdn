@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'app_theme.dart';
 
 import 'app_routes.dart';
 
@@ -22,9 +24,12 @@ class PlatformNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: child,
-    bottomNavigationBar: DecoratedBox(
+    bottomNavigationBar: ClipRect(child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+      child: DecoratedBox(
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE3EAED))),
+        color: Color(0xDB101720),
+        border: Border(top: BorderSide(color: AppTheme.line)),
       ),
       child: NavigationBar(
         height: MediaQuery.sizeOf(context).height < 500 ? 64 : null,
@@ -60,6 +65,6 @@ class PlatformNavigation extends StatelessWidget {
           ),
         ],
       ),
-    ),
+    ))),
   );
 }
