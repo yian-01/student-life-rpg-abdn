@@ -4,7 +4,11 @@ import 'app_routes.dart';
 
 /// Route replacement keeps each tab fresh without retaining account data.
 class PlatformNavigation extends StatelessWidget {
-  const PlatformNavigation({super.key, required this.route, required this.child});
+  const PlatformNavigation({
+    super.key,
+    required this.route,
+    required this.child,
+  });
   final String route;
   final Widget child;
 

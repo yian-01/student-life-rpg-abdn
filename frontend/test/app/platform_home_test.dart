@@ -26,7 +26,9 @@ void main() {
   });
 
   for (final width in [320.0, 390.0, 1200.0]) {
-    testWidgets('real home, navigation and empty data at width $width', (tester) async {
+    testWidgets('real home, navigation and empty data at width $width', (
+      tester,
+    ) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = Size(width, 844);
       addTearDown(tester.view.resetPhysicalSize);
@@ -36,28 +38,38 @@ void main() {
       AppData.useCampusData(campus);
       AppData.useTaskRepository(InMemoryTaskRepository());
       final boundary = GlobalKey();
-      await tester.pumpWidget(RepaintBoundary(
-        key: boundary, child: const StudentLifeApp()));
+      await tester.pumpWidget(
+        RepaintBoundary(key: boundary, child: const StudentLifeApp()),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(PlatformHomePage), findsOneWidget);
       expect(find.text('课屿'), findsOneWidget);
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.runAsync(() async {
-        final image = await (boundary.currentContext!.findRenderObject()!
-            as RenderRepaintBoundary).toImage();
+        final image =
+            await (boundary.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary)
+                .toImage();
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
         final dir = Directory('build/interface-review');
         await dir.create(recursive: true);
-        await File('${dir.path}/home-${width.toInt()}.png')
-            .writeAsBytes(bytes!.buffer.asUint8List());
+        await File(
+          '${dir.path}/home-${width.toInt()}.png',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();
       });
-      await tester.scrollUntilVisible(find.text('今天没有课程安排'), 250,
-          scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        find.text('今天没有课程安排'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('今天没有课程安排'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('暂时没有未完成事项'), 250,
-          scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        find.text('暂时没有未完成事项'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('暂时没有未完成事项'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('我的').last);
@@ -70,7 +82,9 @@ void main() {
     });
   }
 
-  testWidgets('home reads tasks and refreshes after returning from task list', (tester) async {
+  testWidgets('home reads tasks and refreshes after returning from task list', (
+    tester,
+  ) async {
     final campus = emptyCampusData();
     addTearDown(campus.dispose);
     final tasks = InMemoryTaskRepository();
@@ -79,15 +93,21 @@ void main() {
     AppData.useTaskRepository(tasks);
     await tester.pumpWidget(const StudentLifeApp());
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('完成项目设计'), 250,
-        scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('完成项目设计'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('完成项目设计'));
     await tester.pumpAndSettle();
     await tasks.setCompleted('task', true);
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('暂时没有未完成事项'), 250,
-        scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('暂时没有未完成事项'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('完成项目设计'), findsNothing);
     expect(find.text('暂时没有未完成事项'), findsOneWidget);
     expect(tester.takeException(), isNull);
