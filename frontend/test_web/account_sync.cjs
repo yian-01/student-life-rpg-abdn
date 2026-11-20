@@ -83,14 +83,15 @@ async function flutterApp(context) {
   const login = async () => {
     const emailField = page.getByRole('textbox', {name: /邮箱/});
     const passwordField = page.locator('flt-semantics input[type="password"], flt-semantics textarea[aria-label="密码"], flt-semantics [role="textbox"][aria-label="密码"]').first();
-    // Focus the Flutter editor first; filling its semantics proxy alone does
-    // not reliably update the TextEditingController after a route transition.
+    // Wait for the real editor to attach after a route/scope transition.
+    // The accessibility proxy can exist before its editing connection is ready.
+    const editor = page.locator('input.flt-text-editing:focus, textarea.flt-text-editing:focus');
     await emailField.click();
-    await page.keyboard.press('ControlOrMeta+A');
-    await page.keyboard.type(email);
+    await editor.waitFor({state: 'visible'});
+    await editor.fill(email);
     await passwordField.click();
-    await page.keyboard.press('ControlOrMeta+A');
-    await page.keyboard.type(password);
+    await editor.waitFor({state: 'visible'});
+    await editor.fill(password);
     await page.getByRole('button', {name: '登录', exact: true}).click();
     await page.getByRole('button', {name: '退出账号', exact: true}).waitFor();
     await page.waitForFunction(async title => {
@@ -119,6 +120,7 @@ async function flutterApp(context) {
     console.log('Compiled Flutter UI signed in, restored shared cloud data, signed out, erased account cache, and restored again');
   } catch (error) {
     console.error('Chromium page errors:', errors);
+    console.error('Text editor state:', await page.locator('input, textarea').evaluateAll(nodes => nodes.map(n => ({tag:n.tagName, type:n.type, css:n.className, label:n.getAttribute('aria-label'), length:n.value.length}))));
     console.error('Flutter accessibility snapshot:', await page.locator('body').ariaSnapshot());
     throw error;
   } finally {
