@@ -30,6 +30,10 @@ jobs:
       - name: Build same-origin web application
         working-directory: frontend
         run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none
+      - uses: actions/upload-artifact@v4
+        with:
+          name: interface-web-review
+          path: frontend/build/web/
       - name: Verify compiled account login, purge and recovery
         working-directory: frontend
         shell: bash
