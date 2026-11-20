@@ -14,6 +14,7 @@
 | APK 签名验证 | 验签通过，证书为 Android Debug，不能称为正式签名发布包 |
 | 本机 Windows release 重新构建 | 已成功，418.2 秒；修复了本机 NuGet 与路径/生成文件问题 |
 | 旧数据迁移、双文件恢复回滚、票据/调停课重启 | 已在上述自动化中覆盖；不代替真实设备验收 |
+| 本机旧数据独立副本迁移 | schema 2 → 3 逐字段、GPA 换算、任务不变、原件备份和重开幂等均通过，原目录未修改 |
 
 制品来自 [Actions run 43169002569](https://github.com/yian-01/student-life-rpg-abdn/actions/runs/43169002569)，Windows artifact `13921134161`、Android artifact `13922145173`。两者构建自同一冻结提交。打包脚本校验原 ZIP 的固定摘要，不重新签名 APK。
 
@@ -34,7 +35,9 @@ V1.0 此候选面向 Windows 和 Android 本地使用。Web 的存储与浏览�
 - 华师教务真实登录及课表抓取；测试不收集用户密码。
 - ICS 被第三方日历正确导入、CSV 在表格软件中可读。
 
-Android 现有包使用 CI 调试签名。不同 CI 运行生成的调试密钥不保证相同；没有比较旧安装证书前，不保证覆盖安装。禁止建议直接卸载旧应用解决冲突，因为卸载可能删除本地数据。正式签名密钥及升级路线需明确后再发布稳定版，不能偷偷更换 applicationId 绕过。
+Android 现有包使用 CI 调试签名。本轮下载并验证旧候选 `d1e0a1a` 与当前 `29b1bebb` 的 APK：二者包名相同，签名 SHA-256 分别为 `7187886a178b9b70613fc2077759fec83096ec7292244c62b1e1dac920fe34cb` 与 `e651bcfbacbd9da7bedb7d2ff883c7ff028d150bc53c4e2bfe54d8a3b72056c9`，证书不同，不能直接覆盖升级。禁止直接卸载旧应用解决冲突，因为卸载可能删除本地数据。正式签名密钥及升级路线需明确后再发布稳定版，不能偷偷更换 applicationId 绕过。
+
+可复用的副本迁移检查位于 `frontend/tool/verify_v1_upgrade_test.dart`。在 `frontend/` 中设置 `V1_UPGRADE_SNAPSHOT` 为仅包含 `campus.json` 与 `tasks.json` 的独立副本目录，再执行 `flutter test tool/verify_v1_upgrade_test.dart`。它只在临时目录迁移，失败信息不打印记录内容；用户数据不得提交到仓库或附入公开验收材料。此专项 1 项通过，单独记录，不把它合并为一次全套 740 项运行。
 
 ## 打包与核验
 
