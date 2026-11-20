@@ -1,0 +1,6 @@
+# Copy to key.properties locally. Never commit that file or a real keystore.
+# storeFile is resolved relative to frontend/android; an absolute path is allowed.
+storeFile=release-keystore.jks
+storePassword=REPLACE_WITH_LOCAL_SECRET
+keyAlias=student-life-release
+keyPassword=REPLACE_WITH_LOCAL_SECRET
