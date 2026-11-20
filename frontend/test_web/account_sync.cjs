@@ -80,6 +80,8 @@ async function flutterApp(context) {
   await page.goto(origin);
   await page.locator('flt-semantics-placeholder').waitFor({state: 'attached', timeout: 30000});
   await page.locator('flt-semantics-placeholder').dispatchEvent('click');
+  await page.getByRole('button', {name: /我的/}).click();
+  await page.getByRole('button', {name: /登录你的课屿账号/}).click();
   const login = async () => {
     const emailField = page.getByRole('textbox', {name: /邮箱/});
     const passwordField = page.locator('flt-semantics input[type="password"], flt-semantics textarea[aria-label="密码"], flt-semantics [role="textbox"][aria-label="密码"]').first();

@@ -12,7 +12,7 @@ class AppViewport extends StatelessWidget {
     builder: (context, constraints) {
       final width = math.min(maxWidth, constraints.maxWidth);
       return ColoredBox(
-        color: const Color(0xFF171612),
+        color: const Color(0xFFEBF1F3),
         child: Center(
           child: SizedBox(
             width: width,

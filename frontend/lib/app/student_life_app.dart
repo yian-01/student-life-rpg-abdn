@@ -12,7 +12,7 @@ import 'cloud/cloud_sync_controller.dart';
 class StudentLifeApp extends StatefulWidget {
   const StudentLifeApp({
     super.key,
-    this.initialRoute = AppRoutes.bedroom,
+    this.initialRoute = AppRoutes.home,
     this.cloud,
     this.openAccountPage = false,
   });
@@ -96,7 +96,7 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
     final observer = _observer;
     final app = MaterialApp(
       key: ValueKey(_scope),
-      title: 'Student Life RPG',
+      title: '课屿 · 校园生活',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       navigatorObservers: [?observer],
@@ -144,6 +144,7 @@ class _CloudRouteObserver extends NavigatorObserver {
     _top = topRoute;
     final name = topRoute.settings.name;
     final safe =
+        name == AppRoutes.home ||
         name == AppRoutes.bedroom ||
         name == AppRoutes.menu ||
         name == CloudPage.route;
