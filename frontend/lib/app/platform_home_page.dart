@@ -94,7 +94,9 @@ class _PlatformHomePageState extends State<PlatformHomePage>
 
   Future<void> _commands() async {
     final route = await showCampusCommands(context);
-    if (route != null && mounted) await _open(route);
+    if (route != null && mounted) {
+      await _open(route);
+    }
   }
 
   String _time(DateTime value) =>
@@ -112,10 +114,8 @@ class _PlatformHomePageState extends State<PlatformHomePage>
         : '晚上好';
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
-            _open(AppRoutes.search),
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
-            _open(AppRoutes.search),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _commands,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _commands,
       },
       child: Focus(autofocus: true, child: Scaffold(
         body: SafeArea(

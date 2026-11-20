@@ -60,8 +60,9 @@ class _CampusCommandsState extends State<_CampusCommands> {
                 ),
                 onChanged: (value) => setState(() => _query = value),
                 onSubmitted: (_) {
-                  if (matches.isNotEmpty)
+                  if (matches.isNotEmpty) {
                     Navigator.of(context).pop(matches.first.$4);
+                  }
                 },
               ),
             ),
