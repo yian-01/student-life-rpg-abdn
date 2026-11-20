@@ -63,7 +63,9 @@ void main() {
     addTearDown(() => root.deleteSync(recursive: true));
     addTearDown(cloud.dispose);
     const origin = 'https://sync.example.test';
-    await tester.pumpWidget(StudentLifeApp(cloud: cloud, initialRoute: AppRoutes.bedroom));
+    await tester.pumpWidget(
+      StudentLifeApp(cloud: cloud, initialRoute: AppRoutes.bedroom),
+    );
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     unawaited(navigator.pushNamed<void>(CloudPage.route));
     await tester.pumpAndSettle();
