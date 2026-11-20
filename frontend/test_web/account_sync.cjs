@@ -83,8 +83,14 @@ async function flutterApp(context) {
   const login = async () => {
     const emailField = page.getByRole('textbox', {name: /邮箱/});
     const passwordField = page.locator('flt-semantics input[type="password"], flt-semantics textarea[aria-label="密码"], flt-semantics [role="textbox"][aria-label="密码"]').first();
-    await emailField.fill(email);
-    await passwordField.fill(password);
+    // Focus the Flutter editor first; filling its semantics proxy alone does
+    // not reliably update the TextEditingController after a route transition.
+    await emailField.click();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type(email);
+    await passwordField.click();
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type(password);
     await page.getByRole('button', {name: '登录', exact: true}).click();
     await page.getByRole('button', {name: '退出账号', exact: true}).waitFor();
     await page.waitForFunction(async title => {
