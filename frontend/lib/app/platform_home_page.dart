@@ -114,323 +114,334 @@ class _PlatformHomePageState extends State<PlatformHomePage>
         : '晚上好';
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _commands,
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _commands,
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _commands,
       },
-      child: Focus(autofocus: true, child: Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.accent, AppTheme.cyan],
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.accent, AppTheme.cyan],
+                          ),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x22CAEF78), blurRadius: 24),
+                          ],
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x22CAEF78), blurRadius: 24),
-                        ],
-                        borderRadius: BorderRadius.circular(15),
+                        child: const Icon(
+                          Icons.sailing_rounded,
+                          color: AppTheme.background,
+                          size: 25,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.sailing_rounded,
-                        color: AppTheme.background,
-                        size: 25,
-                      ),
-                    ),
-                    const SizedBox(width: 11),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '课屿',
-                            style: TextStyle(
-                              fontSize: 23,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2,
+                      const SizedBox(width: 11),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '课屿',
+                              style: TextStyle(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '让校园生活，有条不紊',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF70838A),
+                            Text(
+                              '让校园生活，有条不紊',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF70838A),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton.filledTonal(
-                      tooltip: '搜索功能 · Ctrl/⌘ K',
-                      onPressed: _commands,
-                      icon: const Icon(Icons.search_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '$greeting，今天也从容一点。',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    height: 1.4,
+                      IconButton.filledTonal(
+                        tooltip: '搜索功能 · Ctrl/⌘ K',
+                        onPressed: _commands,
+                        icon: const Icon(Icons.search_rounded),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${_today.month}月${_today.day}日 · 星期${weekdays[_today.weekday - 1]}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 20),
-                _hero(),
-                const SizedBox(height: 22),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final count = constraints.maxWidth < 320 ? 2 : 4;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        for (final action in [
-                          (
-                            Icons.calendar_month_outlined,
-                            '课程管理',
-                            AppRoutes.academic,
-                            AppTheme.cyan,
-                          ),
-                          (
-                            Icons.checklist_rounded,
-                            '待办清单',
-                            AppRoutes.todo,
-                            AppTheme.accent,
-                          ),
-                          (
-                            Icons.timer_outlined,
-                            '专注时刻',
-                            AppRoutes.focus,
-                            const Color(0xFFF0C58A),
-                          ),
-                          (
-                            Icons.auto_graph_rounded,
-                            '学业档案',
-                            AppRoutes.gpa,
-                            const Color(0xFFC8B4F7),
-                          ),
-                        ])
-                          SizedBox(
-                            width:
-                                (constraints.maxWidth - (count - 1) * 12) /
-                                count,
-                            child: GlassSurface(
-                              radius: 18,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 15,
-                                horizontal: 4,
-                              ),
-                              onTap: () => _open(action.$3),
-                              child: Column(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: action.$4.withValues(
-                                      alpha: .1,
-                                    ),
-                                    foregroundColor: action.$4,
-                                    child: Icon(action.$1, size: 22),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    action.$2,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 26),
-                _heading('生活一览', '详细统计', AppRoutes.dashboard),
-                const SizedBox(height: 12),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cards = [
-                      _metric<MonthlyFinanceSummary>(
-                        future: _finance,
-                        icon: Icons.account_balance_wallet_outlined,
-                        title: '${_today.month}月支出',
-                        route: AppRoutes.finance,
-                        content: (data) => [
-                          Text(
-                            '¥ ${(data.expenseMinor / 100).toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 25,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '收入 ¥ ${(data.incomeMinor / 100).toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      _metric<GpaResult>(
-                        future: _gpa,
-                        icon: Icons.school_outlined,
-                        title: '累计 GPA',
-                        route: AppRoutes.gpa,
-                        content: (data) => [
-                          Text(
-                            data.value?.toStringAsFixed(2) ?? '—',
-                            style: const TextStyle(
-                              fontSize: 25,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            data.value == null
-                                ? '添加课程，开启学业记录'
-                                : '5.0 制 · 已评分 ${data.gradedCourseCount} 门',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ];
-                    if (constraints.maxWidth < 300) {
-                      return Column(
+                  const SizedBox(height: 24),
+                  Text(
+                    '$greeting，今天也从容一点。',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${_today.month}月${_today.day}日 · 星期${weekdays[_today.weekday - 1]}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 20),
+                  _hero(),
+                  const SizedBox(height: 22),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final count = constraints.maxWidth < 320 ? 2 : 4;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
-                          cards[0],
-                          const SizedBox(height: 12),
-                          cards[1],
+                          for (final action in [
+                            (
+                              Icons.calendar_month_outlined,
+                              '课程管理',
+                              AppRoutes.academic,
+                              AppTheme.cyan,
+                            ),
+                            (
+                              Icons.checklist_rounded,
+                              '待办清单',
+                              AppRoutes.todo,
+                              AppTheme.accent,
+                            ),
+                            (
+                              Icons.timer_outlined,
+                              '专注时刻',
+                              AppRoutes.focus,
+                              const Color(0xFFF0C58A),
+                            ),
+                            (
+                              Icons.auto_graph_rounded,
+                              '学业档案',
+                              AppRoutes.gpa,
+                              const Color(0xFFC8B4F7),
+                            ),
+                          ])
+                            SizedBox(
+                              width:
+                                  (constraints.maxWidth - (count - 1) * 12) /
+                                  count,
+                              child: GlassSurface(
+                                radius: 18,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 15,
+                                  horizontal: 4,
+                                ),
+                                onTap: () => _open(action.$3),
+                                child: Column(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: action.$4.withValues(
+                                        alpha: .1,
+                                      ),
+                                      foregroundColor: action.$4,
+                                      child: Icon(action.$1, size: 22),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      action.$2,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                         ],
                       );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: cards[0]),
-                        const SizedBox(width: 12),
-                        Expanded(child: cards[1]),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 25),
-                _heading('今日课程', '查看课表', AppRoutes.schedule),
-                const SizedBox(height: 12),
-                _surface(
-                  child: _section<List<ScheduleItem>>(
-                    _courses,
-                    (rows) => rows.isEmpty
-                        ? _empty(
-                            Icons.wb_sunny_outlined,
-                            '今天没有课程安排',
-                            '留一点时间，做自己喜欢的事。',
-                            '添加课程',
-                            AppRoutes.academic,
-                          )
-                        : Column(
-                            children: [for (final row in rows) _courseRow(row)],
-                          ),
+                    },
                   ),
-                ),
-                const SizedBox(height: 25),
-                _heading('待办事项', '查看全部', AppRoutes.todo),
-                const SizedBox(height: 12),
-                _surface(
-                  child: _section<List<Task>>(
-                    _tasks,
-                    (rows) => rows.isEmpty
-                        ? _empty(
-                            Icons.task_alt_rounded,
-                            '暂时没有未完成事项',
-                            '把灵感和计划，收进你的清单。',
-                            '新建待办',
-                            AppRoutes.todo,
-                          )
-                        : Column(
-                            children: [
-                              for (final task in rows.take(3))
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Icon(
-                                    Icons.radio_button_unchecked,
-                                    color: task.priority == TaskPriority.high
-                                        ? const Color(0xFFC47B4B)
-                                        : AppTheme.accent,
-                                  ),
-                                  title: Text(
-                                    task.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    task.dueAt == null
-                                        ? '未设置截止时间'
-                                        : '${task.dueAt!.month}月${task.dueAt!.day}日 ${_time(task.dueAt!)} 截止',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right_rounded,
-                                  ),
-                                  onTap: () => _open(AppRoutes.todo),
-                                ),
-                            ],
-                          ),
+                  const SizedBox(height: 26),
+                  _heading('生活一览', '详细统计', AppRoutes.dashboard),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cards = [
+                        _metric<MonthlyFinanceSummary>(
+                          future: _finance,
+                          icon: Icons.account_balance_wallet_outlined,
+                          title: '${_today.month}月支出',
+                          route: AppRoutes.finance,
+                          content: (data) => [
+                            Text(
+                              '¥ ${(data.expenseMinor / 100).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '收入 ¥ ${(data.incomeMinor / 100).toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                        _metric<GpaResult>(
+                          future: _gpa,
+                          icon: Icons.school_outlined,
+                          title: '累计 GPA',
+                          route: AppRoutes.gpa,
+                          content: (data) => [
+                            Text(
+                              data.value?.toStringAsFixed(2) ?? '—',
+                              style: const TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              data.value == null
+                                  ? '添加课程，开启学业记录'
+                                  : '5.0 制 · 已评分 ${data.gradedCourseCount} 门',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ];
+                      if (constraints.maxWidth < 300) {
+                        return Column(
+                          children: [
+                            cards[0],
+                            const SizedBox(height: 12),
+                            cards[1],
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: cards[0]),
+                          const SizedBox(width: 12),
+                          Expanded(child: cards[1]),
+                        ],
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: 22),
-                _surface(
-                  color: const Color(0xD4152528),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.cottage_outlined, size: 29),
-                    title: const Text(
-                      '我的小小空间',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: const Text('忙碌之外，回到你的校园卧室'),
-                    trailing: const Icon(Icons.arrow_forward_rounded, size: 20),
-                    onTap: () => _open(AppRoutes.bedroom),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (cloud != null)
-                  ListenableBuilder(
-                    listenable: cloud,
-                    builder: (context, _) => TextButton.icon(
-                      onPressed: () => _open(CloudPage.route),
-                      icon: Icon(
-                        cloud.session == null
-                            ? Icons.cloud_outlined
-                            : Icons.manage_accounts_outlined,
-                        size: 17,
-                      ),
-                      label: Text(
-                        cloud.session == null ? '登录账号，开启云端同步' : '账号与云同步 · 查看状态',
-                      ),
+                  const SizedBox(height: 25),
+                  _heading('今日课程', '查看课表', AppRoutes.schedule),
+                  const SizedBox(height: 12),
+                  _surface(
+                    child: _section<List<ScheduleItem>>(
+                      _courses,
+                      (rows) => rows.isEmpty
+                          ? _empty(
+                              Icons.wb_sunny_outlined,
+                              '今天没有课程安排',
+                              '留一点时间，做自己喜欢的事。',
+                              '添加课程',
+                              AppRoutes.academic,
+                            )
+                          : Column(
+                              children: [
+                                for (final row in rows) _courseRow(row),
+                              ],
+                            ),
                     ),
                   ),
-              ],
+                  const SizedBox(height: 25),
+                  _heading('待办事项', '查看全部', AppRoutes.todo),
+                  const SizedBox(height: 12),
+                  _surface(
+                    child: _section<List<Task>>(
+                      _tasks,
+                      (rows) => rows.isEmpty
+                          ? _empty(
+                              Icons.task_alt_rounded,
+                              '暂时没有未完成事项',
+                              '把灵感和计划，收进你的清单。',
+                              '新建待办',
+                              AppRoutes.todo,
+                            )
+                          : Column(
+                              children: [
+                                for (final task in rows.take(3))
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: Icon(
+                                      Icons.radio_button_unchecked,
+                                      color: task.priority == TaskPriority.high
+                                          ? const Color(0xFFC47B4B)
+                                          : AppTheme.accent,
+                                    ),
+                                    title: Text(
+                                      task.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    subtitle: Text(
+                                      task.dueAt == null
+                                          ? '未设置截止时间'
+                                          : '${task.dueAt!.month}月${task.dueAt!.day}日 ${_time(task.dueAt!)} 截止',
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right_rounded,
+                                    ),
+                                    onTap: () => _open(AppRoutes.todo),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  _surface(
+                    color: const Color(0xD4152528),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.cottage_outlined, size: 29),
+                      title: const Text(
+                        '我的小小空间',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: const Text('忙碌之外，回到你的校园卧室'),
+                      trailing: const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 20,
+                      ),
+                      onTap: () => _open(AppRoutes.bedroom),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (cloud != null)
+                    ListenableBuilder(
+                      listenable: cloud,
+                      builder: (context, _) => TextButton.icon(
+                        onPressed: () => _open(CloudPage.route),
+                        icon: Icon(
+                          cloud.session == null
+                              ? Icons.cloud_outlined
+                              : Icons.manage_accounts_outlined,
+                          size: 17,
+                        ),
+                        label: Text(
+                          cloud.session == null
+                              ? '登录账号，开启云端同步'
+                              : '账号与云同步 · 查看状态',
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-      )),
+      ),
     );
   }
 
