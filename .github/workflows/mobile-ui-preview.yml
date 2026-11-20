@@ -1,0 +1,39 @@
+name: Mobile UI Preview (isolated)
+on:
+  push:
+    branches:
+      - preview/mobile-ui-2026-11-20
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: mobile-ui-preview
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Build Flutter web for isolated Pages path
+        working-directory: frontend
+        run: |
+          flutter pub get
+          flutter build web --release --base-href /student-life-rpg-abdn/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/build/web
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
