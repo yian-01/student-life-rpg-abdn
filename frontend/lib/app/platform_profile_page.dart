@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'app_routes.dart';
+import 'app_theme.dart';
+import 'atmosphere.dart';
 import 'cloud/cloud_page.dart';
 import 'cloud/cloud_scope.dart';
 
@@ -22,27 +24,34 @@ class PlatformProfilePage extends StatelessWidget {
           const SizedBox(height: 8),
           Text('记录成长，也给自己留一点空间。', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: cloud == null
-                  ? _link(
-                      context,
-                      Icons.cloud_outlined,
-                      '账号与云同步',
-                      '登录、注册及同步设置',
-                      CloudPage.route,
-                    )
-                  : ListenableBuilder(
-                      listenable: cloud,
-                      builder: (context, _) => _link(
+          SurfaceReveal(
+            child: GlassSurface(
+              blur: true,
+              tint: const Color(0xB81B2C2B),
+              padding: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: cloud == null
+                    ? _link(
                         context,
                         Icons.cloud_outlined,
-                        cloud.session?.email ?? '登录你的课屿账号',
-                        cloud.session == null ? '登录后可开启跨设备数据同步' : '管理账号，查看同步状态',
+                        '账号与云同步',
+                        '登录、注册及同步设置',
                         CloudPage.route,
+                      )
+                    : ListenableBuilder(
+                        listenable: cloud,
+                        builder: (context, _) => _link(
+                          context,
+                          Icons.cloud_outlined,
+                          cloud.session?.email ?? '登录你的课屿账号',
+                          cloud.session == null
+                              ? '登录后可开启跨设备数据同步'
+                              : '管理账号，查看同步状态',
+                          CloudPage.route,
+                        ),
                       ),
-                    ),
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -105,11 +114,7 @@ class PlatformProfilePage extends StatelessWidget {
           const Text(
             '课屿 KEYULIFE\n让校园生活，有条不紊',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.9,
-              color: Color(0xFF70838A),
-            ),
+            style: TextStyle(fontSize: 12, height: 1.9, color: AppTheme.muted),
           ),
         ],
       ),
