@@ -115,19 +115,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('command palette filters and opens a real module', (tester) async {
+  testWidgets('command palette filters and opens a real module', (
+    tester,
+  ) async {
     final campus = emptyCampusData();
     addTearDown(campus.dispose);
     AppData.useCampusData(campus);
     AppData.useTaskRepository(InMemoryTaskRepository());
     await tester.pumpWidget(const StudentLifeApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('搜索功能 · Ctrl/⌘ K'));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsOneWidget);
     await tester.enterText(find.byType(TextField), '学业');
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text('学业档案')));
+    await tester.tap(
+      find.descendant(of: find.byType(Dialog), matching: find.text('学业档案')),
+    );
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '学业档案'), findsOneWidget);
     expect(tester.takeException(), isNull);

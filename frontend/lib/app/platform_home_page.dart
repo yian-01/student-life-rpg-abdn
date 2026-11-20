@@ -117,7 +117,7 @@ class _PlatformHomePageState extends State<PlatformHomePage>
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
             _open(AppRoutes.search),
       },
-      child: Scaffold(
+      child: Focus(autofocus: true, child: Scaffold(
         body: SafeArea(
           bottom: false,
           child: RefreshIndicator(
@@ -430,7 +430,7 @@ class _PlatformHomePageState extends State<PlatformHomePage>
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 
