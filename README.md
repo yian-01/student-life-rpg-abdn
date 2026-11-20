@@ -42,7 +42,7 @@ flutter build windows --release
 flutter build apk --release
 ```
 
-Windows 应完整分发 `build/windows/x64/runner/Release/`，不能只复制 EXE。Android release 必须先按 `frontend/android/key.properties.example` 配置真实签名密钥；未配置会拒绝打包。仅生成验收 APK 时，可显式设置环境变量 `ORG_GRADLE_PROJECT_studentLifeAcceptanceSigning=true` 后构建，产物使用本机调试签名，不能作为正式稳定版或保证兼容旧安装。
+Windows 应完整分发 `build/windows/x64/runner/Release/`，不能只复制 EXE。Android release 必须先按 `frontend/android/key.properties.example` 配置真实签名密钥；未配置会拒绝打包。仅生成验收 APK 时，可显式设置环境变量 `STUDENT_LIFE_ACCEPTANCE_SIGNING=true` 后构建，产物使用本机调试签名，不能作为正式稳定版或保证兼容旧安装。
 
 本轮已核实两轮历史 V1.0 APK 签名不同。不要直接卸载仍存有未导出数据的旧应用。长期签名及旧安装迁移方式确认前，不发布新的稳定 APK。
 

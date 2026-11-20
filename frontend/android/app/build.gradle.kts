@@ -19,7 +19,7 @@ if (releaseKeyFile.isFile) {
         "Android signing keystore does not exist. Check storeFile in android/key.properties."
     }
 }
-val acceptanceSigning = providers.gradleProperty("studentLifeAcceptanceSigning").orNull == "true"
+val acceptanceSigning = providers.environmentVariable("STUDENT_LIFE_ACCEPTANCE_SIGNING").orNull == "true"
 val hasReleaseKey = releaseKeyFile.isFile
 
 // Acceptance signing must be explicit. A normal release must never silently
@@ -32,7 +32,7 @@ gradle.taskGraph.whenReady {
         throw GradleException(
             "Release signing is not configured. Create android/key.properties with the existing " +
                 "release keystore. For a TEST-ONLY acceptance APK, explicitly set " +
-                "ORG_GRADLE_PROJECT_studentLifeAcceptanceSigning=true. " +
+                "STUDENT_LIFE_ACCEPTANCE_SIGNING=true. " +
                 "Do not uninstall an old app to bypass a signing mismatch."
         )
     }

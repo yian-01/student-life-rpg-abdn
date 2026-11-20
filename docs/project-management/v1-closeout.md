@@ -41,7 +41,7 @@ Android 现有包使用 CI 调试签名。本轮下载并验证旧候选 `d1e0a1
 
 ## 签名构建保护
 
-移除 Android release 默认回落到 debug keystore 的行为。没有 `android/key.properties` 时，release 打包任务会明确失败；验收构建必须显式设置 `ORG_GRADLE_PROJECT_studentLifeAcceptanceSigning=true`。原验收 workflow 已设置这一环境变量。
+移除 Android release 默认回落到 debug keystore 的行为。没有 `android/key.properties` 时，release 打包任务会明确失败；验收构建必须显式设置 `STUDENT_LIFE_ACCEPTANCE_SIGNING=true`。原验收 workflow 已设置这一环境变量。使用全大写独立环境变量，兼容 Windows Flutter 启动子进程时的环境变量键名大写处理。
 
 需要正式密钥时，将 `frontend/android/key.properties.example` 复制为被 Git 忽略的 `key.properties`，填入原密钥信息，使用 UTF-8 保存。密钥路径支持中文；不要提交密钥或密码。没有原密钥时无法生成与旧 APK 相同的签名，必须另外确认备份迁移和长期密钥策略。
 
