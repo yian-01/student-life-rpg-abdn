@@ -83,15 +83,18 @@ async function flutterApp(context) {
   const login = async () => {
     const emailField = page.getByRole('textbox', {name: /邮箱/});
     const passwordField = page.locator('flt-semantics input[type="password"], flt-semantics textarea[aria-label="密码"], flt-semantics [role="textbox"][aria-label="密码"]').first();
-    // Wait for the real editor to attach after a route/scope transition.
-    // The accessibility proxy can exist before its editing connection is ready.
-    const editor = page.locator('input.flt-text-editing:focus, textarea.flt-text-editing:focus');
-    await emailField.click();
-    await editor.waitFor({state: 'visible'});
-    await editor.fill(email);
-    await passwordField.click();
-    await editor.waitFor({state: 'visible'});
-    await editor.fill(password);
+    // A semantics input is ready before Flutter's focus connection and route
+    // animation have painted. Synchronize with frames before sending key input.
+    const enter = async (field, value) => {
+      await field.focus();
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await field.press('ControlOrMeta+A');
+      await field.pressSequentially(value, {delay: 50});
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      assert.equal(await field.inputValue(), value);
+    };
+    await enter(emailField, email);
+    await enter(passwordField, password);
     await page.getByRole('button', {name: '登录', exact: true}).click();
     await page.getByRole('button', {name: '退出账号', exact: true}).waitFor();
     await page.waitForFunction(async title => {
