@@ -102,23 +102,25 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
       theme: AppTheme.light,
       navigatorObservers: [?observer],
       builder: (context, child) => AppViewport(
-        child: AtmosphereBackdrop(child: cloud == null
-            ? child ?? const SizedBox.shrink()
-            : ListenableBuilder(
-                listenable: cloud,
-                child: child,
-                builder: (context, child) => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    child ?? const SizedBox.shrink(),
-                    if (cloud.applying)
-                      const ModalBarrier(
-                        color: Colors.transparent,
-                        dismissible: false,
-                      ),
-                  ],
+        child: AtmosphereBackdrop(
+          child: cloud == null
+              ? child ?? const SizedBox.shrink()
+              : ListenableBuilder(
+                  listenable: cloud,
+                  child: child,
+                  builder: (context, child) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      child ?? const SizedBox.shrink(),
+                      if (cloud.applying)
+                        const ModalBarrier(
+                          color: Colors.transparent,
+                          dismissible: false,
+                        ),
+                    ],
+                  ),
                 ),
-              )),
+        ),
       ),
       initialRoute: widget.initialRoute,
       // Rebuild the route stack so pages cannot retain another account's data.

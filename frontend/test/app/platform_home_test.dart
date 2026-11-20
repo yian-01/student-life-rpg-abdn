@@ -82,7 +82,9 @@ void main() {
     });
   }
 
-  testWidgets('reduced motion and enlarged text keep home usable', (tester) async {
+  testWidgets('reduced motion and enlarged text keep home usable', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.resetPhysicalSize);
@@ -91,17 +93,43 @@ void main() {
     addTearDown(campus.dispose);
     AppData.useCampusData(campus);
     AppData.useTaskRepository(InMemoryTaskRepository());
-    await tester.pumpWidget(MediaQuery(
-      data: const MediaQueryData(size: Size(390, 844),
-        disableAnimations: true, textScaler: TextScaler.linear(1.4)),
-      child: const StudentLifeApp(),
-    ));
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(
+          size: Size(390, 844),
+          disableAnimations: true,
+          textScaler: TextScaler.linear(1.4),
+        ),
+        child: const StudentLifeApp(),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(tester.binding.hasScheduledFrame, isFalse);
-    await tester.scrollUntilVisible(find.text('今天没有课程安排'), 200,
-      scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('今天没有课程安排'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('今天没有课程安排'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('command palette filters and opens a real module', (tester) async {
+    final campus = emptyCampusData();
+    addTearDown(campus.dispose);
+    AppData.useCampusData(campus);
+    AppData.useTaskRepository(InMemoryTaskRepository());
+    await tester.pumpWidget(const StudentLifeApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('搜索功能 · Ctrl/⌘ K'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '学业');
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text('学业档案')));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AppBar, '学业档案'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
