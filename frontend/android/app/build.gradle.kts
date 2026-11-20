@@ -1,7 +1,41 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val releaseKeyFile = rootProject.file("key.properties")
+val releaseKey = Properties()
+if (releaseKeyFile.isFile) {
+    releaseKeyFile.reader(Charsets.UTF_8).use { releaseKey.load(it) }
+    val missing = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        .filter { releaseKey.getProperty(it).isNullOrBlank() }
+    require(missing.isEmpty()) {
+        "Android signing configuration is incomplete. Missing keys: ${missing.joinToString()}"
+    }
+    require(rootProject.file(releaseKey.getProperty("storeFile")).isFile) {
+        "Android signing keystore does not exist. Check storeFile in android/key.properties."
+    }
+}
+val acceptanceSigning = providers.gradleProperty("studentLifeAcceptanceSigning").orNull == "true"
+val hasReleaseKey = releaseKeyFile.isFile
+
+// Acceptance signing must be explicit. A normal release must never silently
+// receive the machine's disposable Android Debug certificate.
+gradle.taskGraph.whenReady {
+    val packagesRelease = allTasks.any {
+        it.project == project && it.name in setOf("assembleRelease", "bundleRelease", "packageRelease")
+    }
+    if (packagesRelease && !hasReleaseKey && !acceptanceSigning) {
+        throw GradleException(
+            "Release signing is not configured. Create android/key.properties with the existing " +
+                "release keystore. For a TEST-ONLY acceptance APK, explicitly set " +
+                "ORG_GRADLE_PROJECT_studentLifeAcceptanceSigning=true. " +
+                "Do not uninstall an old app to bypass a signing mismatch."
+        )
+    }
 }
 
 android {
@@ -25,11 +59,24 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(releaseKey.getProperty("storeFile"))
+                storePassword = releaseKey.getProperty("storePassword")
+                keyAlias = releaseKey.getProperty("keyAlias")
+                keyPassword = releaseKey.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = when {
+                hasReleaseKey -> signingConfigs.getByName("release")
+                acceptanceSigning -> signingConfigs.getByName("debug")
+                else -> null
+            }
         }
     }
 }

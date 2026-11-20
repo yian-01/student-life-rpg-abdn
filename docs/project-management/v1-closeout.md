@@ -39,6 +39,14 @@ Android 现有包使用 CI 调试签名。本轮下载并验证旧候选 `d1e0a1
 
 可复用的副本迁移检查位于 `frontend/tool/verify_v1_upgrade_test.dart`。在 `frontend/` 中设置 `V1_UPGRADE_SNAPSHOT` 为仅包含 `campus.json` 与 `tasks.json` 的独立副本目录，再执行 `flutter test tool/verify_v1_upgrade_test.dart`。它只在临时目录迁移，失败信息不打印记录内容；用户数据不得提交到仓库或附入公开验收材料。此专项 1 项通过，单独记录，不把它合并为一次全套 740 项运行。
 
+## 签名构建保护
+
+移除 Android release 默认回落到 debug keystore 的行为。没有 `android/key.properties` 时，release 打包任务会明确失败；验收构建必须显式设置 `ORG_GRADLE_PROJECT_studentLifeAcceptanceSigning=true`。原验收 workflow 已设置这一环境变量。
+
+需要正式密钥时，将 `frontend/android/key.properties.example` 复制为被 Git 忽略的 `key.properties`，填入原密钥信息，使用 UTF-8 保存。密钥路径支持中文；不要提交密钥或密码。没有原密钥时无法生成与旧 APK 相同的签名，必须另外确认备份迁移和长期密钥策略。
+
+三种 Gradle 任务图检查已执行：无配置的 release 被拒绝、显式验收签名允许打包任务、显式 keystore 配置允许打包任务，均符合预期。最后一项使用临时测试密钥，配置文件在验证后删除，未作为正式发布密钥。任务图检查不冒充 APK 实际构建或真机安装。
+
 ## 打包与核验
 
 ```powershell
