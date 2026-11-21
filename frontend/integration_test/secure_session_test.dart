@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_inappwebview/flutter_inappwebview.dart' hide Cookie;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:student_life_rpg/app/cloud/cloud_sync_controller.dart';
+import 'package:student_life_rpg/app/app_data.dart';
 import 'package:student_life_rpg/app/cloud/sync_api.dart';
 import 'package:student_life_rpg/app/data/campus_store.dart';
 import 'package:student_life_rpg/app/data/full_backup.dart';
 import 'package:student_life_rpg/features/schedule/repositories/file_task_repository.dart';
 import 'package:student_life_rpg/shared/storage/json_document_store.dart';
+import 'package:student_life_rpg/features/timetable_capture/scnu_web_session.dart';
 
 // Only authentication is a fixture. Session persistence uses the actual native
 // secure-storage plugin and account files use a separate temporary directory.
@@ -90,5 +94,91 @@ void main() {
         await root.delete(recursive: true);
       }
     },
+  );
+
+  testWidgets(
+    'school browser cookies stay private across account profiles',
+    (tester) async {
+      final root = await Directory.systemTemp.createTemp(
+        'student-life-browser-',
+      );
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        if (request.uri.path == '/seed') {
+          request.response.cookies.add(
+            Cookie('school_session', 'fixture_only')
+              ..httpOnly = false
+              ..path = '/',
+          );
+        }
+        request.response.headers.contentType = ContentType.html;
+        request.response.write(
+          '<html><body>Private browser fixture</body></html>',
+        );
+        await request.response.close();
+      });
+      final origin = 'http://127.0.0.1:${server.port}';
+      Future<String> read(String account, String path) async {
+        final directory = await Directory('${root.path}/$account').create();
+        AppData.switchDirectory(directory);
+        final environment = await ScnuWebSession.openEnvironment();
+        final loaded = Completer<InAppWebViewController>();
+        final browser = HeadlessInAppWebView(
+          webViewEnvironment: environment,
+          initialSettings: ScnuWebSession.browserSettings(),
+          initialUrlRequest: URLRequest(url: WebUri('$origin/$path')),
+          shouldOverrideUrlLoading: (_, _) async =>
+              NavigationActionPolicy.ALLOW,
+          onReceivedError: (_, request, error) {
+            if (!loaded.isCompleted) {
+              loaded.completeError(
+                StateError('Local browser fixture: ${error.description}'),
+              );
+            }
+          },
+          onLoadStop: (controller, url) {
+            if (url.toString() == '$origin/$path' && !loaded.isCompleted) {
+              loaded.complete(controller);
+            }
+          },
+        );
+        try {
+          await browser.run();
+          final controller = await loaded.future.timeout(
+            const Duration(seconds: 30),
+          );
+          return (await controller.evaluateJavascript(
+                source: 'document.cookie',
+              ))
+              as String;
+        } finally {
+          await browser.dispose();
+          await environment?.dispose();
+        }
+      }
+
+      try {
+        expect(
+          await read('account-a', 'seed'),
+          contains('school_session=fixture_only'),
+        );
+        expect(await read('account-b', 'check'), isEmpty);
+        expect(await read('account-a', 'check'), isEmpty);
+      } finally {
+        AppData.switchDirectory(null);
+        await server.close(force: true);
+        // WebView2 may release its profile file handles shortly after disposal.
+        final deadline = DateTime.now().add(const Duration(seconds: 10));
+        while (await root.exists()) {
+          try {
+            await root.delete(recursive: true);
+          } on FileSystemException {
+            if (DateTime.now().isAfter(deadline)) rethrow;
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          }
+        }
+      }
+    },
+    skip: !Platform.isWindows,
   );
 }
