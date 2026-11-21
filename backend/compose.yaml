@@ -5,6 +5,7 @@ services:
       SYNC_DATABASE: /app/data/sync.sqlite3
       SYNC_SIGNUP_CODE: "${SYNC_SIGNUP_CODE:?Set a registration code in backend/.env}"
       SYNC_TRUST_PROXY: "1"
+      SYNC_ALLOWED_ORIGINS: "${SYNC_ALLOWED_ORIGINS:-}"
     volumes:
       - sync_data:/app/data
     restart: unless-stopped

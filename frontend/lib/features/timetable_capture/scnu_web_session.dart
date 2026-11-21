@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:path_provider/path_provider.dart';
 
+import '../../app/app_data.dart';
 import 'timetable_page_capture.dart';
 
 const scnuTimetableHost = 'jwxt.scnu.edu.cn';
@@ -23,6 +23,30 @@ class ScnuWebSession implements AuthenticatedPageSession {
   const ScnuWebSession(this.context);
 
   final BuildContext context;
+
+  static InAppWebViewSettings browserSettings() => InAppWebViewSettings(
+    incognito: true,
+    useShouldOverrideUrlLoading: true,
+    javaScriptCanOpenWindowsAutomatically: false,
+    supportMultipleWindows: false,
+    allowFileAccess: false,
+    allowContentAccess: false,
+    mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
+  );
+
+  static Future<WebViewEnvironment?> openEnvironment() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return null;
+    if (await WebViewEnvironment.getAvailableVersion() == null) {
+      throw StateError('WebView2 Runtime unavailable');
+    }
+    // A shared WebView profile could retain another account's school login.
+    final directory = await AppData.directory();
+    return WebViewEnvironment.create(
+      settings: WebViewEnvironmentSettings(
+        userDataFolder: '${directory.path}\\scnu-webview',
+      ),
+    );
+  }
 
   @override
   Future<PageSnapshot> openAndRead(Uri url, {required Duration timeout}) async {
@@ -94,20 +118,8 @@ class _ScnuBrowserState extends State<_ScnuBrowser> {
   bool _loading = true;
   bool _reading = false;
   String? _error;
-  late final Future<WebViewEnvironment?> _environment = _openEnvironment();
-
-  Future<WebViewEnvironment?> _openEnvironment() async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return null;
-    if (await WebViewEnvironment.getAvailableVersion() == null) {
-      throw StateError('WebView2 Runtime unavailable');
-    }
-    final support = await getApplicationSupportDirectory();
-    return WebViewEnvironment.create(
-      settings: WebViewEnvironmentSettings(
-        userDataFolder: '${support.path}\\scnu-webview',
-      ),
-    );
-  }
+  late final Future<WebViewEnvironment?> _environment =
+      ScnuWebSession.openEnvironment();
 
   @override
   void dispose() {
@@ -224,14 +236,7 @@ class _ScnuBrowserState extends State<_ScnuBrowser> {
                 initialUrlRequest: URLRequest(
                   url: WebUri(widget.url.toString()),
                 ),
-                initialSettings: InAppWebViewSettings(
-                  useShouldOverrideUrlLoading: true,
-                  javaScriptCanOpenWindowsAutomatically: false,
-                  supportMultipleWindows: false,
-                  allowFileAccess: false,
-                  allowContentAccess: false,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
-                ),
+                initialSettings: ScnuWebSession.browserSettings(),
                 onWebViewCreated: (controller) {
                   if (mounted) setState(() => _controller = controller);
                 },

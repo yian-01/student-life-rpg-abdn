@@ -69,6 +69,11 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
   void _scopeChanged() {
     final cloud = widget.cloud!;
     if (_scope == cloud.scope) return;
+    // Receipt previews use Flutter's process-wide image cache. Replacing the
+    // route stack alone leaves their bytes and decoded images cached.
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
     setState(() {
       _reopenAccountPage = _observer?.isAccountPage ?? false;
       _scope = cloud.scope;

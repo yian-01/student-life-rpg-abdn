@@ -1,127 +1,63 @@
-<div align="center">
+# Student Life RPG / 课屿
 
-# 🎓 Student Life RPG
+Flutter / Dart 大学生学习与生活管理应用，包含学业、日程、个人财务和 RPG 空间。
 
-### Make everyday progress part of your adventure.
+## 当前状态
 
-**学业规划 · 个人财务 · 角色成长**
+本分支为 V1.1 开发候选（`1.1.0+2`），尚未正式发布。V1.0 功能基线为 `29b1bebb208fc3f2d0fd6cfe684e280eba0f7583`；本轮在预览代码 `6d1178ee3b71786e9a37fdb4559d8818f8bf0b4e` 上修复账号与同步可靠性。
 
-A gamified university-life application that brings academic planning,
-personal finance and RPG progression into one interactive experience.
+已执行验证与未完成的实机事项见 [V1.1 验收矩阵](docs/v1.1-reliability.md)。不能把本地自动化通过等同于 Android、Windows 系统凭证存储或 iOS 主屏幕模式全部验收。
 
-![Stage](https://img.shields.io/badge/Stage-Design_Baseline-7C3AED?style=flat-square)
-![Approach](https://img.shields.io/badge/Alpha-Local_First-0F766E?style=flat-square)
-![UI](https://img.shields.io/badge/Planned_UI-Flutter-02569B?style=flat-square)
-![Storage](https://img.shields.io/badge/Planned_Storage-SQLite-003B57?style=flat-square)
+开发顺序：完成 V1.0 / V1.1 功能代码 → 手机与桌面 UI → 大模型功能 → 联合验收与正式发布。当前不发布安装包、不合并重要 PR、不更新正式网站。
 
-[Documentation](docs/README.md) · [Product](docs/product/overview.md) · [Architecture](docs/architecture/architecture.md) · [Contributing](CONTRIBUTING.md)
+## 已接入的功能
 
-</div>
+- 学期、课程、单次调停课、作业、考试、GPA。
+- 周课表、待办、优先级、子步骤、事件、搜索、今日规划与专注计时。
+- 收支、分类、月预算、统计、报销与票据。
+- 完整 JSON 备份恢复、删除撤销、ICS / CSV 导出。
+- 卧室场景、角色移动、交互入口与 HUD。
+- Web 存储、账号注册登录、账号隔离、完整快照同步、三方合并及冲突选择。
+- 退出前保存修改；断网或冲突时保留修改并阻止退出；退出清理账号文件和登录凭证，重新登录恢复云端数据。
 
----
+这些条目描述源码已有能力，具体运行证据和平台差异以验收矩阵为准。现有主页属于开发中的 UI，后续完整桌面工作台和大模型功能尚未完成。
 
-## The idea
+## 开发与检查
 
-University life is spread across timetables, deadlines, grades and spending records. **Student Life RPG** brings these responsibilities into a proposed mobile experience, with a pixel-art RPG world connecting everyday actions to character growth.
+使用 Flutter 3.44.6 / Dart 3.12.2：
 
-**Plan your day. Complete meaningful tasks. Watch your character grow.**
-
-> **Current baseline:** product requirements, architecture specifications, collaboration rules and test designs. Application source code and verified execution evidence are awaiting import. Actual code paths, running commands and test results are deliberately left blank.
-
-## One world, four connected modules
-
-| Module | Student experience | Planned Alpha scope |
-| :--- | :--- | :--- |
-| **RPG World** | Explore a personal space and access useful tools | Movement, collision, prompts, scene navigation and fixed HUD |
-| **Academic** | Keep academic obligations together | Semesters, courses, assignments, exams, calendar and GPA |
-| **Finance** | Understand everyday spending | Income, expenses, budgets and summaries |
-| **Gamification** | Make completed tasks visible | EXP, coins, levels and player progress |
-
-The proposed visual direction is **portrait, 2.5D pixel art**. Real screenshots and demo evidence will be added after source import. AI, social features, multiplayer and complex farming remain outside Alpha scope.
-
-## The Alpha acceptance journey
-
-Create an academic task, see it in the calendar, complete it, apply its reward once, refresh the HUD and restart without losing data.
-
-The acceptance gates require correct persisted values, no duplicate rewards and actionable failure feedback. Finance and GPA also have independent calculation checks.
-
-[Explore user stories →](docs/product/user-stories.md)
-
-## Architecture at a glance
-
-```mermaid
-flowchart TD
-  World["RPG world"] --> State["Controllers and application rules"]
-  Academic["Academic screens"] --> State
-  Finance["Finance screens"] --> State
-  State --> Records["Academic and finance repositories"]
-  State --> Progress["Player progress repository"]
-  Records --> DB[("Local SQLite")]
-  Progress --> DB
+```sh
+cd frontend
+flutter pub get
+dart format --output=none --set-exit-if-changed lib test integration_test
+flutter analyze
+flutter test
+flutter run -d windows
+# Web 可运行 flutter run -d chrome；Android 用 flutter devices 选择设备。
 ```
 
-| Design choice | Reason | Consequence |
-| :--- | :--- | :--- |
-| Local Alpha | Demonstrate a complete journey without mandatory cloud services | No cross-device synchronization yet |
-| Repository contracts | Separate UI from storage and make behavior testable | Shared contracts require coordinated review |
-| Atomic reward grant | Prevent duplicate rewards and partial progress updates | Completion and grant policy must be explicit |
-| Feature ownership | Keep most team changes within a module | Cross-feature workflows need an integration owner |
+原生同步端到端测试需要 Python，设置 `CAMPUS_SYNC_E2E=1` 后运行 `flutter test test/app/cloud/sync_e2e_test.dart`。Windows 默认调用 `python`，其他系统默认 `python3`，可通过 `PYTHON` 指定路径。
 
-FastAPI, PostgreSQL, authentication and synchronization remain future options. Exact SDK, scene engine and state-management packages will be established after code audit.
+系统凭证存储回归：`flutter test integration_test/secure_session_test.dart -d windows`，需要 Windows C++ 桌面工具链与 PATH 中的 NuGet。测试使用临时凭证命名空间和临时数据目录，不读写用户的正式登录信息。Android 应使用专用测试设备；确认没有未备份的旧安装数据后，才用设备 ID 替换 `windows` 运行，避免已知的历史签名不兼容影响旧数据。
 
-[Architecture](docs/architecture/architecture.md) · [Data flow](docs/architecture/data-flow.md) · [Database](docs/architecture/database-design.md) · [Decisions](docs/architecture/decisions.md)
+后端检查：进入 `backend`，运行 `python -m unittest -v test_sync_server`。HTTPS 部署、来源白名单和 API 配置见 [后端说明](backend/README.md)。网页、Windows、Android 可以使用不同入口，连接同一个经过认证的 API；跨域网页需要精确的 CORS 白名单，不依赖跨站 Cookie。
 
-## Engineering documentation
+## 数据与目录
 
-| Question | Document |
-| :--- | :--- |
-| What are we building? | [Product overview](docs/product/overview.md) |
-| What must it do? | [Requirements](docs/product/requirements.md) and [user stories](docs/product/user-stories.md) |
-| Why this design? | [Architecture decision records](docs/architecture/decisions.md) |
-| How do we collaborate? | [Contribution guide](CONTRIBUTING.md), [Git workflow](docs/development/git-workflow.md) and [responsibilities](docs/project-management/team.md) |
-| How do we verify it? | [Test strategy](docs/testing/strategy.md) and [21 designed test cases](docs/testing/test-cases.md) |
-| How do we deliver it? | [Roadmap](docs/project-management/roadmap.md) and [risk register](docs/project-management/risks.md) |
+原生本地使用版本化 JSON 文件：`campus.json` 保存学业、事件与财务，`tasks.json` 保存任务；Web 使用 IndexedDB 文件适配层。账号私有目录独立于访客数据，凭证交给平台安全存储。后端使用 SQLite 保存账号、哈希凭证和账号快照。本地实现与早期 SQLite 设计设想有差异，应以源码为准。
 
-[Browse the complete documentation hub →](docs/README.md)
+| 目录 | 内容 |
+| --- | --- |
+| `frontend/lib/app` | 路由、装配、备份恢复、账号与同步 |
+| `frontend/lib/features` | 学业、财务、日程、GPA、RPG 模块 |
+| `frontend/lib/shared` | 模型、仓库契约、原生 / Web 存储 |
+| `frontend/test` | 业务、存储、界面及原生 HTTP 回归 |
+| `frontend/test_web` | 编译后浏览器账号回归和独立 HTTPS 夹具 |
+| `backend` | 账号与快照 API、部署配置和服务测试 |
+| `docs` | 历史设计、实际实现及验收记录 |
 
-## Delivery roadmap
+## 后续发布准备
 
-| Phase | Outcome | Exit gate |
-| :--- | :--- | :--- |
-| **Foundation** | Specifications and collaboration templates | Team review and open decisions assigned |
-| **Runnable baseline** | Existing app imported and reproducible | Clean checkout starts on selected target |
-| **Connected Alpha** | Academic, finance and RPG progression connected | P0 journeys persist correct data |
-| **Verified demo** | Executed checks, applicable CI and demo | Evidence names revision and environment |
-| **Cloud evaluation** | Assess accounts and synchronization | Approved separate scope and decision |
+Android release 需要配置 `frontend/android/key.properties.example` 中的密钥信息；缺少密钥时禁止隐式使用调试签名。仅临时验收可显式设置 `STUDENT_LIFE_ACCEPTANCE_SIGNING=true`。历史 APK 签名不一致且旧密钥缺失，不能保证覆盖升级。先导出旧应用的完整备份，再按后续迁移方案处理；不能通过直接卸载绕过签名不兼容。长期密钥与实际打包安排仍待后续发布准备阶段。
 
-## Development and quality
-
-The working agreement is **Issue → Branch → PR → Review → Merge**. Link requirement and test IDs, keep one main issue active per contributor and review shared-contract changes with affected owners.
-
-Feature, bug and engineering-task forms live in `.github/ISSUE_TEMPLATE/`; the PR template requests behavior, validation and review evidence. Branch protection and CI enforcement must be configured separately after source import.
-
-<details>
-<summary><strong>Implementation records awaiting verification</strong></summary>
-
-- [Actual code structure](docs/development/project-structure.md): blank.
-- [Environment versions and running commands](docs/development/setup.md): blank.
-- [Test execution results](docs/testing/test-cases.md#execution-results): blank.
-
-</details>
-
-<details>
-<summary><strong>Planned quality evidence</strong></summary>
-
-Unit checks for GPA, budgets and rewards; repository checks for persistence, migrations and atomic updates; widget and integration checks for user journeys; manual checks for scene movement and interaction. Planned checks are not passing results.
-
-</details>
-
----
-
-<div align="center">
-
-**Student Life RPG** · A university software engineering project
-
-Build useful daily habits. Give progress a place in your world.
-
-</div>
+协作遵循 [CONTRIBUTING](CONTRIBUTING.md) 与 [Git 工作流](docs/development/git-workflow.md)。[早期文档](docs/README.md) 中尚未与源码对齐的设计不作为完成证据。

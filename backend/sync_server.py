@@ -11,6 +11,7 @@ import sqlite3
 import time
 from contextlib import closing
 from pathlib import Path
+from urllib.parse import urlsplit
 
 MAX_SNAPSHOT = 64 * 1024 * 1024
 SESSION_SECONDS = 90 * 24 * 60 * 60
@@ -18,6 +19,38 @@ EMAIL = re.compile(r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 HEX_ID = re.compile(r"[0-9a-f]{32}")
 TOKEN = re.compile(r"Bearer ([A-Za-z0-9_-]{43})")
 REVISION = re.compile(r'"(0|[1-9][0-9]{0,14})"')
+CORS_METHODS = {
+    "/v1/register": {"POST"},
+    "/v1/login": {"POST"},
+    "/v1/session": {"DELETE"},
+    "/v1/snapshot": {"GET", "PUT"},
+    "/healthz": {"GET"},
+}
+CORS_HEADERS = {"authorization", "content-type", "if-match", "if-none-match", "x-upload-id"}
+
+
+def web_origin(value):
+    """Canonicalize a configured origin; never accept wildcards or URL credentials."""
+    try:
+        uri = urlsplit(value)
+        if (uri.scheme not in {"https", "http"} or not uri.hostname
+                or uri.username is not None or uri.password is not None
+                or uri.path not in {"", "/"} or uri.query or uri.fragment
+                or any(char.isspace() for char in value)
+                or "*" in value):
+            raise ValueError
+        if uri.scheme == "http" and uri.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError
+        host = uri.hostname.lower()
+        if ":" in host:
+            host = f"[{host}]"
+        port = uri.port
+        if port is not None and port != (443 if uri.scheme == "https" else 80):
+            host += f":{port}"
+        return f"{uri.scheme}://{host}"
+    except (TypeError, ValueError) as error:
+        raise ValueError("Expected an HTTPS origin (or loopback HTTP origin), without a path") from error
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
     id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL,
@@ -116,10 +149,11 @@ def reply(status, data=b"", revision=None, content_type="application/json"):
 
 
 class SyncApp:
-    def __init__(self, database, signup_code="", trust_proxy=False):
+    def __init__(self, database, signup_code="", trust_proxy=False, allowed_origins=()):
         self.database = database
         self.signup_code = signup_code
         self.trust_proxy = trust_proxy
+        self.allowed_origins = frozenset(web_origin(value) for value in allowed_origins)
         with closing(self.connect()) as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript(SCHEMA)
@@ -130,16 +164,57 @@ class SyncApp:
         return db
 
     def __call__(self, environ, start_response):
+        origin = environ.get("HTTP_ORIGIN")
+        cors_allowed = origin in self.allowed_origins
         try:
-            result = self.dispatch(environ)
+            if origin and not cors_allowed and not self.same_origin(environ, origin):
+                raise ApiError("403 Forbidden", "origin_not_allowed")
+            if environ["REQUEST_METHOD"] == "OPTIONS":
+                result = self.preflight(environ, cors_allowed)
+            else:
+                result = self.dispatch(environ)
         except ApiError as error:
             result = reply(error.status, encoded({"error": error.code}))
         except Exception:
             logging.exception("Sync request failed")
             result = reply("503 Service Unavailable", encoded({"error": "unavailable"}))
         status, headers, data = result
+        # CORS is a browser source policy; Bearer authentication is still required
+        # even when Origin is allowed, and native clients need not send Origin.
+        headers.append(("Vary", "Origin"))
+        if cors_allowed:
+            headers.extend([
+                ("Access-Control-Allow-Origin", origin),
+                ("Access-Control-Expose-Headers", "ETag"),
+            ])
         start_response(status, headers)
         return [data]
+
+    def same_origin(self, environ, origin):
+        scheme = environ.get("wsgi.url_scheme", "http")
+        if self.trust_proxy:
+            scheme = environ.get("HTTP_X_FORWARDED_PROTO", scheme)
+        try:
+            return web_origin(origin) == web_origin(f"{scheme}://{environ.get('HTTP_HOST', '')}")
+        except ValueError:
+            return False
+
+    def preflight(self, environ, allowed):
+        methods = CORS_METHODS.get(environ["PATH_INFO"], set())
+        requested_method = environ.get("HTTP_ACCESS_CONTROL_REQUEST_METHOD", "")
+        requested_headers = {
+            value.strip().lower() for value in environ.get("HTTP_ACCESS_CONTROL_REQUEST_HEADERS", "").split(",")
+            if value.strip()
+        }
+        if not allowed or requested_method not in methods or not requested_headers <= CORS_HEADERS:
+            raise ApiError("403 Forbidden", "cors_not_allowed")
+        status, headers, data = reply("204 No Content")
+        headers.extend([
+            ("Access-Control-Allow-Methods", ", ".join(sorted(methods))),
+            ("Access-Control-Allow-Headers", ", ".join(sorted(CORS_HEADERS))),
+            ("Access-Control-Max-Age", "600"),
+        ])
+        return status, headers, data
 
     def dispatch(self, environ):
         method, route = environ["REQUEST_METHOD"], environ["PATH_INFO"]
@@ -293,7 +368,9 @@ def create_app():
     database = Path(os.environ.get("SYNC_DATABASE", "data/sync.sqlite3"))
     database.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     return SyncApp(database, os.environ.get("SYNC_SIGNUP_CODE", ""),
-                   os.environ.get("SYNC_TRUST_PROXY") == "1")
+                   os.environ.get("SYNC_TRUST_PROXY") == "1",
+                   allowed_origins=[value.strip() for value in os.environ.get(
+                       "SYNC_ALLOWED_ORIGINS", "").split(",") if value.strip()])
 
 
 if __name__ == "__main__":

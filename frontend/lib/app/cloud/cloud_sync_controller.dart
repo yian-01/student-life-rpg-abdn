@@ -19,23 +19,27 @@ abstract interface class CloudSessionStore {
 }
 
 class SecureCloudSessionStore implements CloudSessionStore {
-  const SecureCloudSessionStore();
+  // A separate namespace lets native integration probes use the real vault
+  // without reading or overwriting the user's production login record.
+  const SecureCloudSessionStore({
+    this.storageKey = 'student-life-cloud-session-v1',
+  });
 
   static const _storage = FlutterSecureStorage();
-  static const _key = 'student-life-cloud-session-v1';
+  final String storageKey;
 
   @override
   Future<CloudSession?> read() async {
-    final raw = await _storage.read(key: _key);
+    final raw = await _storage.read(key: storageKey);
     return raw == null ? null : CloudSession.restore(raw);
   }
 
   @override
   Future<void> save(CloudSession session) =>
-      _storage.write(key: _key, value: session.encode());
+      _storage.write(key: storageKey, value: session.encode());
 
   @override
-  Future<void> clear() => _storage.delete(key: _key);
+  Future<void> clear() => _storage.delete(key: storageKey);
 }
 
 class CloudConflict {
@@ -69,9 +73,11 @@ class CloudSyncController extends ChangeNotifier {
        _guestBackup = guestBackup ?? AppData.guestBackup,
        _switchDirectory = switchDirectory ?? AppData.switchDirectory;
 
-  static String get configuredOrigin => kIsWeb
-      ? Uri.base.origin
-      : const String.fromEnvironment('CAMPUS_SYNC_URL');
+  static String get configuredOrigin {
+    const configured = String.fromEnvironment('CAMPUS_SYNC_URL');
+    if (configured.isNotEmpty) return configured;
+    return kIsWeb ? Uri.base.origin : '';
+  }
 
   final CloudSyncApi _api;
   final CloudSessionStore _sessions;
@@ -84,6 +90,7 @@ class CloudSyncController extends ChangeNotifier {
   Uri? _lastOrigin;
   SyncJournal? _journal;
   int _scope = 0;
+  int _dataRevision = 0;
   bool _working = false;
   bool _applying = false;
   bool _expired = false;
@@ -97,6 +104,7 @@ class CloudSyncController extends ChangeNotifier {
   CloudSession? get session => _session;
   Uri? get lastOrigin => _lastOrigin;
   int get scope => _scope;
+  int get dataRevision => _dataRevision;
   bool get working => _working;
   bool get applying => _applying;
   bool get expired => _expired;
@@ -354,6 +362,7 @@ class CloudSyncController extends ChangeNotifier {
           incoming: incoming.sameData(local) ? local : incoming,
           fetched: (revision: fetched.revision, dataset: remote),
         );
+        if (!incoming.sameData(local)) _dataRevision++;
       } finally {
         _setApplying(wasApplying);
       }
@@ -435,6 +444,7 @@ class CloudSyncController extends ChangeNotifier {
             expected: local.backup,
             committedMarker: journal.beforePull,
           );
+          _dataRevision++;
         }
         await journal.markGuestImported();
         _guestImported = true;

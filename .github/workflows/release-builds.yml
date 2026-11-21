@@ -50,6 +50,7 @@ jobs:
       - run: flutter pub get
       - name: Build Android APK
         env:
+          STUDENT_LIFE_ACCEPTANCE_SIGNING: 'true'
           CAMPUS_SYNC_URL: ${{ vars.CAMPUS_SYNC_URL }}
         run: flutter build apk --release "--dart-define=CAMPUS_SYNC_URL=$CAMPUS_SYNC_URL"
       - uses: actions/upload-artifact@v4

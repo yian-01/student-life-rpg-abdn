@@ -28,12 +28,23 @@ class _PlatformHomePageState extends State<PlatformHomePage>
   late Future<List<Task>> _tasks;
   late Future<MonthlyFinanceSummary> _finance;
   late Future<GpaResult> _gpa;
+  int? _cloudDataRevision;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _read();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = CloudScope.maybeOf(context)?.dataRevision;
+    if (_cloudDataRevision != null && revision != _cloudDataRevision) {
+      _read();
+    }
+    _cloudDataRevision = revision;
   }
 
   @override
@@ -496,12 +507,14 @@ class _PlatformHomePageState extends State<PlatformHomePage>
                             size: 17,
                           ),
                           SizedBox(width: 8),
-                          Text(
-                            'YOUR CAMPUS, IN ORBIT',
-                            style: TextStyle(
-                              fontSize: 9,
-                              letterSpacing: 1.8,
-                              color: AppTheme.cyan,
+                          Expanded(
+                            child: Text(
+                              'YOUR CAMPUS, IN ORBIT',
+                              style: TextStyle(
+                                fontSize: 9,
+                                letterSpacing: 1.8,
+                                color: AppTheme.cyan,
+                              ),
                             ),
                           ),
                         ],

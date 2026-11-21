@@ -27,9 +27,12 @@ import 'package:student_life_rpg/shared/storage/json_document_store.dart';
 
 class _MemorySession implements CloudSessionStore {
   CloudSession? session;
+  bool failClear = false;
+  bool failSave = false;
 
   @override
   Future<void> clear() async {
+    if (failClear) throw StateError('Fixture credential deletion failure');
     session = null;
   }
 
@@ -38,6 +41,7 @@ class _MemorySession implements CloudSessionStore {
 
   @override
   Future<void> save(CloudSession value) async {
+    if (failSave) throw StateError('Fixture credential write failure');
     session = value;
   }
 }
@@ -186,7 +190,8 @@ void main() {
       final root = await Directory.systemTemp.createTemp('campus-sync-');
       addTearDown(() => root.delete(recursive: true));
       final server = await Process.start(
-        'python3',
+        Platform.environment['PYTHON'] ??
+            (Platform.isWindows ? 'python' : 'python3'),
         ['../backend/sync_server.py'],
         environment: {
           'SYNC_DATABASE': '${root.path}/cloud.sqlite3',
@@ -286,6 +291,10 @@ void main() {
       await desktop.cloud.sync();
       await mobile.cloud.sync();
       expect(mobile.cloud.conflict?.merge.conflicts.single.id, 'first');
+      await mobile.cloud.signOut();
+      expect(mobile.cloud.session, isNotNull);
+      expect((await mobile.files.tasks.getById('first'))?.title, '手机版本');
+      expect(mobile.cloud.notice, contains('未同步'));
       await mobile.cloud.sync(choice: SyncChoice.other);
       await desktop.cloud.sync();
       expect((await desktop.files.tasks.getById('first'))?.title, '电脑版本');
@@ -305,6 +314,43 @@ void main() {
       await restarted.cloud.sync();
       expect(await restarted.files.tasks.getById('lost-response'), isNull);
       expect(restarted.cloud.conflict, isNull, reason: restarted.cloud.notice);
+
+      // Reauthentication must not replace a valid session if secure storage
+      // cannot persist the replacement. The original token remains usable.
+      final originalSession = restarted.cloud.session!;
+      auth.failSave = true;
+      await restarted.login(origin);
+      expect(restarted.cloud.session, same(originalSession));
+      expect(await auth.read(), same(originalSession));
+      await HttpCloudSyncApi().fetch(originalSession);
+      auth.failSave = false;
+
+      // Failed credential deletion rolls the account directory back instead
+      // of leaving a logged-in controller pointing at a missing dataset.
+      final accountDirectory = restarted.files.directory;
+      auth.failClear = true;
+      await restarted.cloud.signOut();
+      expect(restarted.cloud.session, same(originalSession));
+      expect(await auth.read(), same(originalSession));
+      expect(await accountDirectory.exists(), isTrue);
+      expect(await restarted.files.tasks.getById('desktop'), isNotNull);
+      expect(
+        await Directory('${accountDirectory.path}.signed-out').exists(),
+        isFalse,
+      );
+      auth.failClear = false;
+
+      final revision = (await HttpCloudSyncApi().fetch(
+        originalSession,
+      )).revision;
+      await restarted.cloud.sync();
+      await restarted.cloud.sync();
+      expect(
+        (await HttpCloudSyncApi().fetch(originalSession)).revision,
+        revision,
+      );
+      final records = await restarted.files.tasks.list();
+      expect(records.map((row) => row.id).toSet(), hasLength(records.length));
 
       await other.login(origin, register: true, email: 'other@example.test');
       await other.cloud.sync();
