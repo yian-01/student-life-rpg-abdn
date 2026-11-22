@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'garden/garden_settings.dart';
 
 class ModuleBody extends StatelessWidget {
   const ModuleBody({super.key, required this.child});
@@ -8,7 +9,9 @@ class ModuleBody extends StatelessWidget {
   Widget build(BuildContext context) => Align(
     alignment: Alignment.topCenter,
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 430),
+      constraints: BoxConstraints(
+        maxWidth: GardenScope.isDesktop(context) ? 1100 : 430,
+      ),
       child: child,
     ),
   );

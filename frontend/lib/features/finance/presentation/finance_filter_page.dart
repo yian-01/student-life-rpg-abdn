@@ -21,11 +21,13 @@ class FinanceFilterPage extends StatefulWidget {
     this.initialRange,
     this.initialType,
     this.initialCategoryId,
+    this.receiptsOnly = false,
   });
   final FinanceController controller;
   final DateTimeRange? initialRange;
   final FinanceType? initialType;
   final String? initialCategoryId;
+  final bool receiptsOnly;
 
   @override
   State<FinanceFilterPage> createState() => _FinanceFilterPageState();
@@ -154,7 +156,7 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('筛选账目'),
+      title: Text(widget.receiptsOnly ? '票据与报销' : '筛选账目'),
       actions: [
         IconButton(
           tooltip: '刷新',
@@ -191,6 +193,9 @@ class _FinanceFilterPageState extends State<FinanceFilterPage> {
             data.records
                 .where(
                   (row) =>
+                      (!widget.receiptsOnly ||
+                          row.receipt != null ||
+                          row.reimbursement != ReimbursementStatus.none) &&
                       (_type == null || row.type == _type) &&
                       (categoryId == null || row.categoryId == categoryId) &&
                       (!_pending ||

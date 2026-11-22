@@ -64,11 +64,18 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - assets/garden/
+    - assets/fonts/OFL.txt
+    - assets/fonts/PROVENANCE.txt
     - assets/images/bedroom_world_v1.png
     - assets/images/player_idle_down.png
     - assets/images/campus_hall_v1.png
     # 人物精灵：性别×朝向×行走帧 共 24 张（目录注册，后续加帧免改本行）
     - assets/images/player/
+  fonts:
+    - family: GardenSerif
+      fonts:
+        - asset: assets/fonts/GardenSerif-Regular.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

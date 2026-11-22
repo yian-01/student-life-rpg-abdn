@@ -159,7 +159,9 @@ void main() {
         final navigator = find.byType(Navigator).first;
         expect(
           tester.getSize(navigator).width,
-          math.min(AppViewport.maxWidth, size.width),
+          size.width >= 1000
+              ? size.width
+              : math.min(AppViewport.maxWidth, size.width),
         );
         if (route == AppRoutes.menu || route == AppRoutes.bedroom) {
           expect(find.byType(AppBar), findsNothing);

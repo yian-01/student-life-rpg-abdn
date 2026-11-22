@@ -25,7 +25,9 @@ void main() {
     }
   });
 
-  for (final width in [320.0, 390.0, 1200.0]) {
+  // The legacy home remains the compact layout; desktop has its own garden
+  // integration coverage at 1440px in app/garden/garden_integration_test.dart.
+  for (final width in [320.0, 390.0, 800.0]) {
     testWidgets('real home, navigation and empty data at width $width', (
       tester,
     ) async {
