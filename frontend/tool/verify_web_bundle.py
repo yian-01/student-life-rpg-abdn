@@ -29,6 +29,7 @@ required = {
     'student_life_browser.js', 'garden_audio.js', 'assets/FontManifest.json',
     'assets/assets/garden/plants.json', 'assets/assets/garden/blossom.png',
     'assets/assets/fonts/GardenSerif-Regular.ttf',
+    'assets/assets/fonts/OFL.txt', 'assets/assets/fonts/PROVENANCE.txt',
     'assets/assets/garden/PROVENANCE.txt', 'assets/NOTICES',
     'canvaskit/canvaskit.wasm',
 }
