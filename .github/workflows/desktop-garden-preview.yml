@@ -47,6 +47,8 @@ jobs:
         env:
           API_URL: ${{ inputs.api_url || '' }}
         run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define="CAMPUS_SYNC_URL=$API_URL"
+      - name: Verify deployable bundle completeness
+        run: python3 tool/verify_web_bundle.py build/web --reject-test-api > build/web-manifest.json
       - uses: actions/upload-artifact@v4
         with:
           name: keyu-desktop-web-${{ github.sha }}
@@ -67,6 +69,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define=CAMPUS_SYNC_URL=https://127.0.0.1:18444
+      - run: python3 tool/verify_web_bundle.py build/web > build/test-web-manifest.json
       - name: Desktop and phone login, logout, restore and persistence
         shell: bash
         run: |

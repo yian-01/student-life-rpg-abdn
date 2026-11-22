@@ -45,8 +45,11 @@ cd frontend
 flutter pub get
 flutter build web --release --no-web-resources-cdn --pwa-strategy=none
 # 独立 API 可加 --dart-define=CAMPUS_SYNC_URL=https://api.example.com
+python tool/verify_web_bundle.py build/web --reject-test-api > build/web-manifest.json
 ```
 
 未指定 API 时 Web 使用当前网站来源。独立 API 需要配置该网页的精确 CORS 来源，仍须 Bearer 身份认证；Windows / Android 不要求与网页共用前端域名。预览需放在独立环境，不能复用临时测试 API 作为用户数据服务。
 
 `web-account-check` 构建固定了回环测试地址，只用于自动化，**不能发布到公网**。最终预览构建须使用 `build/web` 的同源 / 明确 API 配置，并核对 manifest 与校验值。正式网站切换、重要 PR 合并与安装包发布另行进行。
+
+本机 Windows 的 build 目录通过 Junction 放在 D 盘时，默认相对输出曾出现编译报告成功而主程序文件被清理的情况。本地交付改用没有目录链接的绝对输出目录，随后执行上述完整性检查；不要仅根据 Flutter 的 Built 提示上传文件。CI 使用常规检出目录，也在上传前执行相同检查。
