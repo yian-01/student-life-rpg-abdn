@@ -147,12 +147,14 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
               navigatorObservers: [_gardenObserver, ?observer],
               builder: (context, child) {
                 final content = desktop
-                    ? GardenFrame(
-                        settings: _garden,
-                        route: _gardenRoute,
-                        popup: _popup,
-                        navigator: _navigator,
-                        child: child ?? const SizedBox.shrink(),
+                    ? Overlay.wrap(
+                        child: GardenFrame(
+                          settings: _garden,
+                          route: _gardenRoute,
+                          popup: _popup,
+                          navigator: _navigator,
+                          child: child ?? const SizedBox.shrink(),
+                        ),
                       )
                     : AppViewport(
                         child: AtmosphereBackdrop(

@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'garden_settings.dart';
 import 'garden_audio.dart';
+import 'pixel_leaves.dart';
 
 class _Layer {
   _Layer(this.image, this.factor, this.lag, this.detach);
@@ -61,6 +62,7 @@ class GardenArtwork {
         (data['hit'] as List).map((v) => (v as List).cast<int>()).toList(),
       );
     }
+    await PixelLeaves.load();
     return result;
   }
 }
@@ -104,7 +106,9 @@ class _GardenSceneState extends State<GardenScene>
   List<_Pose> _poses = [];
   _Pose? _grab;
   bool _reduced = false, _hover = false;
-  double _time = 0, _nextDrop = 0, _nextSound = 0;
+  double _time = 0, _nextDrop = .35, _nextSound = 0;
+  @visibleForTesting
+  int get debugLeafCount => _leaves.length;
   int _regrowth = 0;
   @override
   void initState() {
@@ -241,13 +245,12 @@ class _GardenSceneState extends State<GardenScene>
           dt;
     }
     _leaves.removeWhere((l) => l.age > 11 || l.position.dy > _size.height);
-    if (widget.settings.weather &&
-        widget.settings.strength > .55 &&
-        _time > _nextDrop) {
+    if (_time > _nextDrop) {
+      final storm = widget.settings.weather && widget.settings.strength > .55;
       for (final p in _poses) {
-        _drop(p, 2);
+        _drop(p, storm ? 2 : 1, detach: false);
       }
-      _nextDrop = _time + .6;
+      _nextDrop = _time + (storm ? .45 : 1.1) + _random.nextDouble() * .45;
     }
     if (_time > _nextSound) {
       GardenAudio.wind(wind);
@@ -270,20 +273,23 @@ class _GardenSceneState extends State<GardenScene>
     return null;
   }
 
-  void _drop(_Pose p, int count) {
-    if (_reduced || p.holes.length >= 180) return;
+  void _drop(_Pose p, int count, {bool detach = true}) {
+    if (_reduced) return;
     final layers = [
       for (var i = 0; i < p.art.layers.length; i++)
         if (p.art.layers[i].detach) i,
     ];
-    if (layers.isEmpty) return;
+    final canopy = p.art.hits.where((hit) => hit[0] < p.art.base * .8).toList();
+    if (layers.isEmpty || canopy.isEmpty) return;
     for (var i = 0; i < count; i++) {
-      final hit = p.art.hits[_random.nextInt(p.art.hits.length)];
-      if (hit[0] > p.art.base * .8) continue;
-      final x = (hit[1] + hit[2]) / 2,
+      final hit = canopy[_random.nextInt(canopy.length)];
+      final x = hit[1] + _random.nextDouble() * (hit[2] - hit[1] + 1),
           y = hit[0].toDouble(),
           layer = layers[_random.nextInt(layers.length)];
-      p.holes.add((layer, Rect.fromLTWH(x - 2, y - 2, 5, 5)));
+      if (detach) {
+        if (p.holes.length >= 180) p.holes.removeAt(0);
+        p.holes.add((layer, Rect.fromLTWH(x - 2, y - 2, 5, 5)));
+      }
       _leaves.add(
         _Leaf(
           p.name,
@@ -487,64 +493,13 @@ class _GardenPainter extends CustomPainter {
   }
 
   static void _leaf(Canvas canvas, String name, double alpha) {
-    final path = Path();
-    Color fill, vein;
-    if (name == 'cherry') {
-      path.moveTo(0, 8);
-      path.cubicTo(-8, 2, -7, -6, -3, -7);
-      path.quadraticBezierTo(0, -9, 1, -5);
-      path.quadraticBezierTo(7, -10, 7, -3);
-      path.cubicTo(7, 2, 3, 7, 0, 8);
-      fill = const Color(0xFFE6AEC2);
-      vein = const Color(0xFFBC7895);
-    } else if (name == 'maple') {
-      final points = [
-        const Offset(0, 8),
-        const Offset(-2, 3),
-        const Offset(-8, 4),
-        const Offset(-5, 0),
-        const Offset(-10, -5),
-        const Offset(-4, -3),
-        const Offset(-5, -10),
-        const Offset(-1, -6),
-        const Offset(1, -12),
-        const Offset(3, -5),
-        const Offset(8, -9),
-        const Offset(6, -2),
-        const Offset(11, -4),
-        const Offset(7, 3),
-        const Offset(2, 4),
-      ];
-      path.addPolygon(points, true);
-      fill = const Color(0xFFDF995B);
-      vein = const Color(0xFFAF673B);
-    } else if (name == 'ginkgo') {
-      path.moveTo(0, 7);
-      path.cubicTo(-10, 1, -11, -7, -6, -8);
-      path.quadraticBezierTo(-2, -11, 0, -5);
-      path.quadraticBezierTo(7, -12, 10, -6);
-      path.cubicTo(11, 0, 5, 5, 0, 7);
-      fill = const Color(0xFFD8CA79);
-      vein = const Color(0xFFA2964C);
-    } else {
-      path.moveTo(-2, 9);
-      path.cubicTo(-7, 1, -3, -8, 7, -11);
-      path.cubicTo(9, -1, 4, 6, -2, 9);
-      fill = name == 'bamboo'
-          ? const Color(0xFF779A76)
-          : const Color(0xFF90A95A);
-      vein = const Color(0xFF557341);
-    }
-    path.close();
-    canvas.drawPath(path, Paint()..color = fill.withValues(alpha: alpha));
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, 7)
-        ..quadraticBezierTo(0, 0, 2, -5),
+    canvas.drawImage(
+      PixelLeaves.image(name),
+      const Offset(-8, -8),
       Paint()
-        ..color = vein.withValues(alpha: alpha * .6)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = .7,
+        ..isAntiAlias = false
+        ..filterQuality = FilterQuality.none
+        ..color = Colors.white.withValues(alpha: alpha),
     );
   }
 

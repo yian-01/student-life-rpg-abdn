@@ -87,6 +87,7 @@ jobs:
           done
           node test_web/account_sync.cjs https://127.0.0.1:18443 https://127.0.0.1:18444
           node test_web/desktop_garden.cjs https://127.0.0.1:18443 "$RUNNER_TEMP/garden-review"
+          node test_web/garden_visual_regressions.cjs https://127.0.0.1:18443 "$RUNNER_TEMP/garden-review/visual-regressions"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

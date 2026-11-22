@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSlider;
 import 'package:flutter/services.dart';
 import '../cloud/cloud_page.dart';
 import 'garden_audio.dart';
@@ -199,6 +200,17 @@ class _GardenFrameState extends State<GardenFrame> {
                     ),
                   ),
                   if (!widget.popup.value) ...[
+                    if (_navigation)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 138,
+                        child: ColoredBox(
+                          key: const Key('garden-navigation-background'),
+                          color: colors.surface,
+                        ),
+                      ),
                     Positioned(
                       left: 0,
                       top: 0,
@@ -255,79 +267,84 @@ class _GardenFrameState extends State<GardenFrame> {
                         child: MouseRegion(
                           onEnter: (_) => _closeTimer?.cancel(),
                           onExit: (_) => _closeSoon(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '一日一叶',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  letterSpacing: 2,
-                                  color: colors.onSurfaceVariant.withValues(
-                                    alpha: .65,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 22),
-                              for (var i = 0; i < 5; i++)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 13),
-                                  child: TextButton(
-                                    key: ValueKey('garden-nav-$i'),
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      alignment: Alignment.centerLeft,
-                                      minimumSize: const Size(98, 28),
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    onPressed: () =>
-                                        _open(GardenRoutes.hubs[i]),
-                                    child: Row(
-                                      children: [
-                                        Text(
-                                          '0${i + 1}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: colors.onSurfaceVariant
-                                                .withValues(alpha: .5),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          GardenRoutes.names[i],
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            letterSpacing: 2,
-                                            color: i == section
-                                                ? colors.primary
-                                                : colors.onSurfaceVariant,
-                                          ),
-                                        ),
-                                      ],
+                          child: Material(
+                            key: const Key('garden-navigation'),
+                            color: colors.surface,
+                            textStyle: Theme.of(context).textTheme.bodyMedium,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '一日一叶',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    letterSpacing: 2,
+                                    color: colors.onSurfaceVariant.withValues(
+                                      alpha: .65,
                                     ),
                                   ),
                                 ),
-                              const Spacer(),
-                              _navAction('互动设置', () {
-                                setState(() {
-                                  _navigation = false;
-                                  _settings = true;
-                                });
-                              }, key: const Key('garden-open-settings')),
-                              _navAction(
-                                widget.settings.theme == ThemeMode.dark
-                                    ? '切换浅色'
-                                    : '切换深色',
-                                widget.settings.toggleTheme,
-                                key: const Key('garden-theme'),
-                              ),
-                              _navAction(
-                                '我的账号',
-                                () => _open(CloudPage.route),
-                                key: const Key('garden-account'),
-                              ),
-                            ],
+                                const SizedBox(height: 22),
+                                for (var i = 0; i < 5; i++)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 13),
+                                    child: TextButton(
+                                      key: ValueKey('garden-nav-$i'),
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        alignment: Alignment.centerLeft,
+                                        minimumSize: const Size(98, 28),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () =>
+                                          _open(GardenRoutes.hubs[i]),
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '0${i + 1}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: colors.onSurfaceVariant
+                                                  .withValues(alpha: .5),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            GardenRoutes.names[i],
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              letterSpacing: 2,
+                                              color: i == section
+                                                  ? colors.primary
+                                                  : colors.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                const Spacer(),
+                                _navAction('互动设置', () {
+                                  setState(() {
+                                    _navigation = false;
+                                    _settings = true;
+                                  });
+                                }, key: const Key('garden-open-settings')),
+                                _navAction(
+                                  widget.settings.theme == ThemeMode.dark
+                                      ? '切换浅色'
+                                      : '切换深色',
+                                  widget.settings.toggleTheme,
+                                  key: const Key('garden-theme'),
+                                ),
+                                _navAction(
+                                  '我的账号',
+                                  () => _open(CloudPage.route),
+                                  key: const Key('garden-account'),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -402,7 +419,7 @@ class _GardenFrameState extends State<GardenFrame> {
       padding: EdgeInsets.zero,
       alignment: Alignment.centerLeft,
       minimumSize: const Size(98, 30),
-      textStyle: const TextStyle(fontFamily: 'GardenSerif', fontSize: 11),
+      textStyle: const TextStyle(fontFamily: 'GardenSerif', fontSize: 12),
     ),
     onPressed: action,
     child: Text(text),
@@ -429,7 +446,28 @@ class _GardenFrameState extends State<GardenFrame> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-            Slider(value: value, onChanged: (v) => s.change(() => change(v))),
+            SizedBox(
+              height: 36,
+              child: LayoutBuilder(
+                builder: (context, bounds) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTapUp: (event) => s.change(
+                    () => change(
+                      ((event.localPosition.dx - 22) / (bounds.maxWidth - 44))
+                          .clamp(0.0, 1.0),
+                    ),
+                  ),
+                  child: CupertinoSlider(
+                    key: ValueKey('garden-range-$label'),
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    thumbColor: Theme.of(context).colorScheme.primary,
+                    value: value,
+                    onChanged: (v) => s.change(() => change(v)),
+                  ),
+                ),
+              ),
+            ),
           ],
         );
     return Column(
@@ -499,16 +537,28 @@ class _GardenFrameState extends State<GardenFrame> {
         ),
         line(
           '植物场景',
-          DropdownButton<String>(
-            value: s.view,
-            items: const [
-              DropdownMenuItem(value: 'page', child: Text('跟随页面')),
-              DropdownMenuItem(value: 'all', child: Text('三株并置')),
-              DropdownMenuItem(value: 'single', child: Text('单株试验场')),
+          MenuAnchor(
+            menuChildren: [
+              for (final option in const {
+                'page': '跟随页面',
+                'all': '三株并置',
+                'single': '单株试验场',
+              }.entries)
+                MenuItemButton(
+                  onPressed: () => s.change(() => s.view = option.key),
+                  child: Text(option.value),
+                ),
             ],
-            onChanged: (v) {
-              if (v != null) s.change(() => s.view = v);
-            },
+            builder: (context, controller, child) => TextButton(
+              onPressed: controller.isOpen ? controller.close : controller.open,
+              child: Text(
+                const {
+                  'page': '跟随页面',
+                  'all': '三株并置',
+                  'single': '单株试验场',
+                }[s.view]!,
+              ),
+            ),
           ),
         ),
         if (s.view == 'single')
