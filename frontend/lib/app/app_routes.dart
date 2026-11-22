@@ -21,6 +21,11 @@ import 'task_schedule_host.dart';
 import 'platform_navigation.dart';
 import 'platform_home_page.dart';
 import 'platform_profile_page.dart';
+import 'garden/garden_routes.dart';
+import 'garden/garden_settings.dart';
+import 'garden/garden_business_pages.dart';
+import '../features/finance/presentation/finance_filter_page.dart';
+import '../features/finance/presentation/weekly_finance_page.dart';
 
 abstract final class AppRoutes {
   static const home = '/';
@@ -42,7 +47,35 @@ abstract final class AppRoutes {
 
   static Route<void> generateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
-      home => const PlatformHomePage(),
+      home => const _AdaptiveHome(),
+      GardenRoutes.study => const GardenLandingPage(section: 1),
+      GardenRoutes.days => const GardenLandingPage(section: 2),
+      GardenRoutes.finance => const GardenLandingPage(section: 3),
+      GardenRoutes.more => const GardenLandingPage(section: 4),
+      GardenRoutes.assignments || GardenRoutes.exams => CampusDataHost(
+        title: settings.name == GardenRoutes.exams ? '考试' : '作业',
+        builder: (_, data) => GardenAcademicRecords(
+          data: data,
+          exams: settings.name == GardenRoutes.exams,
+        ),
+      ),
+      GardenRoutes.week => const GardenWeekPage(),
+      GardenRoutes.statistics => CampusDataHost(
+        title: '财务统计',
+        builder: (_, data) => WeeklyFinancePage(controller: data.finance),
+      ),
+      GardenRoutes.categories || GardenRoutes.budgets => CampusDataHost(
+        title: '财务设置',
+        builder: (_, data) => GardenFinanceSettings(
+          data: data,
+          budgets: settings.name == GardenRoutes.budgets,
+        ),
+      ),
+      GardenRoutes.receipts => CampusDataHost(
+        title: '票据与报销',
+        builder: (_, data) =>
+            FinanceFilterPage(controller: data.finance, receiptsOnly: true),
+      ),
       profile => const PlatformProfilePage(),
       bedroom => const BedroomPage(),
       menu => const MenuPage(),
@@ -124,4 +157,12 @@ abstract final class AppRoutes {
           : page,
     );
   }
+}
+
+class _AdaptiveHome extends StatelessWidget {
+  const _AdaptiveHome();
+  @override
+  Widget build(BuildContext context) => GardenScope.isDesktop(context)
+      ? const GardenLandingPage()
+      : const PlatformHomePage();
 }

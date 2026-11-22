@@ -9,6 +9,10 @@ import 'app_viewport.dart';
 import 'cloud/cloud_page.dart';
 import 'cloud/cloud_scope.dart';
 import 'cloud/cloud_sync_controller.dart';
+import 'garden/garden_frame.dart';
+import 'garden/garden_routes.dart';
+import 'garden/garden_settings.dart';
+import 'garden/garden_theme.dart';
 
 class StudentLifeApp extends StatefulWidget {
   const StudentLifeApp({
@@ -32,10 +36,17 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
   bool _reopenAccountPage = false;
   Timer? _poll;
   AppLifecycleListener? _lifecycle;
+  final _garden = GardenSettings();
+  late final ValueNotifier<String> _gardenRoute;
+  final _popup = ValueNotifier(false);
+  late GardenRouteObserver _gardenObserver;
+  GlobalKey<NavigatorState> _navigator = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
+    _gardenRoute = ValueNotifier(widget.initialRoute);
+    _gardenObserver = GardenRouteObserver(_gardenRoute, _popup);
     _attach();
     _reopenAccountPage = widget.openAccountPage;
   }
@@ -46,6 +57,7 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
     if (oldWidget.cloud != widget.cloud) {
       _detach(oldWidget.cloud);
       _attach();
+      _resetNavigation();
     }
   }
 
@@ -78,7 +90,18 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
       _reopenAccountPage = _observer?.isAccountPage ?? false;
       _scope = cloud.scope;
       _observer = _CloudRouteObserver(cloud);
+      _resetNavigation();
     });
+  }
+
+  void _resetNavigation() {
+    // A GlobalKey must also change: otherwise Flutter may reparent the previous
+    // account's Navigator and preserve its forms despite the MaterialApp key.
+    _navigator = GlobalKey<NavigatorState>();
+    _gardenRoute.value = widget.initialRoute;
+    _popup.value = false;
+    _gardenObserver = GardenRouteObserver(_gardenRoute, _popup);
+    _garden.sound = false;
   }
 
   void _detach(CloudSyncController? cloud) {
@@ -93,6 +116,9 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
   @override
   void dispose() {
     _detach(widget.cloud);
+    _garden.dispose();
+    _gardenRoute.dispose();
+    _popup.dispose();
     super.dispose();
   }
 
@@ -100,43 +126,79 @@ class _StudentLifeAppState extends State<StudentLifeApp> {
   Widget build(BuildContext context) {
     final cloud = widget.cloud;
     final observer = _observer;
-    final app = MaterialApp(
-      key: ValueKey(_scope),
-      title: '课屿 · 校园生活',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      navigatorObservers: [?observer],
-      builder: (context, child) => AppViewport(
-        child: AtmosphereBackdrop(
-          child: cloud == null
-              ? child ?? const SizedBox.shrink()
-              : ListenableBuilder(
-                  listenable: cloud,
-                  child: child,
-                  builder: (context, child) => Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      child ?? const SizedBox.shrink(),
-                      if (cloud.applying)
-                        const ModalBarrier(
-                          color: Colors.transparent,
-                          dismissible: false,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 1000;
+        return ListenableBuilder(
+          listenable: _garden,
+          builder: (context, _) {
+            final app = MaterialApp(
+              key: ValueKey(_scope),
+              title: '课屿 · 校园生活',
+              debugShowCheckedModeBanner: false,
+              navigatorKey: _navigator,
+              theme: desktop
+                  ? GardenTheme.forBrightness(Brightness.light)
+                  : AppTheme.light,
+              darkTheme: desktop
+                  ? GardenTheme.forBrightness(Brightness.dark)
+                  : null,
+              themeMode: desktop ? _garden.theme : ThemeMode.light,
+              navigatorObservers: [_gardenObserver, ?observer],
+              builder: (context, child) {
+                final content = desktop
+                    ? GardenFrame(
+                        settings: _garden,
+                        route: _gardenRoute,
+                        popup: _popup,
+                        navigator: _navigator,
+                        child: child ?? const SizedBox.shrink(),
+                      )
+                    : AppViewport(
+                        child: AtmosphereBackdrop(
+                          child: child ?? const SizedBox.shrink(),
                         ),
-                    ],
+                      );
+                return cloud == null
+                    ? content
+                    : ListenableBuilder(
+                        listenable: cloud,
+                        child: content,
+                        builder: (context, child) => Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            child ?? const SizedBox.shrink(),
+                            if (cloud.applying)
+                              const ModalBarrier(
+                                color: Colors.transparent,
+                                dismissible: false,
+                              ),
+                          ],
+                        ),
+                      );
+              },
+              initialRoute: widget.initialRoute,
+              // Rebuild the route stack so pages cannot retain another account's data.
+              onGenerateInitialRoutes: (name) => [
+                AppRoutes.generateRoute(RouteSettings(name: name)),
+                if (_reopenAccountPage && name != CloudPage.route)
+                  AppRoutes.generateRoute(
+                    const RouteSettings(name: CloudPage.route),
                   ),
-                ),
-        ),
-      ),
-      initialRoute: widget.initialRoute,
-      // Rebuild the route stack so pages cannot retain another account's data.
-      onGenerateInitialRoutes: (name) => [
-        AppRoutes.generateRoute(RouteSettings(name: name)),
-        if (_reopenAccountPage && name != CloudPage.route)
-          AppRoutes.generateRoute(const RouteSettings(name: CloudPage.route)),
-      ],
-      onGenerateRoute: AppRoutes.generateRoute,
+              ],
+              onGenerateRoute: AppRoutes.generateRoute,
+            );
+            return GardenScope(
+              settings: _garden,
+              desktop: desktop,
+              child: cloud == null
+                  ? app
+                  : CloudScope(controller: cloud, child: app),
+            );
+          },
+        );
+      },
     );
-    return cloud == null ? app : CloudScope(controller: cloud, child: app);
   }
 }
 
@@ -155,6 +217,7 @@ class _CloudRouteObserver extends NavigatorObserver {
         name == AppRoutes.home ||
         name == AppRoutes.bedroom ||
         name == AppRoutes.menu ||
+        GardenRoutes.hubs.contains(name) ||
         name == CloudPage.route;
     cloud.routeChanged(safe: safe);
     // A dialog may have returned a confirmation to an action on this page.

@@ -92,6 +92,7 @@ async function flutterApp(context) {
     // A semantics input is ready before Flutter's focus connection and route
     // animation have painted. Synchronize with frames before sending key input.
     const enter = async (field, value) => {
+      await field.click();
       await field.focus();
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await field.press('ControlOrMeta+A');
@@ -116,8 +117,13 @@ async function flutterApp(context) {
     }, taskTitle);
   };
   try {
-    await page.getByRole('tab', {name: /我的/}).click();
-    await page.getByRole('button', {name: /登录你的课屿账号/}).click();
+    if (page.viewportSize().width >= 1000) {
+      await page.getByRole('button', {name: 'KEYU', exact: true}).click();
+      await page.getByRole('button', {name: '我的账号', exact: true}).click();
+    } else {
+      await page.getByRole('tab', {name: /我的/}).click();
+      await page.getByRole('button', {name: /登录你的课屿账号/}).click();
+    }
     await login();
     await page.getByRole('button', {name: '退出账号', exact: true}).click();
     await page.getByRole('button', {name: '退出账号', exact: true}).last().click();
@@ -145,11 +151,11 @@ async function flutterApp(context) {
 (async () => {
   const browser = await chromium.launch({executablePath: process.env.CHROMIUM ?? '/usr/bin/chromium'});
   try {
-    const context = await browser.newContext({ignoreHTTPSErrors: true});
+    const context = await browser.newContext({ignoreHTTPSErrors: true, viewport:{width:1440,height:900}});
     await browserAdapter(context);
     await flutterApp(context);
     await context.close();
-    const otherDevice = await browser.newContext({ignoreHTTPSErrors: true});
+    const otherDevice = await browser.newContext({ignoreHTTPSErrors: true, viewport:{width:390,height:844}});
     await flutterApp(otherDevice);
     await otherDevice.close();
   } finally {

@@ -1,0 +1,93 @@
+name: Desktop garden preview bundle
+on:
+  push:
+    branches: [codex/pixel-garden-desktop]
+  pull_request:
+    branches: [fix/v1.1-reliability]
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'HTTPS API origin; empty uses the website origin'
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: desktop-garden-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: flutter analyze
+      - name: Existing business and native HTTP regression
+        env:
+          CAMPUS_SYNC_E2E: '1'
+          PYTHON: python3
+        run: flutter test
+      - name: Backend account and isolation tests
+        working-directory: backend
+        run: python3 -m unittest -v test_sync_server
+      - name: Build real Flutter web bundle
+        env:
+          API_URL: ${{ inputs.api_url || '' }}
+        run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define="CAMPUS_SYNC_URL=$API_URL"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keyu-desktop-web-${{ github.sha }}
+          path: frontend/build/web
+          retention-days: 14
+  browser-accounts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define=CAMPUS_SYNC_URL=https://127.0.0.1:18444
+      - name: Desktop and phone login, logout, restore and persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/browser" --no-save --no-package-lock playwright@1.59.0
+          export NODE_PATH="$RUNNER_TEMP/browser/node_modules"
+          export CHROMIUM="$(command -v google-chrome)"
+          PYTHONPATH=../backend python3 test_web/serve_fixture.py build/web --web-port 18443 --api-port 18444 > "$RUNNER_TEMP/fixture.log" &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            test "$(wc -l < "$RUNNER_TEMP/fixture.log")" -lt 2 || break
+            kill -0 "$fixture_pid"
+            sleep 1
+          done
+          node test_web/account_sync.cjs https://127.0.0.1:18443 https://127.0.0.1:18444
+          node test_web/desktop_garden.cjs https://127.0.0.1:18443 "$RUNNER_TEMP/garden-review"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-garden-browser-review-${{ github.sha }}
+          path: ${{ runner.temp }}/garden-review
+          if-no-files-found: ignore
+          retention-days: 14

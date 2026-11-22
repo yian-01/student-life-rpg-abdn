@@ -1,0 +1,1 @@
+Keyu Garden Serif: static 400-weight Basic Latin/CJK subset of Noto Serif SC, renamed per SIL OFL. Regenerate with tool/prepare_garden_font.py. Original copyright/license metadata retained in font; see OFL.txt.
