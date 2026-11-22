@@ -447,6 +447,7 @@ class _GardenFrameState extends State<GardenFrame> {
               ),
             ),
             SizedBox(
+              width: double.infinity,
               height: 36,
               child: LayoutBuilder(
                 builder: (context, bounds) => GestureDetector(

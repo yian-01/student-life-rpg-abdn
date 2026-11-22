@@ -178,6 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     final speed = find.byKey(const ValueKey('garden-range-风速'));
     expect(tester.getSize(speed).height, 36);
+    expect(tester.getSize(speed).width, 258);
     expect(
       tester.getSize(find.byKey(const ValueKey('garden-range-阵风'))).height,
       36,
@@ -188,6 +189,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.widget<CupertinoSlider>(speed).value, greaterThan(.3));
+    await tester.tapAt(tester.getTopLeft(speed) + const Offset(129, 18));
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoSlider>(speed).value, closeTo(.5, .03));
     expect(find.text('骨架显示'), findsOneWidget);
     await tester.ensureVisible(find.text('跟随页面'));
     await tester.pumpAndSettle();
