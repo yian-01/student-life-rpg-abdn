@@ -38,6 +38,10 @@ fs.mkdirSync(out,{recursive:true});
   await nav('更多');await page.getByRole('button',{name:/备份与恢复/}).waitFor();await shot('more');
   await brand().click();await page.getByRole('button',{name:'切换深色',exact:true}).click();
   await page.mouse.move(900,80);await page.waitForTimeout(400);await shot('more-dark');await check('Both themes preserve the active section');
+  await nav('学业');await page.setViewportSize({width:390,height:844});
+  await page.getByRole('tab',{name:/我的/}).waitFor();
+  await page.setViewportSize({width:1440,height:900});await page.getByRole('button',{name:/GPA/}).waitFor();
+  await check('Resizing a desktop hub to phone width keeps navigation and restores the original hub on expansion');
   await nav('首页');await page.getByText('今天，也慢慢来。',{exact:true}).waitFor();await page.mouse.move(800,120);
   await page.mouse.wheel(-250,0);await page.waitForTimeout(450);await page.getByText('今天，也慢慢来。',{exact:true}).waitFor();
   await page.mouse.wheel(180,0);for(const value of [80,20,110,-110,90]){await page.waitForTimeout(50);await page.mouse.wheel(value,0);}

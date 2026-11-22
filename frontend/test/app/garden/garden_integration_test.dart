@@ -109,6 +109,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('resizing a desktop hub retains usable mobile navigation', (
+    tester,
+  ) async {
+    await prepare(tester, route: GardenRoutes.study);
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-tool-/academic')), findsNothing);
+    expect(tester.takeException(), isNull);
+    tester.view.physicalSize = const Size(1440, 900);
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byKey(const ValueKey('garden-tool-/academic')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('desktop todo entrance can create and display a real task', (
     tester,
   ) async {

@@ -48,10 +48,10 @@ abstract final class AppRoutes {
   static Route<void> generateRoute(RouteSettings settings) {
     final page = switch (settings.name) {
       home => const _AdaptiveHome(),
-      GardenRoutes.study => const GardenLandingPage(section: 1),
-      GardenRoutes.days => const GardenLandingPage(section: 2),
-      GardenRoutes.finance => const GardenLandingPage(section: 3),
-      GardenRoutes.more => const GardenLandingPage(section: 4),
+      GardenRoutes.study => const _AdaptiveGardenHub(section: 1),
+      GardenRoutes.days => const _AdaptiveGardenHub(section: 2),
+      GardenRoutes.finance => const _AdaptiveGardenHub(section: 3),
+      GardenRoutes.more => const _AdaptiveGardenHub(section: 4),
       GardenRoutes.assignments || GardenRoutes.exams => CampusDataHost(
         title: settings.name == GardenRoutes.exams ? '考试' : '作业',
         builder: (_, data) => GardenAcademicRecords(
@@ -165,4 +165,18 @@ class _AdaptiveHome extends StatelessWidget {
   Widget build(BuildContext context) => GardenScope.isDesktop(context)
       ? const GardenLandingPage()
       : const PlatformHomePage();
+}
+
+/// Resizing an open desktop hub must not leave a phone-sized window without
+/// navigation. Keep its route so expanding the window restores the same hub.
+class _AdaptiveGardenHub extends StatelessWidget {
+  const _AdaptiveGardenHub({required this.section});
+  final int section;
+  @override
+  Widget build(BuildContext context) => GardenScope.isDesktop(context)
+      ? GardenLandingPage(section: section)
+      : const PlatformNavigation(
+          route: AppRoutes.home,
+          child: PlatformHomePage(),
+        );
 }
