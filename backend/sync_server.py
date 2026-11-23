@@ -12,6 +12,7 @@ import time
 from contextlib import closing
 from pathlib import Path
 from urllib.parse import urlsplit
+from social import SOCIAL_SCHEMA, SOCIAL_METHODS, SocialError, handle_social
 
 MAX_SNAPSHOT = 64 * 1024 * 1024
 SESSION_SECONDS = 90 * 24 * 60 * 60
@@ -26,6 +27,7 @@ CORS_METHODS = {
     "/v1/snapshot": {"GET", "PUT"},
     "/healthz": {"GET"},
 }
+CORS_METHODS.update(SOCIAL_METHODS)
 CORS_HEADERS = {"authorization", "content-type", "if-match", "if-none-match", "x-upload-id"}
 
 
@@ -157,6 +159,7 @@ class SyncApp:
         with closing(self.connect()) as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript(SCHEMA)
+            db.executescript(SOCIAL_SCHEMA)
 
     def connect(self):
         db = sqlite3.connect(self.database, isolation_level=None, timeout=8)
@@ -173,7 +176,7 @@ class SyncApp:
                 result = self.preflight(environ, cors_allowed)
             else:
                 result = self.dispatch(environ)
-        except ApiError as error:
+        except (ApiError, SocialError) as error:
             result = reply(error.status, encoded({"error": error.code}))
         except Exception:
             logging.exception("Sync request failed")
@@ -224,6 +227,12 @@ class SyncApp:
             return reply("200 OK", encoded({"ok": True}))
         if method == "POST" and route in ("/v1/register", "/v1/login"):
             return self.authenticate(environ, register=route.endswith("/register"))
+        if route in SOCIAL_METHODS and method in SOCIAL_METHODS[route]:
+            with closing(self.connect()) as db:
+                account, _ = self.account_for(db, environ)
+                status, value = handle_social(db, account, method, route, environ,
+                                            lambda: json_object(body(environ, 8192)))
+                return reply(status, encoded(value))
         if (method, route) not in {
             ("DELETE", "/v1/session"), ("GET", "/v1/snapshot"), ("PUT", "/v1/snapshot")
         }:
@@ -279,7 +288,7 @@ class SyncApp:
         except UnicodeError as error:
             raise ApiError("400 Bad Request", "invalid_credentials") from error
         if (len(email) > 254 or not EMAIL.fullmatch(email)
-                or len(password) < 12 or len(password_bytes) > 512):
+                or len(password) < 8 or len(password_bytes) > 512):
             raise ApiError("400 Bad Request", "invalid_credentials")
         now = int(time.time())
         with closing(self.connect()) as db:

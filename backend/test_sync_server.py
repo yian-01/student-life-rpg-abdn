@@ -1,14 +1,16 @@
 import hashlib
 import io
 import json
+import os
 import tempfile
 import unittest
+from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
 from wsgiref.util import setup_testing_defaults
 
-from sync_server import SyncApp, web_origin
+from sync_server import SyncApp, create_app, web_origin
 
 
 class SyncServerTest(unittest.TestCase):
@@ -118,6 +120,68 @@ class SyncServerTest(unittest.TestCase):
         self.assertEqual(status, 204)
         self.assertEqual(self.read(second)[0], 401)
         self.assertEqual(self.read(self.bob)[0], 204)
+
+class PublicRegistrationTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        with patch.dict(os.environ, {"SYNC_DATABASE": str(Path(self.tmp.name) / "public.sqlite3")}, clear=True):
+            self.app = create_app()
+
+    def request(self, method, path, body=b"", **headers):
+        return SyncServerTest.request.__func__(self, method, path, body, **headers)
+
+    def register(self, email, **extra):
+        return self.request("POST", "/v1/register", json.dumps({
+            "email": email, "password": "public test password", **extra,
+        }).encode())
+
+    def test_missing_or_empty_setting_allows_missing_or_empty_invitation(self):
+        for setting in [None, ""]:
+            environment = {"SYNC_DATABASE": str(Path(self.tmp.name) / f"mode-{setting is None}.sqlite3")}
+            if setting is not None:
+                environment["SYNC_SIGNUP_CODE"] = setting
+            with patch.dict(os.environ, environment, clear=True):
+                self.app = create_app()
+            for index, extra in enumerate([{}, {"code": ""}]):
+                with self.subTest(setting=setting, body=extra):
+                    status, _, raw = self.register(f"public-{index}@example.test", **extra)
+                    self.assertEqual(status, 201, raw)
+                    account = json.loads(raw)
+                    self.assertEqual(self.request("GET", "/v1/snapshot",
+                                     HTTP_AUTHORIZATION="Bearer " + account["token"])[0], 204)
+
+    def test_public_account_login_duplicate_isolation_and_logout(self):
+        status, _, raw = self.register("public@example.test")
+        self.assertEqual(status, 201)
+        account = json.loads(raw)
+        status, _, raw = self.request("POST", "/v1/login", json.dumps({
+            "email": "PUBLIC@example.test", "password": "public test password",
+        }).encode())
+        self.assertEqual(status, 200)
+        session = json.loads(raw)
+        self.assertEqual(account["id"], session["id"])
+        self.assertEqual(self.register("public@example.test")[0], 409)
+        other = json.loads(self.register("other@example.test")[2])
+        snapshot = SyncServerTest.snapshot("private public-registration test")
+        headers = {"HTTP_AUTHORIZATION": "Bearer " + session["token"]}
+        self.assertEqual(self.request("PUT", "/v1/snapshot", snapshot,
+                         HTTP_IF_MATCH='"0"', HTTP_X_UPLOAD_ID="f" * 32, **headers)[0], 204)
+        self.assertEqual(self.request("GET", "/v1/snapshot", **headers)[2], snapshot)
+        self.assertEqual(self.request("GET", "/v1/snapshot",
+                         HTTP_AUTHORIZATION="Bearer " + other["token"])[0], 204)
+        self.assertEqual(self.request("DELETE", "/v1/session", **headers)[0], 204)
+        self.assertEqual(self.request("GET", "/v1/snapshot", **headers)[0], 401)
+
+    def test_public_registration_preserves_validation_and_rate_limits(self):
+        self.assertEqual(self.request("POST", "/v1/register", json.dumps({
+            "email": "invalid", "password": "public test password",
+        }).encode())[0], 400)
+        self.assertEqual(self.request("GET", "/v1/snapshot")[0], 401)
+        for index in range(8):
+            self.assertEqual(self.register(f"limited-{index}@example.test")[0], 201)
+        self.assertEqual(self.register("limited-overflow@example.test")[0], 429)
+
 
 class CorsServerTest(unittest.TestCase):
     @classmethod

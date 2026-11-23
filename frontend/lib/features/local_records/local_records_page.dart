@@ -140,7 +140,53 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
     if (state == AppLifecycleState.resumed) _refresh();
   }
 
-  void _refresh() => setState(() => _future = _load());
+  void _refresh() {
+    final future = _load();
+    setState(() {
+      _future = future;
+    });
+  }
+
+  Future<void> _addTask() async {
+    if (_opening) return;
+    _opening = true;
+    try {
+      final repository = await AppData.tasks();
+      if (!mounted) return;
+      final id = 'task-${DateTime.now().microsecondsSinceEpoch}';
+      final saved = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => TaskEditorDialog(
+          selectedDate: widget.clock(),
+          onSave: (value) => repository.insert(
+            Task(
+              id: id,
+              title: value.title,
+              estimatedMinutes: value.estimatedMinutes,
+              dueAt: value.dueAt,
+              scheduledRange: value.scheduledRange,
+              note: value.note,
+              priority: value.priority,
+              steps: value.steps,
+            ),
+          ),
+        ),
+      );
+      if (saved == true && mounted) {
+        _period = TodoPeriod.all;
+        _refresh();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法打开待办编辑器，请检查存储后重试。')));
+      }
+    } finally {
+      _opening = false;
+    }
+  }
 
   Future<_Results> _load() async {
     final failed = <_Kind>[];
@@ -356,6 +402,12 @@ class _LocalRecordsPageState extends State<LocalRecordsPage>
     appBar: AppBar(
       title: Text(widget.search ? '本地搜索' : '待办'),
       actions: [
+        if (!widget.search)
+          IconButton(
+            tooltip: '添加待办',
+            onPressed: _addTask,
+            icon: const Icon(Icons.add),
+          ),
         IconButton(
           tooltip: '刷新',
           onPressed: _refresh,
