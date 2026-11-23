@@ -13,10 +13,20 @@ printf '%s  %s\n' "$KEYULIFE_SHA256" "$KEYULIFE_ARCHIVE" | sha256sum -c -
 unzip -oq "$KEYULIFE_ARCHIVE" -d "$KEYULIFE_ROOT"
 cd "$KEYULIFE_ROOT/backend"
 
+# The pinned legacy archive required an invitation in Compose. Allow the
+# current public-registration default without rebuilding or replacing data.
+python3 - <<'PUBLIC_REGISTRATION'
+from pathlib import Path
+path = Path('compose.yaml')
+text = path.read_text()
+text = text.replace('${SYNC_SIGNUP_CODE:?Set a registration code in backend/.env}',
+                    '${SYNC_SIGNUP_CODE:-}')
+path.write_text(text)
+PUBLIC_REGISTRATION
+
 if [ ! -f .env ]; then
   umask 077
-  printf 'COMPOSE_PROJECT_NAME=keyulife\nSYNC_DOMAIN=keyulife.cn\nSYNC_SIGNUP_CODE=%s\n' \
-    "$(openssl rand -hex 16)" > .env
+  printf 'COMPOSE_PROJECT_NAME=keyulife\nSYNC_DOMAIN=keyulife.cn\nSYNC_SIGNUP_CODE=\n' > .env
 fi
 
 sudo docker compose up -d --build api
