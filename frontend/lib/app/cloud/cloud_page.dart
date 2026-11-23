@@ -7,6 +7,7 @@ import '../data/full_backup.dart';
 import 'cloud_scope.dart';
 import 'cloud_sync_controller.dart';
 import 'sync_dataset.dart';
+import '../social/social_page.dart';
 
 class CloudPage extends StatefulWidget {
   const CloudPage({super.key});
@@ -245,7 +246,7 @@ class _CloudPageState extends State<CloudPage> {
             obscureText: true,
             autocorrect: false,
             validator: (value) =>
-                (value?.runes.length ?? 0) < 12 ? '密码至少需要 12 个字符' : null,
+                (value?.runes.length ?? 0) < 8 ? '密码至少需要 8 个字符' : null,
           ),
           if (register) ...[
             const SizedBox(height: 10),
@@ -280,6 +281,15 @@ class _CloudPageState extends State<CloudPage> {
     final beforePull = cloud.beforePull;
     final otherBackup = cloud.otherConflictBackup;
     return [
+      ListTile(
+        leading: const Icon(Icons.person_outline),
+        title: const Text('个人空间与好友'),
+        subtitle: const Text('头像、昵称、个人 ID 与好友私信'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: cloud.working
+            ? null
+            : () => Navigator.of(context).pushNamed(SocialPage.route),
+      ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.cloud_outlined),

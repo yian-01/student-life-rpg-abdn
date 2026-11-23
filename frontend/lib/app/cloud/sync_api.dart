@@ -77,7 +77,7 @@ class SyncApiException implements Exception {
 
   String get message => switch (code) {
     'invalid_credentials' when status == 401 => '邮箱或密码不正确。',
-    'invalid_credentials' => '请检查邮箱和密码格式，密码至少需要 12 个字符。',
+    'invalid_credentials' => '请检查邮箱和密码格式，密码至少需要 8 个字符。',
     'signup_code_required' => '注册邀请码不正确。',
     'account_exists' => '该邮箱已注册，请登录。',
     'session_expired' => '登录已过期，请重新登录同一账号。本机修改仍已保存。',

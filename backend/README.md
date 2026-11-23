@@ -22,9 +22,27 @@
 
 凭证由 `flutter_secure_storage` 的各平台实现持久保存；Web 使用浏览器存储和 WebCrypto，必须在 HTTPS 环境使用。浏览器存储可被用户清理，清理后需重新登录从云端恢复。OS 凭证存储和 Android 实机持久化的验收状态见 [V1.1 验收矩阵](../docs/v1.1-reliability.md)。
 
+## 个人空间、好友与私信
+
+密码最少 8 个 Unicode 字符，已有的较长密码仍可使用。公开 ID 是独立生成的稳定 10 位标识，区别于内部账号 ID，用户通过 ID 查找好友，公开资料不包含邮箱、登录凭证或学业财务数据。头像从内置像素头像中选择；昵称、个人称号与简介可编辑。
+
+所有社交接口都要求有效 Bearer Token，跨来源网页仍使用精确 CORS 白名单：
+
+| 接口 | 行为 |
+| --- | --- |
+| `GET/PUT /v1/profile` | 查看或编辑当前账号资料；不能修改 ID |
+| `GET /v1/people?id=公开ID` | 精确查找公开资料 |
+| `GET/POST/DELETE /v1/friends` | 好友列表、发送好友申请、移除好友 |
+| `GET/POST/DELETE /v1/friend-requests` | 申请列表、接受申请、拒绝或撤回申请 |
+| `GET/POST /v1/messages` | 按好友 ID 查询或发送私信；查询可传 `before` 游标 |
+
+只有申请接收方可以接受，成为双向好友后才能收发私信。移除好友后停止收发。私信为纯文本，最多 2000 字符，历史每页最多 50 条；发送携带唯一 `clientId`，重复请求返回同一消息，内容不一致则拒绝。资料、关系与聊天记录保存在服务端新增表中，不写入业务快照，退出和快照恢复不会清空这些表。完整服务器备份必须包含同一 SQLite 数据库；客户端 JSON 备份不包含社交数据。
+
+聊天页面在前台每 4 秒刷新，并在恢复前台时刷新；有手动刷新按钮。首版不包含附件、语音、群聊或系统推送。新增表以 `CREATE TABLE IF NOT EXISTS` 初始化，兼容已有账号和快照；升级时需同时部署 `sync_server.py` 和 `social.py`。
+
 ## 开发与验收
 
-在本目录运行 `python3 -m unittest -v test_sync_server`。本地开发可运行 `python3 sync_server.py`，Windows Flutter 调试版填 `http://127.0.0.1:8080`。Android 和 Windows 正式验收都使用可访问的 HTTPS 地址。
+在本目录运行 `python3 -m unittest discover -v`，覆盖同步及社交接口。本地开发可运行 `python3 sync_server.py`，Windows Flutter 调试版填 `http://127.0.0.1:8080`。Android 和 Windows 正式验收都使用可访问的 HTTPS 地址。
 
 Windows 可使用 `python -m unittest -v test_sync_server`；原生 HTTP 端到端测试在 `frontend` 中设置 `CAMPUS_SYNC_E2E=1` 后运行 `flutter test test/app/cloud/sync_e2e_test.dart`，可用 `PYTHON` 指定 Python 可执行文件。跨来源浏览器回归由 `.github/workflows/v11-browser-reliability.yml` 运行，测试环境完全独立于正式站点，不发布或部署网站。
 

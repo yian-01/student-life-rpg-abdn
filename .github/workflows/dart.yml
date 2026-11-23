@@ -39,7 +39,7 @@ jobs:
 
       - name: Run cloud server tests
         working-directory: backend
-        run: python3 -m unittest -v test_sync_server
+        run: python3 -m unittest discover -v
 
       - name: Upload mobile UI renders
         if: always()

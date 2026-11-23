@@ -5,6 +5,7 @@ import 'app_theme.dart';
 import 'atmosphere.dart';
 import 'cloud/cloud_page.dart';
 import 'cloud/cloud_scope.dart';
+import 'social/social_page.dart';
 
 class PlatformProfilePage extends StatelessWidget {
   const PlatformProfilePage({super.key});
@@ -55,6 +56,13 @@ class PlatformProfilePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          _link(
+            context,
+            Icons.person_outline,
+            '个人空间与好友',
+            '头像、个人 ID、好友和私信',
+            SocialPage.route,
+          ),
           Card(
             child: Column(
               children: [

@@ -22,6 +22,7 @@ import 'platform_navigation.dart';
 import 'platform_home_page.dart';
 import 'platform_profile_page.dart';
 import 'garden/garden_routes.dart';
+import 'social/social_page.dart';
 import 'garden/garden_settings.dart';
 import 'garden/garden_business_pages.dart';
 import '../features/finance/presentation/finance_filter_page.dart';
@@ -121,6 +122,7 @@ abstract final class AppRoutes {
       search => const LocalRecordsPage(search: true),
       backup => const FullBackupPage(),
       CloudPage.route => const CloudPage(),
+      SocialPage.route => const SocialPage(),
       today => const TodayPlannerPage(),
       focus => FocusTimerPage(
         timer: AppData.focusTimer,

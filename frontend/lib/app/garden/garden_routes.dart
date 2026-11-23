@@ -41,6 +41,7 @@ abstract final class GardenRoutes {
       ('今日规划', '/today'),
       ('数据概览', '/dashboard'),
       ('校园大厅', '/menu'),
+      ('个人空间与好友', '/people'),
     ],
   ];
   static int section(String route) {
